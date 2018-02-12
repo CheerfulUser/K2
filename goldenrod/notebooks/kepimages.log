@@ -1,0 +1,5 @@
+--------------------------------------------------------------
+KEPIMAGES --  infile=/Volumes/TOSHIBA EXT/K2/c5/200000000/08000/ktwo200008645-c05_lpd-targ.fits.gz prefix=test imtype=FLUX ranges=0, 0 overwrite=True verbose=True logfile=kepimages.log
+
+KEPIMAGES started at: Tue Nov 14 10:07:21 2017
+KEPIMAGES finished at: Tue Nov 14 10:10:11 2017

@@ -76,27 +76,67 @@ def ObjectMask(datacube,Framemin):
     Maskv2[Maskv2<1] = 1
     return Maskv2
 
-def EventSplitter(events,Times,Masks):
+def ThrustObjectMask(data,thrust):
+    StartMask = np.ones((data.shape[1],data.shape[2]))
+    for i in range(2):
+        Start = data[thrust[:3]+1]*StartMask/(np.nanmedian(data[thrust[:3]+1]*StartMask, axis = (1,2))+np.nanstd(data[thrust[:3]+1]*StartMask, axis = (1,2)))[:,None,None]
+        Start = Start >= 1
+        temp = (np.nansum(Start*1, axis = 0) >=1)*1.0
+        temp[temp>=1] = np.nan
+        temp[temp<1] = 1
+        StartMask = StartMask*temp
+
+
+    EndMask = np.ones((data.shape[1],data.shape[2]))
+    for i in range(2):
+        End = data[thrust[-3:]+1]*EndMask/(np.nanmedian(data[thrust[-3:]+1]*EndMask, axis = (1,2))+np.nanstd(data[thrust[-3:]+1]*EndMask, axis = (1,2)))[:,None,None]
+        End = End >= 1
+        temp = (np.nansum(End*1, axis = 0) >=1)*1.0
+        temp[temp>=1] = np.nan
+        temp[temp<1] = 1
+        EndMask = EndMask*temp
+    
+        
+    Mask = np.nansum([np.ma.masked_invalid(StartMask).mask,np.ma.masked_invalid(EndMask).mask],axis=(0))*1.0
+    Mask[Mask!=2] = 1
+    Mask[Mask==2] = np.nan
+    return Mask
+
+
+
+def EventSplitter(events,Times,Masks,framemask):
     Events = []
     times = []
     mask = []
     for i in range(len(events)):
         # Check if there are multiple transients
-        Coincident = convolve(Masks[events[i]]*1, np.ones((3,3)), mode='reflect')
-        positions = np.where(Coincident == 9)
-        for p in range(len(positions[0])):
-            eventmask = np.zeros((Masks.shape[1],Masks.shape[2]))
-            eventmask[positions[0][p],positions[1][p]] = 1
-            eventmask = convolve(eventmask,np.ones((3,3)),mode='constant', cval=0.0)
-            Similar = np.where(np.nansum(Masks[Times[i][0]:Times[i][-1],:,:]*eventmask,axis = (1,2)) > 0)[0]
-            if len(Similar) > 0:
-                timerange = [Similar[0]+Times[i][0]-1,Similar[-1]+Times[i][0]+1]
-                if len(timerange) > 1:
-                    Events.append(events[i])
-                    times.append(timerange)
-                    mask.append(eventmask)
+        Coincident = Masks[events[i]]*framemask[events[i]]*1
+        positions = np.where(Coincident == 1)
+        if len(positions[0]) >1:
+            for p in range(len(positions[0])):
+                eventmask = np.zeros((Masks.shape[1],Masks.shape[2]))
+                eventmask[positions[0][p],positions[1][p]] = 1
+                eventmask = convolve(eventmask,np.ones((3,3)),mode='constant', cval=0.0)
+                Similar = np.where((Masks[Times[i][0]:,:,:]*eventmask == eventmask).all(axis=(1,2)))[0]
+                if len(np.where((np.diff(Similar)<5) == False)[0]) < 1:
+                    SimEnd = -1
+                else:
+                    SimEnd = np.where((np.diff(Similar)<5) == False)[0][0] - 1
+                Similar = Similar[:SimEnd]
+                if len(Similar) > 1:
+                    timerange = [Similar[0]+Times[i][0]-1,Similar[-1]+Times[i][0]+1]
+                    if len(timerange) > 1:
+                        Events.append(events[i])
+                        times.append(timerange)
+                        mask.append(eventmask)
+        else:
+            Events.append(events[i])
+            times.append(Times[i])
+            mask.append(Masks[events[i]])
+            
 
     return Events, times, mask
+
 
 def Asteroid_fitter(Mask,Time,Data, plot = False):
     lc = np.nansum(Data*Mask,axis=(1,2))
@@ -161,17 +201,15 @@ def ThrusterElim(Events,Times,Masks,Firings,Quality,qual,Data,Real_position):
         if (Range > 0) & (Range/Data.shape[0] < 0.8) & (Times[i][0] > 5): 
             if (Real_position*Masks[i]).any():
                 print('T1')
-            begining = Firings[(Firings >= Times[i][0]-3) & (Firings <= Times[i][0]+3)]
+            begining = Firings[(Firings >= Times[i][0]-3) & (Firings <= Times[i][0]+1)]
             if len(begining) == 0:
                 begining = Quality[(Quality >= Times[i][0]-1) & (Quality <= Times[i][0]+1)]
-            end = Firings[(Firings >= Times[i][-1]-3) & (Firings <= Times[i][-1]+3)]
+            end = Firings[(Firings >= Times[i][-1]-1) & (Firings <= Times[i][-1]+3)]
             if len(end) == 0:
                 end = Quality[(Quality >= Times[i][-1]-1) & (Quality <= Times[i][-1]+1)]
             eventthrust = Firings[(Firings >= Times[i][0]) & (Firings <= Times[i][-1])]
             
             if (~begining.any() & ~end.any()) & (len(eventthrust) < 3):
-                if (Real_position*Masks[i]).any():
-                    print('TS1')
                 
                 if Asteroid_fitter(Masks[i],Times[i],Data):
                     asteroid.append(Events[i])
@@ -197,31 +235,26 @@ def ThrusterElim(Events,Times,Masks,Firings,Quality,qual,Data,Real_position):
                 LC = np.nansum(Data*Masks[i], axis = (1,2))
                 maxloc = Smoothmax(Times[i],LC,qual)
 
-                if ((maxloc > begining + 1) & (maxloc < end - 1)): 
-	                if (Real_position*Masks[i]).any():
-	                    print('TL2')
-	                premean = np.nanmean(LC[eventthrust-1]) 
-	                poststd = np.nanstd(LC[eventthrust+1])
-	                postmean = np.nanmean(LC[eventthrust+1])
-	                Outsidethrust = Firings[(Firings < Times[i][0]) | (Firings > Times[i][-1]+20)]
-	                Outsidemean = np.nanmean(LC[Outsidethrust+1])
-	                Outsidestd = np.nanstd(LC[Outsidethrust+1])
-	                if (Real_position*Masks[i]).any():
-	                    print(Times[i])
-	                    print(postmean)
-	                    print(Outsidemean)
-	                    print(Outsidestd)
-	                if  postmean > Outsidemean+2*Outsidestd:
-	                    temp.append(Events[i])
-	                    temp2.append(Times[i])
-	                    temp3.append(Masks[i])
-	                    if (Real_position*Masks[i]).any():
-	                        print('TLF')
+                if ((maxloc > begining) & (maxloc < end)): 
+                    postmean = np.nanmean(LC[eventthrust[(qual[eventthrust+1]==0)]+1])
+                    Outsidethrust = Firings[(Firings < Times[i][0])-10 | (Firings > Times[i][-1]+200)]
+                    Outsidemean = np.nanmean(LC[(Outsidethrust[(qual[Outsidethrust+1]==0)]+1)])
+                    Outsidestd = np.nanstd(LC[(Outsidethrust[(qual[Outsidethrust+1]==0)]+1)])
+                    if (Real_position*Masks[i]).any():
+                        print(postmean)
+                        print(Outsidemean)
+                        print(Outsidestd)
+                    if  postmean > Outsidemean+2*Outsidestd:
+                        temp.append(Events[i])
+                        temp2.append(Times[i])
+                        temp3.append(Masks[i])
+                        if (Real_position*Masks[i]).any():
+                            print('TLF')
 
     events = np.array(temp)
     eventtime = np.array(temp2)
     eventmask = np.array(temp3)
-   
+    print(events)
     return events, eventtime, eventmask, asteroid, asttime, astmask
 
 
@@ -246,7 +279,7 @@ def K2tranPix(data, time, Qual, mywcs, Position, Time):
             #calculate the reference frame
             Framemin = FindMinFrame(datacube)
             # Apply object mask to data
-            Mask = ObjectMask(datacube,Framemin)
+            Mask = ThrustObjectMask(datacube,thrusters)
 
             Maskdata = datacube*Mask
             #Maskdata[Maskdata<0] = 0 
@@ -284,51 +317,31 @@ def K2tranPix(data, time, Qual, mywcs, Position, Time):
 
             Eventmask = (convolve(framemask,np.ones((1,3,3)),mode='constant', cval=0.0))*1
             Eventmask = (convolve(Eventmask,np.ones((5,1,1)),mode='constant', cval=0.0) >= 4)
-            if (Real_position*Eventmask).any():
-                print('Eventmask')
-                print(np.where(np.nansum(Real_position*Eventmask,axis=(1,2))>0)[0])
+            Eventmask[Qual!=0,:,:] = False
 
             #Eventmask = DriftKiller(Eventmask*Maskdata,thrusters) > 0
             #Eventmask[np.isnan(Eventmask)] = 0
             Index = np.where(np.nansum(Eventmask*1, axis = (1,2))>0)[0]
             events = []
             eventtime = []
-            if len(Index) > 0:
-                masklarge = Index[0] 
-                masksize = np.nansum(Eventmask[Index[0]]*1,axis = (0,1))
-            temp = []
             while len(Index) > 1:
-                if (Eventmask[Index[0]]*Eventmask[Index[1]]).any():
-                    temp = [Index[0],Index[1]]
-                    if np.nansum(Eventmask[Index[1]]*1,axis = (0,1)) > masksize:
-                        masklarge = Index[1]
-                        masksize = np.nansum(Eventmask[Index[1]]*1,axis = (0,1))
-                    else:
-                        maskframe = Index[0]
-                    Index = np.delete(Index,1)
-                elif len(temp) == 2:
-                    events.append(masklarge)
-                    eventtime.append(temp)
-                    Index = np.delete(Index,0)
-                    temp = []
-                    masklarge = Index[0]
-                    maskframe = Index[0]
-                    masksize = np.nansum(Eventmask[Index[0]]*1,axis = (0,1))
+                similar = Index[((Eventmask[Index[0]]*Eventmask[Index]) == Eventmask[Index[0]]).all(axis = (1,2))]
+                #similar = similar[np.append(True, np.diff(similar)<5)]
+                if len(np.where((np.diff(similar)<5) == False)[0]) < 1:
+                    simEnd = -1
                 else:
-                    #events.append(Index[0])
-                    #eventtime.append([Index[0]])
-                    Index = np.delete(Index,0)
-                    temp = []
-                    masklarge = Index[0]
-                    maskframe = Index[0]
-                    masksize = np.nansum(Eventmask[Index[0]]*1,axis = (0,1))
-            if len(Index) ==1:
-                events.append(Index[0])
-                if len(temp) > 0:
+                    simEnd = np.where((np.diff(similar)<5) == False)[0][0] - 1
+
+                if len(similar) > 1:
+                    events.append(similar[0])
+                    temp = [similar[0],similar[-1]]
                     eventtime.append(temp)
-                else:
-                    eventtime.append([Index[0]])        
-            events, eventtime, eventmask = EventSplitter(events,eventtime,Eventmask)     
+                    temp = []
+                for number in similar:
+                    if ((Eventmask[Index[0]]*Eventmask[number]) == Eventmask[number]).all():
+                        Index = np.delete(Index, np.where(Index == number)[0])
+            print(events)
+            events, eventtime, eventmask = EventSplitter(events,eventtime,Eventmask,framemask)     
             #eventtime = np.array(eventtime)
             events = np.array(events)
             eventmask = np.array(eventmask)
@@ -338,43 +351,36 @@ def K2tranPix(data, time, Qual, mywcs, Position, Time):
 
 
             # Eliminate events that begin/end within 2 cadences of a thruster fire
-            
+
             events, eventtime, eventmask, asteroid, asttime, astmask = ThrusterElim(events,eventtime,eventmask,thrusters,quality,Qual,Maskdata,Real_position)
             events = np.array(events)
             eventtime = np.array(eventtime)
             eventmask = np.array(eventmask)
-            if len(events) > 0: 
-            	if (Real_position*eventmask).any():
-                	print('3')
-                	print(events[np.where(np.nansum(Real_position*eventmask,axis=(1,2))>0)[0]])
-            
+
+
             temp = []
             temp2 = []
             temp3 = []
             for i in range(len(eventtime)):
                 if len(eventtime[i])>0:
                     t = np.nansum(Eventmask[eventtime[i][0]:eventtime[i][-1],:,:]*1,axis=(1,2)) > 0
-                    if np.sum(t)/t.shape[0] > 0:
+                    if np.sum(t)/t.shape[0] > 0.5:
                         temp.append(eventtime[i][:])
                         temp2.append(events[i])
                         temp3.append(eventmask[i])
             eventtime = np.array(temp)
             events = np.array(temp2)
             eventmask = np.array(temp3)
-            if len(events) > 0: 
-            	if (Real_position*eventmask).any():
-               		print('4')
+
 
             temp = []
             for i in range(len(events)):
-                if len(np.where(datacube[eventtime[i,0]:eventtime[i,-1]]*eventmask[i] > 1700000)[0]) == 0:
+                if len(np.where(datacube[eventtime[i,0]:eventtime[i,-1]]*eventmask[i] > 170000)[0]) == 0:
                     temp.append(i)
             eventtime = eventtime[temp]
             events = events[temp]
             eventmask = eventmask[temp]
-            if len(events) > 0: 
-            	if (Real_position*eventmask).any():
-                	print('End')
+
 
 
             Real_position = np.zeros((data.shape[1],data.shape[2]))
