@@ -320,11 +320,6 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
             plt.savefig(Save+'Figures/'+File.split('/')[-1].split('-')[0]+'_'+str(i)+'.pdf', bbox_inches = 'tight')
             plt.close;
 
-
-import matplotlib.animation as animation
-from ipywidgets import interact, interactive, fixed, interact_manual
-import ipywidgets as widgets
-
 def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File):
     Writer = animation.writers['ffmpeg']
     writer = Writer(fps=1, metadata=dict(artist='Me'), bitrate=1800)
