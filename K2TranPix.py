@@ -235,11 +235,11 @@ def Get_gal_lat(mywcs,datacube):
     b = SkyCoord(ra=float(ra)*u.degree, dec=float(dec)*u.degree, frame='icrs').galactic.b.degree
     return b
 
-def Save_space(Save):
+def Save_space(Save,File):
     try:
         
-        if not os.path.exists(path+file.split('K2/')[-1]):
-            os.makedirs(path+file.split('K2/')[-1].split('ktwo')[0])
+        if not os.path.exists(Save+File.split('K2/')[-1]):
+            os.makedirs(Save+File.split('K2/')[-1].split('ktwo')[0])
     except FileExistsError:
         pass
 
@@ -271,9 +271,9 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
 
             # large subplot
             plt.subplot2grid((2,3), (0,0), colspan=2, rowspan=2)
-            plt.title('Masked light curve (BJD '+str(round(Time[Eventtime[i][0]]-Time[0],2))+', RA '+str(round(Coord[0],3))+', DEC '+str(round(Coord[1],3))+')')
+            plt.title('Event light curve (BJD '+str(round(Time[Eventtime[i][0]]-Time[0],2))+', RA '+str(round(Coord[0],3))+', DEC '+str(round(Coord[1],3))+')')
             plt.xlabel('Time (+'+str(Time[0])+' BJD)')
-            plt.ylabel('Flux')
+            plt.ylabel('Counts')
             plt.plot(Time - Time[0], LC,'.', label = 'Event LC')
             plt.plot(Time - Time[0], BGLC,'k.', label = 'Background LC')
             plt.plot(Time - Time[0], ObjLC,'kx', label = 'Scalled object LC')
@@ -300,22 +300,30 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
             plt.subplot2grid((2,3), (0,2))
             plt.title('Reference')
             plt.imshow(Data[Framemin,:,:], origin='lower',vmin=0,vmax = maxcolor)
+            current_cmap = plt.cm.get_cmap()
+            current_cmap.set_bad(color='black')
             plt.colorbar(fraction=0.046, pad=0.04)
             plt.plot(position[1],position[0],'r.',ms = 15)
             # small subplot 2 Image of event
             plt.subplot2grid((2,3), (1,2))
             plt.title('Event')
             plt.imshow(Data[np.where(Data*Eventmask[i]==np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1]]*Eventmask[i]))[0][0],:,:], origin='lower',vmin=0,vmax = maxcolor)
+            current_cmap = plt.cm.get_cmap()
+            current_cmap.set_bad(color='black')
             plt.colorbar(fraction=0.046, pad=0.04)
             plt.plot(position[1],position[0],'r.',ms = 15)
             # fit subplots and save fig
             fig.tight_layout()
             #fig.set_size_inches(w=11,h=7)
-            Save_space(Save+'K2TranPix/')
+            Save_space(Save+'Figures/',File)
             
-            plt.savefig(Save+'K2TranPix/'+File.split('/')[-1].split('-')[0]+'_'+str(i)+'.pdf', bbox_inches = 'tight')
-            plt.close();
+            plt.savefig(Save+'Figures/'+File.split('/')[-1].split('-')[0]+'_'+str(i)+'.pdf', bbox_inches = 'tight')
+            plt.close;
 
+
+import matplotlib.animation as animation
+from ipywidgets import interact, interactive, fixed, interact_manual
+import ipywidgets as widgets
 
 def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File):
     Writer = animation.writers['ffmpeg']
@@ -344,9 +352,9 @@ def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File):
         c = plt.colorbar(fraction=0.046, pad=0.04)
         c.set_label('Counts')
         
-        Save_space(Save+'K2TranPix/')
-        ani.save(Save+'K2TranPix/'+File.split('/')[-1].split('-')[0]+'_Event_#_'+str(i)+'.mp4',dpi=300)
-        plt.close()
+        Save_space(Save+'Figures/',File)
+        ani.save(Save+'Figures/'+File.split('/')[-1].split('-')[0]+'_Event_#_'+str(i)+'.mp4',dpi=300)
+        plt.close();
 
 
 
@@ -442,7 +450,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
                 eventmask = eventmask*middle
 
 
-            
+            # Eliminate events that begin/end within 2 cadences of a thruster fire
             events, eventtime, eventmask = EventSplitter(events,eventtime,Eventmask,framemask)  
             events = np.array(events)
             eventmask = np.array(eventmask)
@@ -480,7 +488,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             ast['Mask'] = astmask
 
             astsave = Save + '/Asteroid/' + pixelfile.split('ktwo')[-1].split('-')[0]+'_Asteroid.npy'
-            Save_space(Save + '/Asteroid/')
+            Save_space(Save + '/Asteroid/',pixelfile)
             np.save(astsave,ast)
             
             
