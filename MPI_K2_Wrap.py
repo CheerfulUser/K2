@@ -80,7 +80,7 @@ for n in range(my_start, my_end+1):
     
     mytimestop = t.time()
     mytime = mytimestop-mytimestart
-    print 'n=%g' %n, 'my_time=%f' %mytime
+    print('n=%g' %n, 'my_time=%f' %mytime)
 
 
 # MPI collective communication (all reduce)
