@@ -1,5 +1,21 @@
 #!/pkg/linux/anaconda3/bin/python
 
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+import numpy as np
+import matplotlib.animation as animation
+
+from scipy.ndimage.filters import convolve
+
+from astropy.io import fits
+from astropy import units as u
+from astropy.coordinates import SkyCoord
+from astropy.wcs import WCS
+
+import os
+import warnings
+warnings.filterwarnings("ignore",category =RuntimeWarning)
+
 
 def MinThrustframe(data,thrust):
     mean = np.nanmean(data[thrust+1],axis = 0)

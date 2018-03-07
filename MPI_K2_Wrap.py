@@ -1,24 +1,8 @@
 from mpi4py import MPI
 
-
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-import numpy as np
-import matplotlib.animation as animation
-
-from scipy.ndimage.filters import convolve
-
-from astropy.io import fits
-from astropy import units as u
-from astropy.coordinates import SkyCoord
-from astropy.wcs import WCS
-
 from glob import glob
-import os
 
 import time as sys_time
-import warnings
-warnings.filterwarnings("ignore",category =RuntimeWarning)
 # Import all the functions
 from K2TranPixCode import *
 
