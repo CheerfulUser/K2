@@ -71,7 +71,7 @@ filename = "my_prog_"+str(myPE).zfill(4)
 for n in range(my_start, my_end+1):
     mytimestart = t.time()
     
-    K2TranPix(Files(n))
+    K2TranPix(Files[n])
     
     mytimestop = t.time()
     mytime = mytimestop-mytimestart
