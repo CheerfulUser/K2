@@ -29,7 +29,7 @@ Files = np.asarray(glob(path+'*.gz'))
 save = '/mimsy/ryanr/PhD/Kepler/Results/'+field+'/'
 
 Files = np.asarray(glob(path+'*.gz'))
-dims = len(Files) # set to be length of your task
+dims = int(len(Files)) # set to be length of your task
 start = t.time()
 
 def print_mpi(string):
