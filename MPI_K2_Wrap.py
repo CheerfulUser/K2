@@ -62,8 +62,8 @@ def writemyprog(filename,out):
 
 # domain decomposition
 
-my_start = myPE * (dims / nPE);
-my_end   = (myPE+1) * (dims / nPE) - 1;
+my_start = int(myPE * (dims / nPE));
+my_end   = int((myPE+1) * (dims / nPE) - 1);
 # last PE gets the rest
 if (myPE == nPE-1): my_end = dims-1;
 print_mpi("my_start = "+str(my_start)+", my_end = "+str(my_end))
