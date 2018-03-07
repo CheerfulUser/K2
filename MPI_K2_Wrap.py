@@ -49,11 +49,6 @@ myPE = comm.Get_rank()
 print_master("Total number of MPI ranks = "+str(nPE))
 comm.Barrier()
 
-# Remove previous test files
-
-if comm.Get_rank() == 0:
-    os.system("mv *cpu.txt oldouts/")
-    os.system("mv total_prog.txt oldouts/")
 
 # Progress saving function
 
