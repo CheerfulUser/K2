@@ -355,7 +355,6 @@ def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File):
 
 
 def K2TranPix(pixelfile,save): # More efficient in checking frames
-    start = t.time()
     Save = save + pixelfile.split('-')[1].split('_')[0]
     try:
         hdu = fits.open(pixelfile)
@@ -532,8 +531,3 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             Result = np.ones(5)*np.nan
     except (OSError):
         Result = np.ones(5)*-1
-    
-    stop = t.time()
-    
-    print('Beep')
-    print('Time taken=%f' %(stop-start))
