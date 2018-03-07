@@ -20,7 +20,7 @@ import time as t
 import warnings
 warnings.filterwarnings("ignore",category =RuntimeWarning)
 # Import all the functions
-from K2TranPix import *
+from K2TranPixCode import *
 
 field = 'c06'
 path = '/avatar/ryanr/Data/'
