@@ -16,7 +16,7 @@ from astropy.wcs import WCS
 from glob import glob
 import os
 
-import time as t
+import time as sys_time
 import warnings
 warnings.filterwarnings("ignore",category =RuntimeWarning)
 # Import all the functions
@@ -30,7 +30,7 @@ save = '/mimsy/ryanr/PhD/Kepler/Results/'+field+'/'
 
 Files = np.asarray(glob(path+'*.gz'))
 dims = int(len(Files)) # set to be length of your task
-start = t.time()
+start = sys_time.time()
 
 def print_mpi(string):
     comm = MPI.COMM_WORLD
@@ -69,16 +69,16 @@ filename = "my_prog_"+str(myPE).zfill(4)
 
 
 for n in range(my_start, my_end+1):
-    mytimestart = t.time()
+    mytimestart = sys_time.time()
     
     K2TranPix(Files[n],save)
     
-    mytimestop = t.time()
+    mytimestop = sys_time.time()
     mytime = mytimestop-mytimestart
     print('n=%g' %n, 'my_time=%f' %mytime)
 
 
 # MPI collective communication (all reduce)
 
-stop = time.time()
+stop = sys_time.time()
 print_master('Time taken=%f' %(stop-start))
