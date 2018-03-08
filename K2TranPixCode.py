@@ -483,9 +483,9 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
                 if sum(coincident*1) > 1:
                     newmask = (np.nansum(eventmask[coincident],axis = (0)) > 0)*1 
 
-                    events = np.delete(events,np.where(coincident[1:])[0])
-                    eventtime = np.delete(eventtime,np.where(coincident[1:])[0], axis = (0))
-                    eventmask = np.delete(eventmask,np.where(coincident[1:])[0], axis = (0))
+                    events = np.delete(events,np.where(coincident)[0][1:])
+                    eventtime = np.delete(eventtime,np.where(coincident)[0][1:], axis = (0))
+                    eventmask = np.delete(eventmask,np.where(coincident)[0][1:], axis = (0))
                     eventmask[i] = newmask
 
                 i +=1
