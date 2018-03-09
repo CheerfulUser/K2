@@ -377,7 +377,7 @@ def First_pass(Datacube,Qual,Quality,Thrusters):
 
     temp = []
     for i in range(len(events)):
-        if len(np.where(datacube[eventtime[i][0]:eventtime[i][-1]]*eventmask[i] > 100000)[0]) == 0:
+        if len(np.where(Datacube[eventtime[i][0]:eventtime[i][-1]]*eventmask[i] > 100000)[0]) == 0:
             temp.append(i)
     eventtime = eventtime[temp]
     events = events[temp]
@@ -413,8 +413,8 @@ def pix2coord(x,y,mywcs):
     wx, wy = mywcs.wcs_pix2world(x, y, 0)
     return np.array([float(wx), float(wy)])
 
-def Get_gal_lat(mywcs,datacube):
-    ra, dec = mywcs.wcs_pix2world(int(datacube.shape[1]/2), int(datacube.shape[2]/2), 0)
+def Get_gal_lat(mywcs,Datacube):
+    ra, dec = mywcs.wcs_pix2world(int(Datacube.shape[1]/2), int(Datacube.shape[2]/2), 0)
     b = SkyCoord(ra=float(ra)*u.degree, dec=float(dec)*u.degree, frame='icrs').galactic.b.degree
     return b
 
