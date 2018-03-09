@@ -6,11 +6,11 @@ import time as sys_time
 # Import all the functions
 from K2TranPixCode import *
 
-field = 'c06'
-path = '/avatar/ryanr/Data/'
+field = 'c00'
+path = '/avatar/ryanr/Data/'+field+'/'
 Files = np.asarray(glob(path+'*.gz'))
 
-save = '/mimsy/ryanr/PhD/Kepler/Results/'+field+'/'
+save = '/mimsy/ryanr/PhD/Kepler/Results/'
 
 Files = np.asarray(glob(path+'*.gz'))
 dims = int(len(Files)) # set to be length of your task
