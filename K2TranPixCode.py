@@ -131,22 +131,27 @@ def Asteroid_fitter(Mask,Time,Data, plot = False):
     if x[-1] > len(lc) - 1:
         x = x[x<len(lc)]
     x2 = np.arange(0,len(x),1)
-    y = lc[x]
-    p1, residual, _, _, _ = np.polyfit(x,y,2, full = True)
-    p2 = np.poly1d(p1)
-    AvLeft = np.nansum(abs(lc[Time[0]:Time[-1]] - p2(np.arange(Time[0],Time[-1]))))/(Time[-1]-Time[0])
-    maxpoly = np.where(np.nanmax(p2(x)) == p2(x))[0][0]
-    if (AvLeft < 200) &  (abs(middle - x[maxpoly]) < 2):
-        asteroid = True
-        if plot == True:
-            p2 = np.poly1d(p1)
-            plt.figure()
-            plt.plot(x,lc[x],'.')
-            plt.plot(x,p2(x),'.')
-            plt.ylabel('Counts')
-            plt.xlabel('Time')
-            plt.title('Residual = ' + str(residual))
-            
+    if np.nanmedian(lc[x]) >0:
+        y = lc[x]/np.nanmedian(lc[x])
+        p1, residual, _, _, _ = np.polyfit(x,y,2, full = True)
+        p2 = np.poly1d(p1)
+        AvLeft = np.nansum(abs(lc[Time[0]:Time[-1]]/np.nanmedian(lc[x]) - p2(np.arange(Time[0],Time[-1]))))/(Time[-1]-Time[0])
+        maxpoly = np.where(np.nanmax(p2(x)) == p2(x))[0][0]
+        if (AvLeft < 1) &  (abs(middle - x[maxpoly]) < 2):
+            asteroid = True
+            if plot == True:
+                p2 = np.poly1d(p1)
+                plt.figure()
+                plt.plot(x,y,'.',label='Event LC')
+                plt.plot(x,p2(x),'kx',label='Parabola fit')
+                plt.axvspan(Time[0],Time[1], color = 'orange',alpha=0.5, label = 'Event duration')
+                plt.ylabel('Counts')
+                plt.xlabel('Time')
+                plt.legend()
+                plt.title('Residual = ' + str(AvLeft))
+                #plt.savefig('Asteroid_paper_example.pdf')
+        else:
+            asteroid = False
     else:
         asteroid = False
 
@@ -189,11 +194,11 @@ def ThrusterElim(Events,Times,Masks,Firings,Quality,qual,Data):
         Range = Times[i][-1] - Times[i][0]
         if (Range > 0) & (Range/Data.shape[0] < 0.8) & (Times[i][0] > 5): 
             begining = Firings[(Firings >= Times[i][0]-2) & (Firings <= Times[i][0]+1)]
-            if len(begining) == 0:
-                begining = Quality[(Quality == Times[i][0])] #& (Quality <= Times[i][0]+1)]
+            #if len(begining) == 0:
+             #   begining = Quality[(Quality == Times[i][0])] #& (Quality <= Times[i][0]+1)]
             end = Firings[(Firings >= Times[i][-1]-1) & (Firings <= Times[i][-1]+2)]
-            if len(end) == 0:
-                end = Quality[(Quality == Times[i][-1])] #& (Quality <= Times[i][-1]+1)]
+            #if len(end) == 0:
+             #   end = Quality[(Quality == Times[i][-1])] #& (Quality <= Times[i][-1]+1)]
             eventthrust = Firings[(Firings >= Times[i][0]) & (Firings <= Times[i][-1])]
 
             if (~begining.any() & ~end.any()) & (len(eventthrust) < 3):
@@ -241,6 +246,168 @@ def ThrusterElim(Events,Times,Masks,Firings,Quality,qual,Data):
     eventmask = np.array(temp3)
     return events, eventtime, eventmask, asteroid, asttime, astmask
 
+def Asteroid_identifier(Events,Times,Masks,Firings,Quality,qual,Data):
+    asteroid = []
+    asttime = []
+    astmask = []
+    for i in range(len(Events)):
+        Range = Times[i][-1] - Times[i][0]
+        if (Range > 0) & (Range/Data.shape[0] < 0.8) & (Times[i][0] > 5): 
+            begining = Firings[(Firings >= Times[i][0]-2) & (Firings <= Times[i][0]+1)]
+            #if len(begining) == 0:
+             #   begining = Quality[(Quality == Times[i][0])] #& (Quality <= Times[i][0]+1)]
+            end = Firings[(Firings >= Times[i][-1]-1) & (Firings <= Times[i][-1]+2)]
+            #if len(end) == 0:
+             #   end = Quality[(Quality == Times[i][-1])] #& (Quality <= Times[i][-1]+1)]
+            eventthrust = Firings[(Firings >= Times[i][0]) & (Firings <= Times[i][-1])]
+
+            if (~begining.any() & ~end.any()) & (len(eventthrust) < 3):
+                
+                if Asteroid_fitter(Masks[i],Times[i],Data):
+                    asteroid.append(Events[i])
+                    asttime.append(Times[i])
+                    astmask.append(Masks[i])
+                
+    return asteroid, asttime, astmask
+
+
+def Match_events(Events,Eventtime,Eventmask):
+    i = 0
+    while i < len(Events):
+        coincident = ((Eventtime[:,0] >= Eventtime[i,0]-1) & (Eventtime[:,0] <= Eventtime[i,0]+1) & (Eventtime[:,1] >= Eventtime[i,1]-1) & (Eventtime[:,1] <= Eventtime[i,1]+1))       
+        if sum(coincident*1) > 1:
+            newmask = (np.nansum(Eventmask[coincident],axis = (0)) > 0)*1 
+
+            Events = np.delete(Events,np.where(coincident)[0][1:])
+            Eventtime = np.delete(Eventtime,np.where(coincident)[0][1:], axis = (0))
+            Eventmask = np.delete(Eventmask,np.where(coincident)[0][1:], axis = (0))
+            Eventmask[i] = newmask
+
+        i +=1
+        
+    return Events, Eventtime,Eventmask
+
+def Match_asteroids(Events,Eventtime,Eventmask):
+    i = 0
+    while i < len(Events):
+        coincident = ((Eventtime[:,0] >= Eventtime[i,0]-3) & (Eventtime[:,0] <= Eventtime[i,0]+3) & (Eventtime[:,1] >= Eventtime[i,1]-3) & (Eventtime[:,1] <= Eventtime[i,1]+3))       
+        if sum(coincident*1) > 1:
+            newmask = (np.nansum(Eventmask[coincident],axis = (0)) > 0)*1 
+
+            Events = np.delete(Events,np.where(coincident)[0][1:])
+            Eventtime = np.delete(Eventtime,np.where(coincident)[0][1:], axis = (0))
+            Eventmask = np.delete(Eventmask,np.where(coincident)[0][1:], axis = (0))
+            Eventmask[i] = newmask
+
+        i +=1
+        
+    return Events, Eventtime,Eventmask
+
+def Remove_asteroids(Asteroid,Asttime,Astmask,Maskdata):
+    dataclean = np.copy(Maskdata)
+    for i in range(len(Asteroid)):
+        dataclean[Asttime[i][0]:Asttime[i][1],Astmask[i]==1] = np.nan
+    return dataclean
+
+def First_pass(Datacube,Qual,Quality,Thrusters):
+    #calculate the reference frame
+    Framemin = FindMinFrame(Datacube)
+    # Apply object mask to data
+    Mask = ThrustObjectMask(Datacube,Thrusters)
+
+    Maskdata = Datacube*Mask
+
+    # Make a mask for the object to use as a test to eliminate very bad pointings
+    obj = np.ma.masked_invalid(Mask).mask
+    objmed = np.nanmedian(Datacube[Thrusters+1]*obj,axis=(0))
+    objstd = np.nanstd(Datacube[Thrusters+1]*obj,axis=(0))
+    Maskdata[(np.nansum(Datacube*obj,axis=(1,2)) < np.nansum(objmed-1*objstd)),:,:] = np.nan
+
+    framemask = np.zeros(Maskdata.shape)
+
+    framemask = ((Maskdata/abs(np.nanmedian(Maskdata, axis = (0))+1*(np.nanstd(Maskdata, axis = (0))))) >= 1)
+    framemask[:,np.where(Maskdata > 100000)[1],np.where(Maskdata > 100000)[2]] = 0
+
+    # Identify if there is a sequence of consecutive or near consecutive frames that meet condtition 
+
+
+    Eventmask_ref = (convolve(framemask,np.ones((1,3,3)),mode='constant', cval=0.0))*1
+    Eventmask = np.copy(Eventmask_ref)
+    Eventmask[~np.where((convolve(Eventmask_ref,np.ones((5,1,1)),mode='constant', cval=0.0) >= 3))[0]] = 0
+    Eventmask[Qual!=0,:,:] = False
+    Eventmask_ref[Qual!=0,:,:] = False
+
+    Index = np.where(np.nansum(Eventmask*1, axis = (1,2))>0)[0]
+
+    events = []
+    eventtime = []
+    while len(Index) > 1:
+
+        similar = np.where(((Eventmask[Index[0]]*Eventmask_ref[Index[0]:]) == Eventmask[Index[0]]).all(axis = (1,2)))[0]+Index[0]
+
+        if len((np.diff(similar)<5)) > 1:
+
+            if len(np.where((np.diff(similar)<5) == False)[0]) > 0:
+                simEnd = np.where((np.diff(similar)<5) == False)[0][0] 
+            else:
+                simEnd = -1
+        else:
+            simEnd = 0
+        if (simEnd > 0):
+            similar = similar[:simEnd]
+        elif (simEnd == 0):
+            similar = np.array([similar[0]])
+
+        if len(similar) > 1:
+
+            events.append(similar[0])
+            temp = [similar[0]-1,similar[-1]+1]
+            eventtime.append(temp)
+            temp = []
+        template = Eventmask[Index[0]]
+        for number in similar:
+            if (np.nansum(template*1-Eventmask[number]*1) == 0):
+                Index = np.delete(Index, np.where(Index == number)[0])
+
+    events, eventtime, eventmask = EventSplitter(events,eventtime,Eventmask,framemask)  
+
+    events = np.array(events)
+    eventmask = np.array(eventmask)
+    eventtime = np.array(eventtime)
+
+    temp = []
+    for i in range(len(events)):
+        if len(np.where(datacube[eventtime[i][0]:eventtime[i][-1]]*eventmask[i] > 100000)[0]) == 0:
+            temp.append(i)
+    eventtime = eventtime[temp]
+    events = events[temp]
+    eventmask = eventmask[temp]
+
+    if len(eventmask) > 0:
+        middle = (convolve(eventmask,np.ones((1,3,3))) == np.nanmax(convolve(eventmask,np.ones((1,3,3))))) & (convolve(eventmask,np.ones((1,3,3)),mode='constant', cval=0.0) == np.nanmax(convolve(eventmask,np.ones((1,3,3)),mode='constant', cval=0.0)))
+        eventmask = eventmask*middle
+
+
+    # Identify asteroids
+    asteroid, asttime, astmask = Asteroid_identifier(events,eventtime,eventmask,Thrusters,Quality,Qual,Maskdata)
+    asteroid = np.array(asteroid)
+    asttime = np.array(asttime)
+    astmask = np.array(astmask)
+
+
+    asteroid, asttime, astmask = Match_asteroids(asteroid,asttime,astmask)
+
+    Cleandata = Remove_asteroids(asteroid,asttime,astmask,Maskdata)
+
+                # Save asteroids
+    ast = {}
+    ast['File'] = pixelfile
+    ast['Asteroids'] = asteroid
+    ast['Time'] = asttime
+    ast['Mask'] = astmask
+
+    return Cleandata, ast
+
 
 def pix2coord(x,y,mywcs):
     wx, wy = mywcs.wcs_pix2world(x, y, 0)
@@ -251,11 +418,10 @@ def Get_gal_lat(mywcs,datacube):
     b = SkyCoord(ra=float(ra)*u.degree, dec=float(dec)*u.degree, frame='icrs').galactic.b.degree
     return b
 
-def Save_space(Save,File):
+def Save_space(Save):
     try:
-        
-        if not os.path.exists(Save+File.split('K2/')[-1]):
-            os.makedirs(Save+File.split('K2/')[-1].split('ktwo')[0])
+        if not os.path.exists(Save):
+            os.makedirs(Save)
     except FileExistsError:
         pass
 
@@ -331,10 +497,12 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
             # fit subplots and save fig
             fig.tight_layout()
             #fig.set_size_inches(w=11,h=7)
-            Save_space(Save+'Figures/',File)
+            Save_space(Save+'/Figures/')
             
-            plt.savefig(Save+'Figures/'+File.split('/')[-1].split('-')[0]+'_'+str(i)+'.pdf', bbox_inches = 'tight')
+            plt.savefig(Save+'/Figures/'+File.split('/')[-1].split('-')[0]+'_'+str(i)+'.pdf', bbox_inches = 'tight')
             plt.close;
+
+
 
 def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File):
     Writer = animation.writers['ffmpeg']
@@ -363,8 +531,8 @@ def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File):
         c = plt.colorbar(fraction=0.046, pad=0.04)
         c.set_label('Counts')
         
-        Save_space(Save+'Figures/',File)
-        ani.save(Save+'Figures/'+File.split('/')[-1].split('-')[0]+'_Event_#_'+str(i)+'.mp4',dpi=300)
+        Save_space(Save+'/Figures/')
+        ani.save(Save+'/Figures/'+File.split('/')[-1].split('-')[0]+'_Event_#_'+str(i)+'.mp4',dpi=300)
         plt.close();
 
 
@@ -386,13 +554,12 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             # Apply object mask to data
             Mask = ThrustObjectMask(datacube,thrusters)
         
-            Maskdata = datacube*Mask
+            Maskdata, ast = First_pass(datacube,Qual,quality,thrusters)
 
             # Make a mask for the object to use as a test to eliminate very bad pointings
             obj = np.ma.masked_invalid(Mask).mask
             objmed = np.nanmedian(datacube[thrusters+1]*obj,axis=(0))
             objstd = np.nanstd(datacube[thrusters+1]*obj,axis=(0))
-            Maskdata[(np.nansum(datacube*obj,axis=(1,2)) < np.nansum(objmed-3*objstd)),:,:] = np.nan
 
             framemask = np.zeros(Maskdata.shape)
 
@@ -400,6 +567,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             framemask[:,np.where(Maskdata > 100000)[1],np.where(Maskdata > 100000)[2]] = 0
 
             # Identify if there is a sequence of consecutive or near consecutive frames that meet condtition 
+            
 
             Eventmask_ref = (convolve(framemask,np.ones((1,3,3)),mode='constant', cval=0.0))*1
             Eventmask = np.copy(Eventmask_ref)
@@ -443,7 +611,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
                         Index = np.delete(Index, np.where(Index == number)[0])
 
             events, eventtime, eventmask = EventSplitter(events,eventtime,Eventmask,framemask)  
-        
+
             events = np.array(events)
             eventmask = np.array(eventmask)
             eventtime = np.array(eventtime)
@@ -455,15 +623,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             eventtime = eventtime[temp]
             events = events[temp]
             eventmask = eventmask[temp]
-            if len(eventmask) > 0:
-                middle = (convolve(eventmask,np.ones((1,3,3))) == np.nanmax(convolve(eventmask,np.ones((1,3,3))))) & (convolve(eventmask,np.ones((1,3,3)),mode='constant', cval=0.0) == np.nanmax(convolve(eventmask,np.ones((1,3,3)),mode='constant', cval=0.0)))
-                eventmask = eventmask*middle
 
-
-            # Eliminate events that begin/end within 2 cadences of a thruster fire
-            events, eventtime, eventmask = EventSplitter(events,eventtime,Eventmask,framemask)  
-            events = np.array(events)
-            eventmask = np.array(eventmask)
             if len(eventmask) > 0:
                 middle = (convolve(eventmask,np.ones((1,3,3))) == np.nanmax(convolve(eventmask,np.ones((1,3,3))))) & (convolve(eventmask,np.ones((1,3,3)),mode='constant', cval=0.0) == np.nanmax(convolve(eventmask,np.ones((1,3,3)),mode='constant', cval=0.0)))
                 eventmask = eventmask*middle
@@ -475,31 +635,17 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             eventtime = np.array(eventtime)
             eventmask = np.array(eventmask)
 
-
-            coincident = []
-            i = 0
-            while i < len(events):
-                coincident = ((eventtime[:,0] >= eventtime[i,0]-1) & (eventtime[:,0] <= eventtime[i,0]+1) & (eventtime[:,1] >= eventtime[i,1]-1) & (eventtime[:,1] <= eventtime[i,1]+1))       
-                if sum(coincident*1) > 1:
-                    newmask = (np.nansum(eventmask[coincident],axis = (0)) > 0)*1 
-
-                    events = np.delete(events,np.where(coincident)[0][1:])
-                    eventtime = np.delete(eventtime,np.where(coincident)[0][1:], axis = (0))
-                    eventmask = np.delete(eventmask,np.where(coincident)[0][1:], axis = (0))
-                    eventmask[i] = newmask
-
-                i +=1
+            events, eventtime, eventmask = Match_events(events,eventtime,eventmask)
             
             # Save asteroids
-            ast = {}
-            ast['File'] = pixelfile
-            ast['Asteroids'] = asteroid
-            ast['Time'] = asttime
-            ast['Mask'] = astmask
-
-            astsave = Save + '/Asteroid/' + pixelfile.split('ktwo')[-1].split('-')[0]+'_Asteroid.npy'
-            Save_space(Save + '/Asteroid/',pixelfile)
-            np.save(astsave,ast)
+            astsave = Save + '/Asteroid/' + pixelfile.split('ktwo')[-1].split('-')[0]+'_Asteroid'
+            Save_space(Save + '/Asteroid/')
+            np.savez(astsave,ast)
+            # Save baseline frame
+            Limit = abs(np.nanmedian(Maskdata, axis = (0))+3*(np.nanstd(Maskdata, axis = (0))))
+            Limitsave = Save + '/Limit/' + pixelfile.split('ktwo')[-1].split('-')[0]+'_Limit'
+            Save_space(Save + '/Limit/')
+            np.savez(Limitsave,Limit)
             
             
             # Create an array that saves the total area of mask and time. 
@@ -524,26 +670,23 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             for oldkey, newkey in funny_keywords.items():
                 mywcs[newkey] = hdu[1].header[oldkey] 
             mywcs = WCS(mywcs)
-
-            # Check if in the galaxy plane -20 < b < 20
-            b = Get_gal_lat(mywcs,datacube)
-            if (float(b) > -20) and (float(b) < 20):
-                Result[4] = 0 
-            else:
-                Result[4] = 1
             
-            # Print the figures
+            # Save thrusts and quality flags and time 
+            Fieldprop = {}
+            Fieldprop['File'] = pixelfile
+            Fieldprop['Thruster'] = len(thrusters)
+            Fieldprop['Quality'] = len(Quality)-len(thrusters)
+            Fieldprop['Duration'] = len(time)
+            Fieldprop['Gal_lat'] = Get_gal_lat(mywcs,datacube)
+            
+            Fieldsave = Save + '/Field/' + pixelfile.split('ktwo')[-1].split('-')[0]+'_Limit'
+            Save_space(Save + '/Field/')
+            np.savez(Fieldsave)
 
+            # Print the figures
             K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube)
             K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile)
             
             
-            Result[0] = int(pixelfile.split('ktwo')[-1].split('-')[0])
-            Result[1] = (time[-1] - time[0]) - 3*len(thrusters)/48 # Last term is for removing coincident times
-            Result[2] = np.nansum(Mask*1)
-            Result[3] = 1*len(events)
-            
-        else:
-            Result = np.ones(5)*np.nan
     except (OSError):
-        Result = np.ones(5)*-1
+        pass
