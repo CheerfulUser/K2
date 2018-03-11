@@ -10,7 +10,7 @@ field = 'c00'
 path = '/avatar/ryanr/Data/'+field+'/'
 Files = np.asarray(glob(path+'*.gz'))
 
-save = '/mimsy/ryanr/PhD/Kepler/Results/'
+save = '/avatar/ryanr/Results/'
 
 Files = np.asarray(glob(path+'*.gz'))
 dims = int(len(Files)) # set to be length of your task
