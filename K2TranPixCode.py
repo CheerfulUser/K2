@@ -309,7 +309,7 @@ def Remove_asteroids(Asteroid,Asttime,Astmask,Maskdata):
         dataclean[Asttime[i][0]:Asttime[i][1],Astmask[i]==1] = np.nan
     return dataclean
 
-def First_pass(Datacube,Qual,Quality,Thrusters):
+def First_pass(Datacube,Qual,Quality,Thrusters,File):
     #calculate the reference frame
     Framemin = FindMinFrame(Datacube)
     # Apply object mask to data
@@ -401,7 +401,7 @@ def First_pass(Datacube,Qual,Quality,Thrusters):
 
                 # Save asteroids
     ast = {}
-    ast['File'] = pixelfile
+    ast['File'] = File
     ast['Asteroids'] = asteroid
     ast['Time'] = asttime
     ast['Mask'] = astmask
@@ -413,8 +413,8 @@ def pix2coord(x,y,mywcs):
     wx, wy = mywcs.wcs_pix2world(x, y, 0)
     return np.array([float(wx), float(wy)])
 
-def Get_gal_lat(mywcs,Datacube):
-    ra, dec = mywcs.wcs_pix2world(int(Datacube.shape[1]/2), int(Datacube.shape[2]/2), 0)
+def Get_gal_lat(mywcs,datacube):
+    ra, dec = mywcs.wcs_pix2world(int(datacube.shape[1]/2), int(datacube.shape[2]/2), 0)
     b = SkyCoord(ra=float(ra)*u.degree, dec=float(dec)*u.degree, frame='icrs').galactic.b.degree
     return b
 
@@ -554,7 +554,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             # Apply object mask to data
             Mask = ThrustObjectMask(datacube,thrusters)
         
-            Maskdata, ast = First_pass(datacube,Qual,quality,thrusters)
+            Maskdata, ast = First_pass(datacube,Qual,quality,thrusters,pixelfile.split('/')[-1].split('-')[0])
 
             # Make a mask for the object to use as a test to eliminate very bad pointings
             obj = np.ma.masked_invalid(Mask).mask
@@ -675,11 +675,11 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             Fieldprop = {}
             Fieldprop['File'] = pixelfile
             Fieldprop['Thruster'] = len(thrusters)
-            Fieldprop['Quality'] = len(Quality)-len(thrusters)
+            Fieldprop['Quality'] = len(quality)-len(thrusters)
             Fieldprop['Duration'] = len(time)
             Fieldprop['Gal_lat'] = Get_gal_lat(mywcs,datacube)
             
-            Fieldsave = Save + '/Field/' + pixelfile.split('ktwo')[-1].split('-')[0]+'_Limit'
+            Fieldsave = Save + '/Field/' + pixelfile.split('ktwo')[-1].split('-')[0]+'_Field'
             Save_space(Save + '/Field/')
             np.savez(Fieldsave)
 
