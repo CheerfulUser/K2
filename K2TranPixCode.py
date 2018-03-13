@@ -196,11 +196,11 @@ def ThrusterElim(Events,Times,Masks,Firings,Quality,qual,Data):
         Range = Times[i][-1] - Times[i][0]
         if (Range > 0) & (Range/Data.shape[0] < 0.8) & (Times[i][0] > 5): 
             begining = Firings[(Firings >= Times[i][0]-2) & (Firings <= Times[i][0]+1)]
-            #if len(begining) == 0:
-             #   begining = Quality[(Quality == Times[i][0])] #& (Quality <= Times[i][0]+1)]
+            if len(begining) == 0:
+                begining = Quality[(Quality == Times[i][0])] #& (Quality <= Times[i][0]+1)]
             end = Firings[(Firings >= Times[i][-1]-1) & (Firings <= Times[i][-1]+2)]
-            #if len(end) == 0:
-             #   end = Quality[(Quality == Times[i][-1])] #& (Quality <= Times[i][-1]+1)]
+            if len(end) == 0:
+                end = Quality[(Quality == Times[i][-1])] #& (Quality <= Times[i][-1]+1)]
             eventthrust = Firings[(Firings >= Times[i][0]) & (Firings <= Times[i][-1])]
 
             if (~begining.any() & ~end.any()) & (len(eventthrust) < 3):
