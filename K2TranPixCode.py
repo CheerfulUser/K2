@@ -461,7 +461,10 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
             plt.plot(Time - Time[0], LC,'.', label = 'Event LC')
             plt.plot(Time - Time[0], BGLC,'k.', label = 'Background LC')
             plt.plot(Time - Time[0], ObjLC,'kx', label = 'Scalled object LC')
-            plt.axvspan(Time[Eventtime[i][0]]-Time[0],Time[Eventtime[i][-1]]-Time[0], color = 'orange', label = 'Event duration')
+            if Eventtime[i][-1] < len(Time):
+                plt.axvspan(Time[Eventtime[i][0]]-Time[0],Time[Eventtime[i][-1]]-Time[0], color = 'orange', label = 'Event duration')
+            else:
+                plt.axvspan(Time[Eventtime[i][0]]-Time[0],Time[-1]-Time[0], color = 'orange', label = 'Event duration')
             plt.axvline(Time[Quality[0]]-Time[0],color = 'red', linestyle='dashed',label = 'Quality', alpha = 0.5)
             for j in range(Quality.shape[0]-1):
                 j = j+1 
