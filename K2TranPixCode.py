@@ -327,7 +327,7 @@ def Remove_asteroids(Asteroid,Asttime,Astmask,Maskdata):
         dataclean[Asttime[i][0]:Asttime[i][1],Astmask[i]==1] = np.nan
     return dataclean
 
-def First_pass(Datacube,Qual,Quality,Thrusters):
+def First_pass(Datacube,Qual,Quality,Thrusters,Pixelfile):
     #calculate the reference frame
     Framemin = Thrusters[3]+1#FindMinFrame(Datacube)
     # Apply object mask to data
@@ -420,7 +420,7 @@ def First_pass(Datacube,Qual,Quality,Thrusters):
 
                 # Save asteroids
     ast = {}
-    ast['File'] = pixelfile
+    ast['File'] = Pixelfile
     ast['Asteroids'] = asteroid
     ast['Time'] = asttime
     ast['Mask'] = astmask
@@ -790,7 +790,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             # Apply object mask to data
             Mask = ThrustObjectMask(datacube,thrusters)
 
-            Maskdata, ast = First_pass(np.copy(datacube),Qual,quality,thrusters)
+            Maskdata, ast = First_pass(np.copy(datacube),Qual,quality,thrusters,pixelfile)
             Maskdata = Maskdata*Mask
             Maskdata = Motion_correction(Maskdata,Mask,thrusters)*Mask
 
