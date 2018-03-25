@@ -15,7 +15,6 @@ from astropy.wcs import WCS
 from glob import glob
 import os
 
-from tqdm import tnrange, tqdm_notebook
 import warnings
 warnings.filterwarnings("ignore",category =RuntimeWarning)
 
@@ -41,7 +40,6 @@ warnings.filterwarnings("ignore",category = UserWarning)
 from glob import glob
 import os
 
-from tqdm import tnrange, tqdm_notebook
 import time as t
 import warnings
 warnings.filterwarnings("ignore",category =RuntimeWarning)
