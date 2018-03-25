@@ -6,6 +6,7 @@ import numpy as np
 from scipy.signal import convolve2d
 from scipy.signal import deconvolve
 from scipy.ndimage.filters import convolve
+from scipy.interpolate import interp1d
 
 from astropy.io import fits
 from astropy import units as u
