@@ -1,11 +1,28 @@
-#!/pkg/linux/anaconda3/bin/python
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+import matplotlib.gridspec as gridspec
+import numpy as np
 
-import matplotlib
-matplotlib.use('Agg')
+from scipy.signal import convolve2d
+from scipy.signal import deconvolve
+from scipy.ndimage.filters import convolve
+
+from astropy.io import fits
+from astropy import units as u
+from astropy.coordinates import SkyCoord
+from astropy.wcs import WCS
+
+from glob import glob
+import os
+
+from tqdm import tnrange, tqdm_notebook
+import warnings
+warnings.filterwarnings("ignore",category =RuntimeWarning)
+
+
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import numpy as np
-import matplotlib.animation as animation
 
 from scipy.ndimage.filters import convolve
 
@@ -14,16 +31,21 @@ from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.wcs import WCS
 
+from astroquery.simbad import Simbad
+from astroquery.ned import Ned
+from astroquery.ned.core import RemoteServiceError
+from astropy import coordinates
+import astropy.units as u
+warnings.filterwarnings("ignore",category = UserWarning)
+
+from glob import glob
 import os
+
+from tqdm import tnrange, tqdm_notebook
+import time as t
 import warnings
 warnings.filterwarnings("ignore",category =RuntimeWarning)
 
-
-def MinThrustframe(data,thrust):
-    mean = np.nanmean(data[thrust+1],axis = 0)
-    std = np.nanstd((data[thrust+1] - mean), axis = (1,2))
-    Framemin = np.where(std == np.nanmin(abs(std)))[0][0]
-    return thrust[Framemin]+1
 
 def DriftKiller(data,thrust):
     # The right value choice here is a bit ambiguous, though it seems that typical variations are <10.
@@ -35,13 +57,9 @@ def DriftKiller(data,thrust):
         j = thrust[i]
     return data
 
-def FindMinFrame(data):
+def FindMinFrame(data,thrusters):
     # Finding the reference frame
-    n_steps = 12
-    std_vec = np.zeros(n_steps)
-    for i in range(n_steps):
-        std_vec[i] = np.nanstd(data[i:-n_steps+i:n_steps,:,:] - data[i+n_steps*80,:,:])
-    Framemin = np.where(std_vec==np.nanmin(std_vec))[0][0]
+    Framemin = data[thrusters[3]+1]
     return Framemin
 
 def ObjectMask(datacube,Framemin):
@@ -139,7 +157,7 @@ def Asteroid_fitter(Mask,Time,Data, plot = False):
         p2 = np.poly1d(p1)
         AvLeft = np.nansum(abs(lc[Time[0]:Time[-1]]/np.nanmedian(lc[x]) - p2(np.arange(Time[0],Time[-1]))))/(Time[-1]-Time[0])
         maxpoly = np.where(np.nanmax(p2(x)) == p2(x))[0][0]
-        if (AvLeft < 1) &  (abs(middle - x[maxpoly]) < 2):
+        if (AvLeft < 4) &  (abs(middle - x[maxpoly]) < 2):
             asteroid = True
             if plot == True:
                 p2 = np.poly1d(p1)
@@ -276,7 +294,7 @@ def Asteroid_identifier(Events,Times,Masks,Firings,Quality,qual,Data):
 def Match_events(Events,Eventtime,Eventmask):
     i = 0
     while i < len(Events):
-        coincident = ((Eventtime[:,0] >= Eventtime[i,0]-1) & (Eventtime[:,0] <= Eventtime[i,0]+1) & (Eventtime[:,1] >= Eventtime[i,1]-1) & (Eventtime[:,1] <= Eventtime[i,1]+1))       
+        coincident = (((Eventtime[:,0] >= Eventtime[i,0]-3) & (Eventtime[:,0] <= Eventtime[i,0]+3)) | ((Eventtime[:,1] >= Eventtime[i,1]-3) & (Eventtime[:,1] <= Eventtime[i,1]+3)))       
         if sum(coincident*1) > 1:
             newmask = (np.nansum(Eventmask[coincident],axis = (0)) > 0)*1 
 
@@ -311,9 +329,9 @@ def Remove_asteroids(Asteroid,Asttime,Astmask,Maskdata):
         dataclean[Asttime[i][0]:Asttime[i][1],Astmask[i]==1] = np.nan
     return dataclean
 
-def First_pass(Datacube,Qual,Quality,Thrusters,File):
+def First_pass(Datacube,Qual,Quality,Thrusters):
     #calculate the reference frame
-    Framemin = FindMinFrame(Datacube)
+    Framemin = Thrusters[3]+1#FindMinFrame(Datacube)
     # Apply object mask to data
     Mask = ThrustObjectMask(Datacube,Thrusters)
 
@@ -327,7 +345,8 @@ def First_pass(Datacube,Qual,Quality,Thrusters,File):
 
     framemask = np.zeros(Maskdata.shape)
 
-    framemask = ((Maskdata/abs(np.nanmedian(Maskdata, axis = (0))+1*(np.nanstd(Maskdata, axis = (0))))) >= 1)
+    limit = abs(np.nanmedian(Maskdata[Qual == 0], axis = (0))+2*(np.nanstd(Maskdata[Qual == 0], axis = (0))))
+    framemask = ((Maskdata/limit) >= 1)
     framemask[:,np.where(Maskdata > 100000)[1],np.where(Maskdata > 100000)[2]] = 0
 
     # Identify if there is a sequence of consecutive or near consecutive frames that meet condtition 
@@ -379,7 +398,7 @@ def First_pass(Datacube,Qual,Quality,Thrusters,File):
 
     temp = []
     for i in range(len(events)):
-        if len(np.where(Datacube[eventtime[i][0]:eventtime[i][-1]]*eventmask[i] > 100000)[0]) == 0:
+        if len(np.where(datacube[eventtime[i][0]:eventtime[i][-1]]*eventmask[i] > 100000)[0]) == 0:
             temp.append(i)
     eventtime = eventtime[temp]
     events = events[temp]
@@ -403,13 +422,71 @@ def First_pass(Datacube,Qual,Quality,Thrusters,File):
 
                 # Save asteroids
     ast = {}
-    ast['File'] = File
+    ast['File'] = pixelfile
     ast['Asteroids'] = asteroid
     ast['Time'] = asttime
     ast['Mask'] = astmask
 
     return Cleandata, ast
 
+def Motion_correction(Data,Mask,Thrusters):
+    Corrected = np.zeros((Data.shape[0],Data.shape[1],Data.shape[2]))
+    
+    fit = np.zeros(len(Data))
+    X = np.where(Mask == 1)[0]
+    Y = np.where(Mask == 1)[1]
+    for j in range(len(X)):
+        temp = np.copy(Data[:,X[j],Y[j]])
+        #temp[temp==0] = np.nan
+        zz = np.arange(0,len(datacube))
+        AvSplinepoints = np.zeros(len(Thrusters))
+        AvSplineind = np.zeros(len(Thrusters))
+        for i in range(len(Thrusters)):
+            AvSplinepoints[i] = np.nanmin(Data[Thrusters[i]+1:Thrusters[i]+3,X[j],Y[j]])
+            if ~np.isnan(AvSplinepoints[i]):
+                AvSplineind[i] = np.where(AvSplinepoints[i] == Data[Thrusters[i]+1:Thrusters[i]+3,X[j],Y[j]])[0]+Thrusters[i]+1
+            else:
+                AvSplineind[i] = np.nan
+        ind = np.where(~np.isnan(AvSplineind))
+        Splinef = interp1d(AvSplineind[ind],AvSplinepoints[ind], kind='linear',fill_value='extrapolate' )
+        Spline = Splinef(zz)
+        Spline[np.isnan(Spline)] = 0
+        for i in range(len(Thrusters)-1):
+
+            if abs(Thrusters[i]-Thrusters[i+1]) > 5:
+                try:
+                    Section = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - Spline[thrusters[i]+2:thrusters[i+1]]
+                    temp2 = np.copy(Section)
+                    x = np.arange(0,len(Section))
+                    limit =np.nanmedian(np.diff(np.diff(Section)))+2.5*np.nanstd(np.diff(np.diff(Section)))
+                    yo = np.where(np.diff(np.diff(Section))>limit)[0]+1
+                    if len(yo)/2 == int(len(yo)/2):
+                        z = 0
+                        while z + 1 < len(yo):
+                            yoarr = np.arange(yo[z],yo[z+1])
+                            temp2[yoarr] = np.nan
+                            yo = np.delete(yo,[0,1])
+                    else:
+                        z = 0
+                        while z + 2 < len(yo):
+                            yoarr = np.arange(yo[z],yo[z+1])
+                            temp2[yoarr] = np.nan
+                            yo = np.delete(yo,[0,1])
+                    if len(yo) == 1:
+                        temp[yo] = np.nan
+                    xx = np.where(~np.isnan(temp2))[0]
+                    if len(xx) > 3:
+                        p3 = np.poly1d(np.polyfit(xx, Section[xx], 3))
+                        temp[x+Thrusters[i]+2] = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) #+ Spline[thrusters[i]+2:thrusters[i+1]]
+                        fit[x+Thrusters[i]+2] = p3(x)
+                    #else:
+                     #   print(i)
+                except RuntimeError:
+                    pass
+        Corrected[:,X[j],Y[j]] = temp
+        
+                    
+    return Corrected
 
 def pix2coord(x,y,mywcs):
     wx, wy = mywcs.wcs_pix2world(x, y, 0)
@@ -419,6 +496,129 @@ def Get_gal_lat(mywcs,datacube):
     ra, dec = mywcs.wcs_pix2world(int(datacube.shape[1]/2), int(datacube.shape[2]/2), 0)
     b = SkyCoord(ra=float(ra)*u.degree, dec=float(dec)*u.degree, frame='icrs').galactic.b.degree
     return b
+def Identify_masks(Obj):
+    # Uses an iterrative process to find spacially seperated masks in the object mask.
+    objsub = np.copy(Obj)
+    Objmasks = []
+
+    mask1 = np.zeros((obj.shape))
+    mask1[np.where(objsub==1)[0][0],np.where(objsub==1)[1][0]] = 1
+    while np.nansum(objsub) > 0:
+
+        conv = ((convolve(mask1*1,np.ones((3,3)),mode='constant', cval=0.0)) > 0)*1.0
+        objsub = objsub - mask1
+        objsub[objsub < 0] = 0
+
+        if np.nansum(conv*objsub) > 0:
+            
+            mask1 = mask1 + (conv * objsub)
+            mask1 = (mask1 > 0)*1
+        else:
+            
+            Objmasks.append(mask1)
+            mask1 = np.zeros((obj.shape))
+            if np.nansum(objsub) > 0:
+                mask1[np.where(objsub==1)[0][0],np.where(objsub==1)[1][0]] = 1
+    return Objmasks
+
+def Database_event_check(Data,Eventtime,Eventmask,WCS):
+    # Checks Ned and Simbad to check the event position against known objects.
+    Objects = []
+    Objtype = []
+    for I in range(len(Eventtime)):
+        maxcolor = np.nanmax(Data[Eventtime[I][0]:Eventtime[I][-1],(Eventmask[I]==1)])
+
+        Mid = np.where(Data[Eventtime[I][0]:Eventtime[I][-1],(Eventmask[I]==1)] == maxcolor)
+        if len(np.where(Eventmask[I]==1)[0]) > 1:
+            position = np.where(Eventmask[I]==1)[Mid[1][0]]
+        else:
+            position = np.where(Eventmask[I]==1)
+
+        Coord = pix2coord(position[0],position[1],WCS)
+
+        c = coordinates.SkyCoord(ra=Coord[0], dec=Coord[1],unit=(u.deg, u.deg), frame='icrs')
+
+        Ob = 'Unknown'
+        objtype = 'Unknown'
+        try:
+            result_table = Ned.query_region(c, radius = 6*u.arcsec, equinox='J2000')
+            Ob = np.asarray(result_table['Object Name'])[0].decode("utf-8") 
+            if b'*' == result_table['Type'][0]:
+                objtype = 'Star'
+            elif b'G' == result_table['Type'][0]:
+                objtype = 'Galaxy'
+            elif b'QSO' == result_table['Type'][0]:
+                objtype = 'QSO'
+            else:
+                objtype = 'Ned'
+
+        except RemoteServiceError:
+            result_table = Simbad.query_region(c,radius = 6*u.arcsec)
+            try:
+                if len(result_table.colnames) > 0:
+                    Ob = np.asarray(result_table['MAIN_ID'])[0].decode("utf-8") 
+                    objtype = 'Simbad'
+            except AttributeError:
+                pass
+        Objects.append(Ob)
+        Objtype.append(objtype)
+    #Objects = np.array(Objects)
+    #Objtype = np.array(Objtype)
+    return Objects, Objtype
+
+def Database_check_mask(Datacube,Thrusters,Masks,WCS):
+    # Checks Ned and Simbad to find the object name and type in the mask.
+    # This uses the mask set created by Identify_masks.
+    Objects = []
+    Objtype = []
+    av = np.nanmedian(Datacube[Thrusters+1],axis = 0)
+    for I in range(len(Masks)):
+
+        Mid = np.where(av*Masks[I] == np.nanmax(av*Masks[I]))
+
+        Coord = pix2coord(Mid[0][0],Mid[1][0],WCS)
+
+        c = coordinates.SkyCoord(ra=Coord[0], dec=Coord[1],unit=(u.deg, u.deg), frame='icrs')
+        Ob = 'Unknown'
+        objtype = 'Unknown'
+        try:
+            result_table = Ned.query_region(c, radius = 12*u.arcsec, equinox='J2000')
+            Ob = np.asarray(result_table['Object Name'])[0].decode("utf-8") 
+            if b'*' == result_table['Type'][0]:
+                objtype = 'Star'
+            elif b'G' == result_table['Type'][0]:
+                objtype = 'Galaxy'
+            elif b'QSO' == result_table['Type'][0]:
+                objtype = 'QSO'
+            else:
+                objtype = 'Ned'
+
+        except RemoteServiceError:
+            result_table = Simbad.query_region(c,radius = 12*u.arcsec)
+            try:
+                if len(result_table.colnames) > 0:
+                    Ob = np.asarray(result_table['MAIN_ID'])[0].decode("utf-8") 
+                    objtype = 'Simbad'
+            except AttributeError:
+                pass
+        Objects.append(Ob)
+        Objtype.append(objtype)
+    #Objects = np.array(Objects)
+    #Objtype = np.array(Objtype)
+    return Objects, Objtype
+
+def Near_which_mask(Eventmask,Objmasks):
+    # Finds which mask in the object mask an event is near. The value assigned to Near_mask 
+    # is the index of Objmask that corresponds to the event. If not mask is near, value is nan.
+    Near_mask = np.ones(len(Eventmask),dtype=int)*-1
+    for i in range(len(Objmasks)):
+        near_mask = ((convolve(Objmasks[i]*1,np.ones((3,3)),mode='constant', cval=0.0)) > 0)*1
+        isnear = near_mask*Eventmask
+        Near_mask[np.where(isnear==1)[0]] = int(i)
+    return Near_mask
+
+
+
 
 def Save_space(Save):
     try:
@@ -427,17 +627,21 @@ def Save_space(Save):
     except FileExistsError:
         pass
 
-def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quality,Thrusters,Framemin,Datacube):
+def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quality,Thrusters,Framemin,Datacube,Source,SourceType):
     for i in range(len(Events)):
             # Check if there are multiple transients
             #Find Coords of transient
             position = np.where(Eventmask[i])
 
-            maxcolor = np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1],(Eventmask[i]==1)])
-            
-            Mid = np.where(Data[Eventtime[i][0]:Eventtime[i][-1],(Eventmask[i]==1)] == maxcolor)
-            
-            Coord = pix2coord(Mid[1],Mid[0],wcs)
+            maxcolor = np.nanmax(Data[Eventtime[I][0]:Eventtime[I][-1],(Eventmask[I]==1)])
+
+            Mid = np.where(Data[Eventtime[I][0]:Eventtime[I][-1],(Eventmask[I]==1)] == maxcolor)
+            if len(np.where(Eventmask[I]==1)[0]) > 1:
+                position = np.where(Eventmask[I]==1)[Mid[1][0]]
+            else:
+                position = np.where(Eventmask[I]==1)
+
+            Coord = pix2coord(position[0],position[1],wcs)
             # Generate a light curve from the transient masks
             LC = np.nansum(Data*Eventmask[i], axis = (1,2))
             BG = Data*~Frames[Events[i]]
@@ -452,7 +656,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
             fig = plt.figure(figsize=(10,6))
             # set up subplot grid
             gridspec.GridSpec(2,3)
-
+            plt.suptitle('Source: '+ Source[i] + ' (' + SourceType[i] + ')')
             # large subplot
             plt.subplot2grid((2,3), (0,0), colspan=2, rowspan=2)
             plt.title('Event light curve (BJD '+str(round(Time[Eventtime[i][0]]-Time[0],2))+', RA '+str(round(Coord[0],3))+', DEC '+str(round(Coord[1],3))+')')
@@ -500,18 +704,32 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
             plt.colorbar(fraction=0.046, pad=0.04)
             plt.plot(position[1],position[0],'r.',ms = 15)
             # fit subplots and save fig
-            fig.tight_layout()
+            #fig.tight_layout()
             #fig.set_size_inches(w=11,h=7)
-            Save_space(Save+'/Figures/')
             
-            plt.savefig(Save+'/Figures/'+File.split('/')[-1].split('-')[0]+'_'+str(i)+'.pdf', bbox_inches = 'tight')
-            plt.close;
+            if maxcolor <= 10:
+                if 'Near: ' in Source[i]:
+                    directory = Save+'/Figures/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
+                    Save_space(directory)
+                else:
+                    directory = Save+'/Figures/Faint/' + SourceType[i] + '/'
+                    Save_space(directory)
+            else:
+                if 'Near: ' in Source[i]:
+                    directory = Save+'/Figures/Bright/Near/' + SourceType[i].split('Near: ')[-1] + '/'
+                    Save_space(directory)
+                else:
+                    directory = Save+'/Figures/Bright/' + SourceType[i] + '/'
+                    Save_space(directory)
+
+            plt.savefig(directory+File.split('/')[-1].split('-')[0]+'_'+str(i)+'.pdf', bbox_inches = 'tight')
+            plt.close();
 
 
 
-def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File):
+def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType):
     Writer = animation.writers['ffmpeg']
-    writer = Writer(fps=1, metadata=dict(artist='Me'), bitrate=1800)
+    writer = Writer(fps=1, metadata=dict(artist='RGRH'), bitrate=1800)
     for i in range(len(Events)):
         position = np.where(Eventmask[i])
         
@@ -531,13 +749,28 @@ def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File):
             im = plt.imshow(Section[j], origin='lower',vmin = 0, vmax = maxcolor, animated=True)
             plt.plot(position[1],position[0],'r.',ms = 15)
             ims.append([im])
+        plt.suptitle('Source: '+ Source[i] + ' (' + SourceType[i] + ')')
         plt.title(File.split('/')[-1].split('-')[0]+' Event # '+str(i))
         ani = animation.ArtistAnimation(fig, ims, interval=300, blit=True, repeat = False)
         c = plt.colorbar(fraction=0.046, pad=0.04)
         c.set_label('Counts')
         
-        Save_space(Save+'/Figures/')
-        ani.save(Save+'/Figures/'+File.split('/')[-1].split('-')[0]+'_Event_#_'+str(i)+'.mp4',dpi=300)
+        if maxcolor <= 10:
+            if 'Near: ' in Source:
+                directory = Save+'/Figures/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
+                Save_space(directory)
+            else:
+                directory = Save+'/Figures/Faint/' + SourceType[i] + '/'
+                Save_space(directory)
+        else:
+            if 'Near: ' in Source:
+                directory = Save+'/Figures/Bright/Near/' + SourceType[i].split('Near: ')[-1] + '/'
+                Save_space(directory)
+            else:
+                directory = Save+'/Figures/Bright/' + SourceType[i] + '/'
+                Save_space(directory)
+            
+        ani.save(directory+File.split('/')[-1].split('-')[0]+'_'+str(i)+'.mp4',dpi=300)
         plt.close();
 
 
@@ -552,14 +785,16 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
         if datacube.shape[1] > 1 and datacube.shape[2] > 1:
             time = dat["TIME"] + 2454833.0
             Qual = hdu[1].data.field('QUALITY')
-            thrusters = np.where((Qual == 1048576) | (Qual == 1089568) | (Qual == 1056768) | (Qual == 1064960) | (Qual == 1081376) | (Qual == 10240) | (Qual == 32768) )[0]
+            thrusters = np.where((Qual == 1048576) | (Qual == 1089568) | (Qual == 1056768) | (Qual == 1064960) | (Qual == 1081376) | (Qual == 10240) | (Qual == 32768) | (Qual == 1097760))[0]
             quality = np.where(Qual != 0)[0]
             #calculate the reference frame
-            Framemin = FindMinFrame(datacube)
+            Framemin = thrusters[3]+1
             # Apply object mask to data
             Mask = ThrustObjectMask(datacube,thrusters)
-        
-            Maskdata, ast = First_pass(datacube,Qual,quality,thrusters,pixelfile.split('/')[-1].split('-')[0])
+
+            Maskdata, ast = First_pass(np.copy(datacube),Qual,quality,thrusters)
+            Maskdata = Maskdata*Mask
+            Maskdata = Motion_correction(Maskdata,Mask,thrusters)*Mask
 
             # Make a mask for the object to use as a test to eliminate very bad pointings
             obj = np.ma.masked_invalid(Mask).mask
@@ -568,7 +803,8 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
 
             framemask = np.zeros(Maskdata.shape)
 
-            framemask = ((Maskdata/abs(np.nanmedian(Maskdata, axis = (0))+3*(np.nanstd(Maskdata, axis = (0))))) >= 1)
+            limit = abs(np.nanmedian(Maskdata[Qual == 0], axis = (0))+3*(np.nanstd(Maskdata[Qual == 0], axis = (0))))
+            framemask = ((Maskdata/limit) >= 1)
             framemask[:,np.where(Maskdata > 100000)[1],np.where(Maskdata > 100000)[2]] = 0
 
             # Identify if there is a sequence of consecutive or near consecutive frames that meet condtition 
@@ -582,7 +818,6 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
 
             Index = np.where(np.nansum(Eventmask*1, axis = (1,2))>0)[0]
 
-
             events = []
             eventtime = []
             while len(Index) > 1:
@@ -590,8 +825,6 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
                 similar = np.where(((Eventmask[Index[0]]*Eventmask_ref[Index[0]:]) == Eventmask[Index[0]]).all(axis = (1,2)))[0]+Index[0]
 
                 if len((np.diff(similar)<5)) > 1:
-
-
 
                     if len(np.where((np.diff(similar)<5) == False)[0]) > 0:
                         simEnd = np.where((np.diff(similar)<5) == False)[0][0] 
@@ -634,7 +867,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
                 eventmask = eventmask*middle
 
 
-            # Eliminate events that begin/end within 2 cadences of a thruster fire
+            # Eliminate events that do not meet thruster firing conditions
             events, eventtime, eventmask, asteroid, asttime, astmask = ThrusterElim(events,eventtime,eventmask,thrusters,quality,Qual,Maskdata)
             events = np.array(events)
             eventtime = np.array(eventtime)
@@ -647,15 +880,14 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             Save_space(Save + '/Asteroid/')
             np.savez(astsave,ast)
             # Save baseline frame
-            Limit = abs(np.nanmedian(Maskdata, axis = (0))+3*(np.nanstd(Maskdata, axis = (0))))
+            
             Limitsave = Save + '/Limit/' + pixelfile.split('ktwo')[-1].split('-')[0]+'_Limit'
             Save_space(Save + '/Limit/')
-            np.savez(Limitsave,Limit)
+            np.savez(Limitsave,limit)
             
             
             # Create an array that saves the total area of mask and time. 
             # 1st col pixelfile, 2nd duration, 3rd col area, 4th col number of events, 5th 0 if in galaxy, 1 if outside
-            Result = np.zeros(5)
             # Define the coordinate system 
             funny_keywords = {'1CTYP4': 'CTYPE1',
                               '2CTYP4': 'CTYPE2',
@@ -688,10 +920,23 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             Save_space(Save + '/Field/')
             np.savez(Fieldsave)
 
-            # Print the figures
-            K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube)
-            K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile)
+            # Find all spatially seperate objects in the event mask.
+            Objmasks = Identify_masks(obj)
+
+            Source, SourceType = Database_event_check(Maskdata,eventtime,eventmask,mywcs)
+            ObjName, ObjType = Database_check_mask(datacube,thrusters,Objmasks,mywcs)
+            Near = Near_which_mask(eventmask,Objmasks)
+
+            for ind in np.where(Near != -1)[0]:
+                Source[ind] = 'Near: ' + ObjName[Near[ind]]
+                SourceType[ind] = 'Near: ' + ObjType[Near[ind]]
+
+
+            # Print figures
+            K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType)
+            K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,save,pixelfile,Source,SourceType)
             
             
     except (OSError):
         pass
+    
