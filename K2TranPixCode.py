@@ -396,7 +396,7 @@ def First_pass(Datacube,Qual,Quality,Thrusters,Pixelfile):
 
     temp = []
     for i in range(len(events)):
-        if len(np.where(datacube[eventtime[i][0]:eventtime[i][-1]]*eventmask[i] > 100000)[0]) == 0:
+        if len(np.where(Datacube[eventtime[i][0]:eventtime[i][-1]]*eventmask[i] > 100000)[0]) == 0:
             temp.append(i)
     eventtime = eventtime[temp]
     events = events[temp]
@@ -436,7 +436,7 @@ def Motion_correction(Data,Mask,Thrusters):
     for j in range(len(X)):
         temp = np.copy(Data[:,X[j],Y[j]])
         #temp[temp==0] = np.nan
-        zz = np.arange(0,len(datacube))
+        zz = np.arange(0,len(Data))
         AvSplinepoints = np.zeros(len(Thrusters))
         AvSplineind = np.zeros(len(Thrusters))
         for i in range(len(Thrusters)):
