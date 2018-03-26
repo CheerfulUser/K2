@@ -613,7 +613,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
     for i in range(len(Events)):
             # Check if there are multiple transients
             #Find Coords of transient
-
+            position = np.where(Eventmask[i])
             maxcolor = np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1))
             
             Mid = np.where(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1) == maxcolor)
