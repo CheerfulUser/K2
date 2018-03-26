@@ -441,7 +441,7 @@ def Motion_correction(Data,Mask,Thrusters):
 
                 if abs(Thrusters[i]-Thrusters[i+1]) > 5:
                     try:
-                        Section = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - Spline[thrusters[i]+2:thrusters[i+1]]
+                        Section = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - Spline[Thrusters[i]+2:Thrusters[i+1]]
                         temp2 = np.copy(Section)
                         x = np.arange(0,len(Section))
                         limit =np.nanmedian(np.diff(np.diff(Section)))+2.5*np.nanstd(np.diff(np.diff(Section)))
