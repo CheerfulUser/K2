@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+matplotlib.use('Agg')
 import matplotlib.animation as animation
 import matplotlib.gridspec as gridspec
 import numpy as np
