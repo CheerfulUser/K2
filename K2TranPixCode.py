@@ -447,41 +447,42 @@ def Motion_correction(Data,Mask,Thrusters):
             else:
                 AvSplineind[i] = np.nan
         ind = np.where(~np.isnan(AvSplineind))
-        Splinef = interp1d(AvSplineind[ind],AvSplinepoints[ind], kind='linear',fill_value='extrapolate' )
-        Spline = Splinef(zz)
-        Spline[np.isnan(Spline)] = 0
-        for i in range(len(Thrusters)-1):
+        if len(ind) > 1:
+            Splinef = interp1d(AvSplineind[ind],AvSplinepoints[ind], kind='linear',fill_value='extrapolate' )
+            Spline = Splinef(zz)
+            Spline[np.isnan(Spline)] = 0
+            for i in range(len(Thrusters)-1):
 
-            if abs(Thrusters[i]-Thrusters[i+1]) > 5:
-                try:
-                    Section = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - Spline[thrusters[i]+2:thrusters[i+1]]
-                    temp2 = np.copy(Section)
-                    x = np.arange(0,len(Section))
-                    limit =np.nanmedian(np.diff(np.diff(Section)))+2.5*np.nanstd(np.diff(np.diff(Section)))
-                    yo = np.where(np.diff(np.diff(Section))>limit)[0]+1
-                    if len(yo)/2 == int(len(yo)/2):
-                        z = 0
-                        while z + 1 < len(yo):
-                            yoarr = np.arange(yo[z],yo[z+1])
-                            temp2[yoarr] = np.nan
-                            yo = np.delete(yo,[0,1])
-                    else:
-                        z = 0
-                        while z + 2 < len(yo):
-                            yoarr = np.arange(yo[z],yo[z+1])
-                            temp2[yoarr] = np.nan
-                            yo = np.delete(yo,[0,1])
-                    if len(yo) == 1:
-                        temp[yo] = np.nan
-                    xx = np.where(~np.isnan(temp2))[0]
-                    if len(xx) > 3:
-                        p3 = np.poly1d(np.polyfit(xx, Section[xx], 3))
-                        temp[x+Thrusters[i]+2] = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) #+ Spline[thrusters[i]+2:thrusters[i+1]]
-                        fit[x+Thrusters[i]+2] = p3(x)
-                    #else:
-                     #   print(i)
-                except RuntimeError:
-                    pass
+                if abs(Thrusters[i]-Thrusters[i+1]) > 5:
+                    try:
+                        Section = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - Spline[thrusters[i]+2:thrusters[i+1]]
+                        temp2 = np.copy(Section)
+                        x = np.arange(0,len(Section))
+                        limit =np.nanmedian(np.diff(np.diff(Section)))+2.5*np.nanstd(np.diff(np.diff(Section)))
+                        yo = np.where(np.diff(np.diff(Section))>limit)[0]+1
+                        if len(yo)/2 == int(len(yo)/2):
+                            z = 0
+                            while z + 1 < len(yo):
+                                yoarr = np.arange(yo[z],yo[z+1])
+                                temp2[yoarr] = np.nan
+                                yo = np.delete(yo,[0,1])
+                        else:
+                            z = 0
+                            while z + 2 < len(yo):
+                                yoarr = np.arange(yo[z],yo[z+1])
+                                temp2[yoarr] = np.nan
+                                yo = np.delete(yo,[0,1])
+                        if len(yo) == 1:
+                            temp[yo] = np.nan
+                        xx = np.where(~np.isnan(temp2))[0]
+                        if len(xx) > 3:
+                            p3 = np.poly1d(np.polyfit(xx, Section[xx], 3))
+                            temp[x+Thrusters[i]+2] = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) #+ Spline[thrusters[i]+2:thrusters[i+1]]
+                            fit[x+Thrusters[i]+2] = p3(x)
+                        #else:
+                         #   print(i)
+                    except RuntimeError:
+                        pass
         Corrected[:,X[j],Y[j]] = temp
         
                     
