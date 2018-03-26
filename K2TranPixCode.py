@@ -3,28 +3,8 @@ import matplotlib.animation as animation
 import matplotlib.gridspec as gridspec
 import numpy as np
 
-from scipy.signal import convolve2d
-from scipy.signal import deconvolve
 from scipy.ndimage.filters import convolve
 from scipy.interpolate import interp1d
-
-from astropy.io import fits
-from astropy import units as u
-from astropy.coordinates import SkyCoord
-from astropy.wcs import WCS
-
-from glob import glob
-import os
-
-import warnings
-warnings.filterwarnings("ignore",category =RuntimeWarning)
-
-
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-import numpy as np
-
-from scipy.ndimage.filters import convolve
 
 from astropy.io import fits
 from astropy import units as u
@@ -36,14 +16,15 @@ from astroquery.ned import Ned
 from astroquery.ned.core import RemoteServiceError
 from astropy import coordinates
 import astropy.units as u
-warnings.filterwarnings("ignore",category = UserWarning)
 
 from glob import glob
 import os
-
 import time as t
+
 import warnings
 warnings.filterwarnings("ignore",category =RuntimeWarning)
+warnings.filterwarnings("ignore",category = UserWarning)
+
 
 
 def DriftKiller(data,thrust):
@@ -156,7 +137,7 @@ def Asteroid_fitter(Mask,Time,Data, plot = False):
         p2 = np.poly1d(p1)
         AvLeft = np.nansum(abs(lc[Time[0]:Time[-1]]/np.nanmedian(lc[x]) - p2(np.arange(Time[0],Time[-1]))))/(Time[-1]-Time[0])
         maxpoly = np.where(np.nanmax(p2(x)) == p2(x))[0][0]
-        if (AvLeft < 4) &  (abs(middle - x[maxpoly]) < 2):
+        if (AvLeft < 2) &  (abs(middle - x[maxpoly]) < 2):
             asteroid = True
             if plot == True:
                 p2 = np.poly1d(p1)
@@ -516,7 +497,7 @@ def Identify_masks(Obj):
         else:
             
             Objmasks.append(mask1)
-            mask1 = np.zeros((obj.shape))
+            mask1 = np.zeros((Obj.shape))
             if np.nansum(objsub) > 0:
                 mask1[np.where(objsub==1)[0][0],np.where(objsub==1)[1][0]] = 1
     return Objmasks
@@ -919,22 +900,24 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             Fieldsave = Save + '/Field/' + pixelfile.split('ktwo')[-1].split('-')[0]+'_Field'
             Save_space(Save + '/Field/')
             np.savez(Fieldsave)
+            print('saved')
+            print(Save)
 
             # Find all spatially seperate objects in the event mask.
             Objmasks = Identify_masks(obj)
+            if len(events) > 0:
+                Source, SourceType = Database_event_check(Maskdata,eventtime,eventmask,mywcs)
+                ObjName, ObjType = Database_check_mask(datacube,thrusters,Objmasks,mywcs)
+                Near = Near_which_mask(eventmask,Objmasks)
 
-            Source, SourceType = Database_event_check(Maskdata,eventtime,eventmask,mywcs)
-            ObjName, ObjType = Database_check_mask(datacube,thrusters,Objmasks,mywcs)
-            Near = Near_which_mask(eventmask,Objmasks)
-
-            for ind in np.where(Near != -1)[0]:
-                Source[ind] = 'Near: ' + ObjName[Near[ind]]
-                SourceType[ind] = 'Near: ' + ObjType[Near[ind]]
+                for ind in np.where(Near != -1)[0]:
+                    Source[ind] = 'Near: ' + ObjName[Near[ind]]
+                    SourceType[ind] = 'Near: ' + ObjType[Near[ind]]
 
 
-            # Print figures
-            K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType)
-            K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,save,pixelfile,Source,SourceType)
+                # Print figures
+                K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType)
+                K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,save,pixelfile,Source,SourceType)
             
             
     except (OSError):
