@@ -512,15 +512,11 @@ def Database_event_check(Data,Eventtime,Eventmask,WCS):
     Objects = []
     Objtype = []
     for I in range(len(Eventtime)):
-        maxcolor = np.nanmax(Data[Eventtime[I][0]:Eventtime[I][-1],(Eventmask[I]==1)])
-
-        Mid = np.where(Data[Eventtime[I][0]:Eventtime[I][-1],(Eventmask[I]==1)] == maxcolor)
-        if len(np.where(Eventmask[I]==1)[0]) > 1:
-            position = np.where(Eventmask[I]==1)[Mid[1][0]]
-        else:
-            position = np.where(Eventmask[I]==1)
-
-        Coord = pix2coord(position[0],position[1],WCS)
+        maxcolor = np.nanmax(Data[Eventtime[I][0]:Eventtime[I][-1]]*(Eventmask[I]==1))
+            
+        Mid = np.where(Data[Eventtime[I][0]:Eventtime[I][-1]]*(Eventmask[I]==1) == maxcolor)
+        
+        Coord = pix2coord(Mid[1],Mid[0],WCS)
 
         c = coordinates.SkyCoord(ra=Coord[0], dec=Coord[1],unit=(u.deg, u.deg), frame='icrs')
 
@@ -618,15 +614,11 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
             # Check if there are multiple transients
             #Find Coords of transient
 
-            maxcolor = np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1],(Eventmask[i]==1)])
-
-            Mid = np.where(Data[Eventtime[i][0]:Eventtime[i][-1],(Eventmask[i]==1)] == maxcolor)
-            if len(np.where(Eventmask[i]==1)[0]) > 1:
-                position = np.where(Eventmask[i]==1)[Mid[1][0]]
-            else:
-                position = np.where(Eventmask[i]==1)
-
-            Coord = pix2coord(position[0],position[1],wcs)
+            maxcolor = np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1))
+            
+            Mid = np.where(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1) == maxcolor)
+            
+            Coord = pix2coord(Mid[1],Mid[0],wcs)
             # Generate a light curve from the transient masks
             LC = np.nansum(Data*Eventmask[i], axis = (1,2))
             BG = Data*~Frames[Events[i]]
