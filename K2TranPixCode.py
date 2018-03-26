@@ -501,7 +501,7 @@ def Identify_masks(Obj):
     objsub = np.copy(Obj)
     Objmasks = []
 
-    mask1 = np.zeros((obj.shape))
+    mask1 = np.zeros((Obj.shape))
     mask1[np.where(objsub==1)[0][0],np.where(objsub==1)[1][0]] = 1
     while np.nansum(objsub) > 0:
 
