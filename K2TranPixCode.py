@@ -433,7 +433,7 @@ def Motion_correction(Data,Mask,Thrusters):
             else:
                 AvSplineind[i] = np.nan
         ind = np.where(~np.isnan(AvSplineind))
-        if len(ind) > 1:
+        if len(ind[0]) > 1:
             Splinef = interp1d(AvSplineind[ind],AvSplinepoints[ind], kind='linear',fill_value='extrapolate' )
             Spline = Splinef(zz)
             Spline[np.isnan(Spline)] = 0
@@ -680,9 +680,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
             current_cmap.set_bad(color='black')
             plt.colorbar(fraction=0.046, pad=0.04)
             plt.plot(position[1],position[0],'r.',ms = 15)
-            # fit subplots and save fig
-            #fig.tight_layout()
-            #fig.set_size_inches(w=11,h=7)
+
             
             if maxcolor <= 10:
                 if 'Near: ' in Source[i]:
@@ -733,14 +731,14 @@ def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType
         c.set_label('Counts')
         
         if maxcolor <= 10:
-            if 'Near: ' in Source:
+            if 'Near: ' in Source[i]:
                 directory = Save+'/Figures/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
                 Save_space(directory)
             else:
                 directory = Save+'/Figures/Faint/' + SourceType[i] + '/'
                 Save_space(directory)
         else:
-            if 'Near: ' in Source:
+            if 'Near: ' in Source[i]:
                 directory = Save+'/Figures/Bright/Near/' + SourceType[i].split('Near: ')[-1] + '/'
                 Save_space(directory)
             else:
