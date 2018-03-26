@@ -424,7 +424,10 @@ def Motion_correction(Data,Mask,Thrusters):
         for i in range(len(Thrusters)):
             AvSplinepoints[i] = np.nanmin(Data[Thrusters[i]+1:Thrusters[i]+3,X[j],Y[j]])
             if ~np.isnan(AvSplinepoints[i]):
-                AvSplineind[i] = np.where(AvSplinepoints[i] == Data[Thrusters[i]+1:Thrusters[i]+3,X[j],Y[j]])[0]+Thrusters[i]+1
+                if len(np.where(AvSplinepoints[i] == Data[Thrusters[i]+1:Thrusters[i]+3,X[j],Y[j]])[0]+Thrusters[i]+1) > 1:
+                    AvSplineind[i] = np.where(AvSplinepoints[i] == Data[Thrusters[i]+1:Thrusters[i]+3,X[j],Y[j]])[0][0]+Thrusters[i]+1
+                else:
+                    AvSplineind[i] = np.where(AvSplinepoints[i] == Data[Thrusters[i]+1:Thrusters[i]+3,X[j],Y[j]])[0]+Thrusters[i]+1 
             else:
                 AvSplineind[i] = np.nan
         ind = np.where(~np.isnan(AvSplineind))
