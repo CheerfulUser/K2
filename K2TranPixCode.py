@@ -512,13 +512,13 @@ def Database_event_check(Data,Eventtime,Eventmask,WCS):
     Objects = []
     Objtype = []
     for I in range(len(Eventtime)):
-        maxcolor = np.nanmax(Data[Eventtime[I][0]:Eventtime[I][-1],(Eventmask[I]==1)])
+        maxcolor = np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1],(Eventmask[i]==1)])
 
-        Mid = np.where(Data[Eventtime[I][0]:Eventtime[I][-1],(Eventmask[I]==1)] == maxcolor)
-        if len(np.where(Eventmask[I]==1)[0]) > 1:
-            position = np.where(Eventmask[I]==1)[Mid[1][0]]
+        Mid = np.where(Data[Eventtime[i][0]:Eventtime[i][-1],(Eventmask[i]==1)] == maxcolor)
+        if len(np.where(Eventmask[i]==1)[0]) > 1:
+            position = np.where(Eventmask[i]==1)[Mid[1][0]]
         else:
-            position = np.where(Eventmask[I]==1)
+            position = np.where(Eventmask[i]==1)
 
         Coord = pix2coord(position[0],position[1],WCS)
 
@@ -617,7 +617,6 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
     for i in range(len(Events)):
             # Check if there are multiple transients
             #Find Coords of transient
-            position = np.where(Eventmask[i])
 
             maxcolor = np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1],(Eventmask[i]==1)])
 
