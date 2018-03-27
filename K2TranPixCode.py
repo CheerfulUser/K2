@@ -611,100 +611,115 @@ def Save_space(Save):
 
 def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quality,Thrusters,Framemin,Datacube,Source,SourceType):
     for i in range(len(Events)):
-            # Check if there are multiple transients
-            #Find Coords of transient
-            position = np.where(Eventmask[i])
-            maxcolor = np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1))
-            
-            Mid = np.where(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1) == maxcolor)
-            
-            Coord = pix2coord(Mid[1],Mid[0],wcs)
-            # Generate a light curve from the transient masks
-            LC = np.nansum(Data*Eventmask[i], axis = (1,2))
-            BG = Data*~Frames[Events[i]]
-            BG[BG <= 0] =np.nan
-            BGLC = np.nanmedian(BG, axis = (1,2))
-            
-            Obj = np.ma.masked_invalid(Data[Framemin]).mask
-            ObjLC = np.nansum(Datacube*Obj,axis = (1,2))
-            ObjLC = ObjLC*np.nanmax(LC)/np.nanmax(ObjLC)
-            
-            
-            fig = plt.figure(figsize=(10,6))
-            # set up subplot grid
-            gridspec.GridSpec(2,3)
-            plt.suptitle('Source: '+ Source[i] + ' (' + SourceType[i] + ')')
-            # large subplot
-            plt.subplot2grid((2,3), (0,0), colspan=2, rowspan=2)
-            plt.title('Event light curve (BJD '+str(round(Time[Eventtime[i][0]]-Time[0],2))+', RA '+str(round(Coord[0],3))+', DEC '+str(round(Coord[1],3))+')')
-            plt.xlabel('Time (+'+str(Time[0])+' BJD)')
-            plt.ylabel('Counts')
-            plt.plot(Time - Time[0], LC,'.', label = 'Event LC')
-            plt.plot(Time - Time[0], BGLC,'k.', label = 'Background LC')
-            plt.plot(Time - Time[0], ObjLC,'kx', label = 'Scalled object LC')
-            if Eventtime[i][-1] < len(Time):
-                plt.axvspan(Time[Eventtime[i][0]]-Time[0],Time[Eventtime[i][-1]]-Time[0], color = 'orange', label = 'Event duration')
-            else:
-                plt.axvspan(Time[Eventtime[i][0]]-Time[0],Time[-1]-Time[0], color = 'orange', label = 'Event duration')
-            plt.axvline(Time[Quality[0]]-Time[0],color = 'red', linestyle='dashed',label = 'Quality', alpha = 0.5)
-            for j in range(Quality.shape[0]-1):
-                j = j+1 
-                plt.axvline(Time[Quality[j]]-Time[0], linestyle='dashed', color = 'red', alpha = 0.5)
-            # plot Thurster firings 
-            plt.axvline(Time[Thrusters[0]]-Time[0],color = 'red',label = 'Thruster', alpha = 0.5)
-            for j in range(Thrusters.shape[0]-1):
-                j = j+1 
-                plt.axvline(Time[Thrusters[j]]-Time[0],color = 'red', alpha = 0.5)
-            xmin = Time[Eventtime[i][0]]-Time[0]-(Eventtime[i][-1]-Eventtime[i][0])/10
-            xmax = Time[Eventtime[i][-1]]-Time[0]+(Eventtime[i][-1]-Eventtime[i][0])/10
-            if xmin < 0:
-                xmin = 0
-            if xmax > Time[-1] - Time[0]:
-                xmax = Time[-1] - Time[0]
-            plt.xlim(xmin,xmax) # originally 48 for some reason
-            plt.ylim(0,np.nanmax(LC[Eventtime[i][0]:Eventtime[i][-1]])+0.1*np.nanmax(LC[Eventtime[i][0]:Eventtime[i][-1]]))
-            plt.legend(loc = 1)
-            # small subplot 1 Reference image plot
-            plt.subplot2grid((2,3), (0,2))
-            plt.title('Reference')
-            plt.imshow(Data[Framemin,:,:], origin='lower',vmin=0,vmax = maxcolor)
-            current_cmap = plt.cm.get_cmap()
-            current_cmap.set_bad(color='black')
-            plt.colorbar(fraction=0.046, pad=0.04)
-            plt.plot(position[1],position[0],'r.',ms = 15)
-            # small subplot 2 Image of event
-            plt.subplot2grid((2,3), (1,2))
-            plt.title('Event')
-            plt.imshow(Data[np.where(Data*Eventmask[i]==np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1]]*Eventmask[i]))[0][0],:,:], origin='lower',vmin=0,vmax = maxcolor)
-            current_cmap = plt.cm.get_cmap()
-            current_cmap.set_bad(color='black')
-            plt.colorbar(fraction=0.046, pad=0.04)
-            plt.plot(position[1],position[0],'r.',ms = 15)
+        # Check if there are multiple transients
+        #Find Coords of transient
+        position = np.where(Eventmask[i])
+        maxcolor = np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1))
+        Mid = np.where(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1) == maxcolor)
+        Coord = pix2coord(Mid[2],Mid[1],wcs)
+        # Generate a light curve from the transient masks
+        LC = np.nansum(Data*Eventmask[i], axis = (1,2))
+        BG = Data*~Frames[Events[i]]
+        BG[BG <= 0] =np.nan
+        BGLC = np.nanmedian(BG, axis = (1,2))
 
-            
+        Obj = np.ma.masked_invalid(Data[Framemin]).mask
+        ObjLC = np.nansum(Datacube*Obj,axis = (1,2))
+        ObjLC = ObjLC/np.nanmedian(ObjLC)*np.nanmedian(LC)#np.nanmax(LC)/np.nanmax(ObjLC)
+
+
+        fig = plt.figure(figsize=(10,6))
+        # set up subplot grid
+        gridspec.GridSpec(2,3)
+        plt.suptitle('Source: '+ Source[i] + ' (' + SourceType[i] + ')')
+        # large subplot
+        plt.subplot2grid((2,3), (0,0), colspan=2, rowspan=2)
+        plt.title('Event light curve (BJD '+str(round(Time[Eventtime[i][0]]-Time[0],2))+', RA '+str(round(Coord[0],3))+', DEC '+str(round(Coord[1],3))+')')
+        plt.xlabel('Time (+'+str(Time[0])+' BJD)')
+        plt.ylabel('Counts')
+        plt.plot(Time - Time[0], LC,'.', label = 'Event LC')
+        plt.plot(Time - Time[0], BGLC,'k.', label = 'Background LC')
+        plt.plot(Time - Time[0], ObjLC,'kx', label = 'Scaled object LC')
+        if Eventtime[i][-1] < len(Time):
+            plt.axvspan(Time[Eventtime[i][0]]-Time[0],Time[Eventtime[i][-1]]-Time[0], color = 'orange', label = 'Event duration')
+        else:
+            plt.axvspan(Time[Eventtime[i][0]]-Time[0],Time[-1]-Time[0], color = 'orange', label = 'Event duration')
+        plt.axvline(Time[Quality[0]]-Time[0],color = 'red', linestyle='dashed',label = 'Quality', alpha = 0.5)
+        for j in range(Quality.shape[0]-1):
+            j = j+1 
+            plt.axvline(Time[Quality[j]]-Time[0], linestyle='dashed', color = 'red', alpha = 0.5)
+        # plot Thurster firings 
+        plt.axvline(Time[Thrusters[0]]-Time[0],color = 'red',label = 'Thruster', alpha = 0.5)
+        for j in range(Thrusters.shape[0]-1):
+            j = j+1 
+            plt.axvline(Time[Thrusters[j]]-Time[0],color = 'red', alpha = 0.5)
+        xmin = Time[Eventtime[i][0]]-Time[0]-(Eventtime[i][-1]-Eventtime[i][0])/10
+        xmax = Time[Eventtime[i][-1]]-Time[0]+(Eventtime[i][-1]-Eventtime[i][0])/10
+        if xmin < 0:
+            xmin = 0
+        if xmax > Time[-1] - Time[0]:
+            xmax = Time[-1] - Time[0]
+        plt.xlim(xmin,xmax) # originally 48 for some reason
+        plt.ylim(0,np.nanmax(LC[Eventtime[i][0]:Eventtime[i][-1]])+0.1*np.nanmax(LC[Eventtime[i][0]:Eventtime[i][-1]]))
+        plt.legend(loc = 1)
+        # small subplot 1 Reference image plot
+        plt.subplot2grid((2,3), (0,2))
+        plt.title('Reference')
+        plt.imshow(Data[Framemin,:,:], origin='lower',vmin=0,vmax = maxcolor)
+        current_cmap = plt.cm.get_cmap()
+        current_cmap.set_bad(color='black')
+        plt.colorbar(fraction=0.046, pad=0.04)
+        plt.plot(position[1],position[0],'r.',ms = 15)
+        # small subplot 2 Image of event
+        plt.subplot2grid((2,3), (1,2))
+        plt.title('Event')
+        plt.imshow(Data[np.where(Data*Eventmask[i]==np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1]]*Eventmask[i]))[0][0],:,:], origin='lower',vmin=0,vmax = maxcolor)
+        current_cmap = plt.cm.get_cmap()
+        current_cmap.set_bad(color='black')
+        plt.colorbar(fraction=0.046, pad=0.04)
+        plt.plot(position[1],position[0],'r.',ms = 15)
+        
+
+        if len(Thrusters[(Thrusters >= Eventtime[i][0]) & (Thrusters <= Eventtime[i][-1])]) >= 3:
             if maxcolor <= 10:
                 if 'Near: ' in Source[i]:
-                    directory = Save+'/Figures/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
+                    directory = Save+'/Figures/Long/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
                     Save_space(directory)
                 else:
-                    directory = Save+'/Figures/Faint/' + SourceType[i] + '/'
+                    directory = Save+'/Figures/Long/Faint/' + SourceType[i] + '/'
                     Save_space(directory)
             else:
                 if 'Near: ' in Source[i]:
-                    directory = Save+'/Figures/Bright/Near/' + SourceType[i].split('Near: ')[-1] + '/'
+                    directory = Save+'/Figures/Long/Bright/Near/' + SourceType[i].split('Near: ')[-1] + '/'
                     Save_space(directory)
                 else:
-                    directory = Save+'/Figures/Bright/' + SourceType[i] + '/'
+                    directory = Save+'/Figures/Long/Bright/' + SourceType[i] + '/'
                     Save_space(directory)
+        else:
+            if maxcolor <= 10:
+                if 'Near: ' in Source[i]:
+                    directory = Save+'/Figures/Short/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
+                    Save_space(directory)
+                else:
+                    directory = Save+'/Figures/Short/Faint/' + SourceType[i] + '/'
+                    Save_space(directory)
+            else:
+                if 'Near: ' in Source[i]:
+                    directory = Save+'/Figures/Short/Bright/Near/' + SourceType[i].split('Near: ')[-1] + '/'
+                    Save_space(directory)
+                else:
+                    directory = Save+'/Figures/Short/Bright/' + SourceType[i] + '/'
+                    Save_space(directory)
+            
 
-            plt.savefig(directory+File.split('/')[-1].split('-')[0]+'_'+str(i)+'.pdf', bbox_inches = 'tight')
-            plt.close();
+        plt.savefig(directory+File.split('/')[-1].split('-')[0]+'_'+str(i)+'.pdf', bbox_inches = 'tight')
+        plt.close();
 
 
 
 def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType):
     Writer = animation.writers['ffmpeg']
-    writer = Writer(fps=1, metadata=dict(artist='RGRH'), bitrate=1800)
+    writer = Writer(fps=15, metadata=dict(artist='RGRH'), bitrate=1800)
     for i in range(len(Events)):
         position = np.where(Eventmask[i])
         
@@ -730,20 +745,36 @@ def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType
         c = plt.colorbar(fraction=0.046, pad=0.04)
         c.set_label('Counts')
         
-        if maxcolor <= 10:
-            if 'Near: ' in Source[i]:
-                directory = Save+'/Figures/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-                Save_space(directory)
+        if len(Thrusters[(Thrusters >= Eventtime[i][0]) & (Thrusters <= Eventtime[i][-1])]) >= 3:
+            if maxcolor <= 10:
+                if 'Near: ' in Source[i]:
+                    directory = Save+'/Figures/Long/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
+                    Save_space(directory)
+                else:
+                    directory = Save+'/Figures/Long/Faint/' + SourceType[i] + '/'
+                    Save_space(directory)
             else:
-                directory = Save+'/Figures/Faint/' + SourceType[i] + '/'
-                Save_space(directory)
+                if 'Near: ' in Source[i]:
+                    directory = Save+'/Figures/Long/Bright/Near/' + SourceType[i].split('Near: ')[-1] + '/'
+                    Save_space(directory)
+                else:
+                    directory = Save+'/Figures/Long/Bright/' + SourceType[i] + '/'
+                    Save_space(directory)
         else:
-            if 'Near: ' in Source[i]:
-                directory = Save+'/Figures/Bright/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-                Save_space(directory)
+            if maxcolor <= 10:
+                if 'Near: ' in Source[i]:
+                    directory = Save+'/Figures/Short/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
+                    Save_space(directory)
+                else:
+                    directory = Save+'/Figures/Short/Faint/' + SourceType[i] + '/'
+                    Save_space(directory)
             else:
-                directory = Save+'/Figures/Bright/' + SourceType[i] + '/'
-                Save_space(directory)
+                if 'Near: ' in Source[i]:
+                    directory = Save+'/Figures/Short/Bright/Near/' + SourceType[i].split('Near: ')[-1] + '/'
+                    Save_space(directory)
+                else:
+                    directory = Save+'/Figures/Short/Bright/' + SourceType[i] + '/'
+                    Save_space(directory)
             
         ani.save(directory+File.split('/')[-1].split('-')[0]+'_'+str(i)+'.mp4',dpi=300)
         plt.close();
