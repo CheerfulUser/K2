@@ -972,7 +972,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
 
                 # Print figures
                 K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType)
-                K2TranPixGif2(events,eventtime,eventmask,Maskdata,thrusters,mywcs,Save,pixelfile,Source,SourceType)
+                K2TranPixGif2(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
             
             
     except (OSError):
