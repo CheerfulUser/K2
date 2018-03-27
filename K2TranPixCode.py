@@ -717,7 +717,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
 
 
 
-def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType):
+def K2TranPixGif(Events,Eventtime,Eventmask,Data,Thrusters,wcs,Save,File,Source,SourceType):
     Writer = animation.writers['ffmpeg']
     writer = Writer(fps=15, metadata=dict(artist='RGRH'), bitrate=1800)
     for i in range(len(Events)):
@@ -942,7 +942,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
 
                 # Print figures
                 K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType)
-                K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
+                K2TranPixGif(events,eventtime,eventmask,Maskdata,thrusters,mywcs,Save,pixelfile,Source,SourceType)
             
             
     except (OSError):
