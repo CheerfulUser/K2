@@ -718,8 +718,8 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
 
 
 def K2TranPixGif(Events,Eventtime,Eventmask,Data,Thrusters,wcs,Save,File,Source,SourceType):
-    Writer = animation.writers['ffmpeg']
-    writer = Writer(fps=15, metadata=dict(artist='RGRH'), bitrate=1800)
+    #Writer = animation.writers['ffmpeg']
+    #writer = Writer(fps=15, metadata=dict(artist='RGRH'), bitrate=1800)
     for i in range(len(Events)):
         position = np.where(Eventmask[i])
         
@@ -779,7 +779,37 @@ def K2TranPixGif(Events,Eventtime,Eventmask,Data,Thrusters,wcs,Save,File,Source,
         ani.save(directory+File.split('/')[-1].split('-')[0]+'_'+str(i)+'.mp4',dpi=300)
         plt.close();
 
+def K2TranPixGif2(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType):
+    # Save the frames to be combined into a gif with ffmpeg with another set of code.
+    for i in range(len(Events)):
+        position = np.where(Eventmask[i])
+        
+        maxcolor = np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1],(Eventmask[i] == 1)])
 
+        xmin = Eventtime[i][0]-(Eventtime[i][1]-Eventtime[i][0])
+        xmax = Eventtime[i][1]+(Eventtime[i][1]-Eventtime[i][0])
+        if xmin < 0:
+            xmin = 0
+        if xmax > len(Data):
+            xmax = len(Data)-1
+        Section = Data[int(xmin):int(xmax),:,:]
+        
+        FrameSave = Save + '/Figures/Frames/' + File.split('/')[-1].split('-')[0] + '/' + str(int(i)) + '/'
+        Save_space(FrameSave)
+        
+        for j in range(Section.shape[0]):
+            filename = FrameSave + str(int(j)).zfill(4)+".png"
+            fig = plt.figure()
+            fig.set_size_inches(6,6)
+            im = plt.imshow(Section[j], origin='lower',vmin = 0, vmax = maxcolor, animated=True)
+            plt.suptitle('Source: '+ Source[i] + ' (' + SourceType[i] + ')')
+            plt.title(File.split('/')[-1].split('-')[0]+' Event # '+str(i))
+            c = plt.colorbar(fraction=0.046, pad=0.04)
+            c.set_label('Counts')
+            plt.plot(position[1],position[0],'r.',ms = 15)
+            
+            plt.save(filename)
+            plt.close();
 
 
 def K2TranPix(pixelfile,save): # More efficient in checking frames
@@ -942,7 +972,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
 
                 # Print figures
                 K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType)
-                K2TranPixGif(events,eventtime,eventmask,Maskdata,thrusters,mywcs,Save,pixelfile,Source,SourceType)
+                K2TranPixGif2(events,eventtime,eventmask,Maskdata,thrusters,mywcs,Save,pixelfile,Source,SourceType)
             
             
     except (OSError):
