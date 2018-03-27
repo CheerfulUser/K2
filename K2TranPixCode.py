@@ -808,7 +808,7 @@ def K2TranPixGif2(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceTyp
             c.set_label('Counts')
             plt.plot(position[1],position[0],'r.',ms = 15)
             
-            plt.save(filename)
+            plt.savefig(filename)
             plt.close();
 
 
