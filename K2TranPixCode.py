@@ -313,7 +313,12 @@ def Remove_asteroids(Asteroid,Asttime,Astmask,Maskdata):
 
 def First_pass(Datacube,Qual,Quality,Thrusters,Pixelfile):
     #calculate the reference frame
-    Framemin = Thrusters[3]+1#FindMinFrame(Datacube)
+    if len(thrusters) > 4:
+        Framemin = thrusters[3]+1
+    elif len(thrusters) > 0:
+        Framemin = thrusters[0]+1
+    else:
+        Framemin = 100 # Arbitrarily chosen, Data is probably screwed anway if there are no thruster firings.
     # Apply object mask to data
     Mask = ThrustObjectMask(Datacube,Thrusters)
 
