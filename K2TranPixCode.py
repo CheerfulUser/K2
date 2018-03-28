@@ -488,23 +488,24 @@ def Identify_masks(Obj):
     Objmasks = []
 
     mask1 = np.zeros((Obj.shape))
-    mask1[np.where(objsub==1)[0][0],np.where(objsub==1)[1][0]] = 1
-    while np.nansum(objsub) > 0:
+    if np.nansum(objsub) > 0:
+        mask1[np.where(objsub==1)[0][0],np.where(objsub==1)[1][0]] = 1
+        while np.nansum(objsub) > 0:
 
-        conv = ((convolve(mask1*1,np.ones((3,3)),mode='constant', cval=0.0)) > 0)*1.0
-        objsub = objsub - mask1
-        objsub[objsub < 0] = 0
+            conv = ((convolve(mask1*1,np.ones((3,3)),mode='constant', cval=0.0)) > 0)*1.0
+            objsub = objsub - mask1
+            objsub[objsub < 0] = 0
 
-        if np.nansum(conv*objsub) > 0:
-            
-            mask1 = mask1 + (conv * objsub)
-            mask1 = (mask1 > 0)*1
-        else:
-            
-            Objmasks.append(mask1)
-            mask1 = np.zeros((Obj.shape))
-            if np.nansum(objsub) > 0:
-                mask1[np.where(objsub==1)[0][0],np.where(objsub==1)[1][0]] = 1
+            if np.nansum(conv*objsub) > 0:
+                
+                mask1 = mask1 + (conv * objsub)
+                mask1 = (mask1 > 0)*1
+            else:
+                
+                Objmasks.append(mask1)
+                mask1 = np.zeros((Obj.shape))
+                if np.nansum(objsub) > 0:
+                    mask1[np.where(objsub==1)[0][0],np.where(objsub==1)[1][0]] = 1
     return Objmasks
 
 def Database_event_check(Data,Eventtime,Eventmask,WCS):
@@ -824,7 +825,12 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             thrusters = np.where((Qual == 1048576) | (Qual == 1089568) | (Qual == 1056768) | (Qual == 1064960) | (Qual == 1081376) | (Qual == 10240) | (Qual == 32768) | (Qual == 1097760))[0]
             quality = np.where(Qual != 0)[0]
             #calculate the reference frame
-            Framemin = thrusters[3]+1
+            if len(thrusters) > 4:
+                Framemin = thrusters[3]+1
+            elif len(thrusters) > 0:
+                Framemin = thrusters[0]+1
+            else:
+                Framemin = 100 # Arbitrarily chosen, Data is probably screwed anway if there are no thruster firings.
             # Apply object mask to data
             Mask = ThrustObjectMask(datacube,thrusters)
 
