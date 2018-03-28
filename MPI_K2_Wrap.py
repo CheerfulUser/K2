@@ -6,7 +6,7 @@ import time as sys_time
 # Import all the functions
 from K2TranPixCode import *
 
-field = 'c01'
+field = 'c14'
 path = '/avatar/ryanr/Data/'+field+'/'
 Files = np.asarray(glob(path+'*.gz'))
 
@@ -59,7 +59,7 @@ for n in range(my_start, my_end+1):
     
     mytimestop = sys_time.time()
     mytime = mytimestop-mytimestart
-    print('n=%g' %n, 'my_time=%f' %mytime)
+    #print('n=%g' %n, 'my_time=%f' %mytime)
 
 
 # MPI collective communication (all reduce)
