@@ -429,7 +429,9 @@ def Motion_correction(Data,Mask,Thrusters):
         AvSplinepoints = np.zeros(len(Thrusters))
         AvSplineind = np.zeros(len(Thrusters))
         for i in range(len(Thrusters)):
-            AvSplinepoints[i] = np.nanmin(Data[Thrusters[i]+1:Thrusters[i]+3,X[j],Y[j]])
+            ErrorCheck = np.copy(Data[Thrusters[i]+1:Thrusters[i]+3,X[j],Y[j]])
+            ErrorCheck[ErrorCheck >= np.nanmedian(ErrorCheck)+3*np.nanstd(ErrorCheck)] = np.nan
+            AvSplinepoints[i] = np.nanmin(ErrorCheck)
             if ~np.isnan(AvSplinepoints[i]):
                 if len(np.where(AvSplinepoints[i] == Data[Thrusters[i]+1:Thrusters[i]+3,X[j],Y[j]])[0]+Thrusters[i]+1) > 1:
                     AvSplineind[i] = np.where(AvSplinepoints[i] == Data[Thrusters[i]+1:Thrusters[i]+3,X[j],Y[j]])[0][0]+Thrusters[i]+1
@@ -446,7 +448,7 @@ def Motion_correction(Data,Mask,Thrusters):
 
                 if abs(Thrusters[i]-Thrusters[i+1]) > 5:
                     try:
-                        Section = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - Spline[Thrusters[i]+2:Thrusters[i+1]]
+                        Section = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - Spline[thrusters[i]+2:thrusters[i+1]]
                         temp2 = np.copy(Section)
                         x = np.arange(0,len(Section))
                         limit =np.nanmedian(np.diff(np.diff(Section)))+2.5*np.nanstd(np.diff(np.diff(Section)))
@@ -466,7 +468,7 @@ def Motion_correction(Data,Mask,Thrusters):
                         if len(yo) == 1:
                             temp[yo] = np.nan
                         xx = np.where(~np.isnan(temp2))[0]
-                        if len(xx) > 3:
+                        if len(xx)/len(x) > 0.5:
                             p3 = np.poly1d(np.polyfit(xx, Section[xx], 3))
                             temp[x+Thrusters[i]+2] = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) #+ Spline[thrusters[i]+2:thrusters[i+1]]
                             fit[x+Thrusters[i]+2] = p3(x)
@@ -633,7 +635,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         fig = plt.figure(figsize=(10,6))
         # set up subplot grid
         gridspec.GridSpec(2,3)
-        plt.suptitle('Source: '+ Source[i] + ' (' + SourceType[i] + ')')
+        plt.suptitle('EPIC ID: ' + File.split('ktwo')[-1].split('-')[0] + '            Source: '+ Source[i] + ' (' + SourceType[i] + ')')
         # large subplot
         plt.subplot2grid((2,3), (0,0), colspan=2, rowspan=2)
         plt.title('Event light curve (BJD '+str(round(Time[Eventtime[i][0]]-Time[0],2))+', RA '+str(round(Coord[0],3))+', DEC '+str(round(Coord[1],3))+')')
