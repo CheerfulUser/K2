@@ -470,12 +470,12 @@ def Motion_correction(Data,Mask,Thrusters):
                         xx = np.where(~np.isnan(temp2))[0]
                         if len(xx)/len(x) > 0.5:
                             p3 = np.poly1d(np.polyfit(xx, Section[xx], 3))
-                            temp[x+Thrusters[i]+2] = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) #+ Spline[thrusters[i]+2:thrusters[i+1]]
+                            temp[x+Thrusters[i]+2] = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) 
                             fit[x+Thrusters[i]+2] = p3(x)
-                        #else:
-                         #   print(i)
+                        
                     except RuntimeError:
                         pass
+
         Corrected[:,X[j],Y[j]] = temp
         
                     
@@ -635,14 +635,14 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         fig = plt.figure(figsize=(10,6))
         # set up subplot grid
         gridspec.GridSpec(2,3)
-        plt.suptitle('EPIC ID: ' + File.split('ktwo')[-1].split('-')[0] + '            Source: '+ Source[i] + ' (' + SourceType[i] + ')')
+        plt.suptitle('EPIC ID: ' + File.split('ktwo')[-1].split('-')[0] + '\nSource: '+ Source[i] + ' (' + SourceType[i] + ')')
         # large subplot
         plt.subplot2grid((2,3), (0,0), colspan=2, rowspan=2)
         plt.title('Event light curve (BJD '+str(round(Time[Eventtime[i][0]]-Time[0],2))+', RA '+str(round(Coord[0],3))+', DEC '+str(round(Coord[1],3))+')')
         plt.xlabel('Time (+'+str(Time[0])+' BJD)')
         plt.ylabel('Counts')
         plt.plot(Time - Time[0], LC,'.', label = 'Event LC')
-        plt.plot(Time - Time[0], OrigLC,'.', label = 'Original data')
+        plt.plot(Time - Time[0], OrigLC,'m+',alpha=0.9, label = 'Original data')
         plt.plot(Time - Time[0], BGLC,'k.', label = 'Background LC')
         plt.plot(Time - Time[0], ObjLC,'kx', label = 'Scaled object LC')
         if Eventtime[i][-1] < len(Time):
@@ -851,7 +851,7 @@ def K2TranPixGif2(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceTyp
         Save_space(directory)
 
         framerate = (xmax-xmin)/5
-        ffmpegcall = 'ffmpeg -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4'
+        ffmpegcall = 'ffmpeg -nostats -loglevel 0 -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4'
 
         os.system(ffmpegcall);
 
