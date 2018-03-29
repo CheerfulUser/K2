@@ -664,7 +664,8 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
             xmin = 0
         if xmax > Time[-1] - Time[0]:
             xmax = Time[-1] - Time[0]
-        plt.xlim(xmin,xmax) # originally 48 for some reason
+        if np.isfinite(xmax) & np.isfinite(xmin):
+            plt.xlim(xmin,xmax)
         plt.ylim(0,np.nanmax(LC[Eventtime[i][0]:Eventtime[i][-1]])+0.1*np.nanmax(LC[Eventtime[i][0]:Eventtime[i][-1]]))
         plt.legend(loc = 1)
         # small subplot 1 Reference image plot
