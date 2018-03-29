@@ -315,7 +315,7 @@ def First_pass(Datacube,Qual,Quality,Thrusters,Pixelfile):
     #calculate the reference frame
     if len(Thrusters) > 4:
         Framemin = Thrusters[3]+1
-    elif len(thrusters) > 0:
+    elif len(Thrusters) > 0:
         Framemin = Thrusters[0]+1
     else:
         Framemin = 100 # Arbitrarily chosen, Data is probably screwed anway if there are no thruster firings.
@@ -786,7 +786,7 @@ def K2TranPixGif2(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceTyp
     # Save the frames to be combined into a gif with ffmpeg with another set of code.
     for i in range(len(Events)):
         position = np.where(Eventmask[i])
-        
+
         maxcolor = np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1],(Eventmask[i] == 1)])
 
         xmin = Eventtime[i][0]-(Eventtime[i][1]-Eventtime[i][0])
@@ -796,44 +796,13 @@ def K2TranPixGif2(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceTyp
         if xmax > len(Data):
             xmax = len(Data)-1
         Section = Data[int(xmin):int(xmax),:,:]
-        
-        FrameSave = Save + '/Figures/Frames/'
 
-        if Eventtime[i][-1] - Eventtime[i][0] >= 78:
-            if maxcolor <= 10:
-                if 'Near: ' in Source[i]:
-                    directory = FrameSave + '/Long/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-                    
-                else:
-                    directory = FrameSave + '/Long/Faint/' + SourceType[i] + '/'
-                    
-            else:
-                if 'Near: ' in Source[i]:
-                    directory = FrameSave + '/Long/Bright/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-                    
-                else:
-                    directory = FrameSave + '/Long/Bright/' + SourceType[i] + '/'
-                    
-        else:
-            if maxcolor <= 10:
-                if 'Near: ' in Source[i]:
-                    directory = FrameSave + '/Short/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-                    
-                else:
-                    directory = FrameSave + '/Short/Faint/' + SourceType[i] + '/'
-                    
-            else:
-                if 'Near: ' in Source[i]:
-                    directory = FrameSave + '/Short/Bright/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-                    
-                else:
-                    directory = FrameSave + '/Short/Bright/' + SourceType[i] + '/'
-                    
-        directory = directory + File.split('/')[-1].split('-')[0] + '/' + str(int(i)) + '/'
+        FrameSave = Save + '/Figures/Frames/' + File.split('/')[-1].split('-')[0] + '/Event_' + str(int(i)) + '/'
+
         Save_space(FrameSave)
-        
+
         for j in range(Section.shape[0]):
-            filename = FrameSave + str(int(j)).zfill(4)+".png"
+            filename = FrameSave + 'Frame_' + str(int(j)).zfill(4)+".png"
             fig = plt.figure()
             fig.set_size_inches(6,6)
             im = plt.imshow(Section[j], origin='lower',vmin = 0, vmax = maxcolor, animated=True)
@@ -842,9 +811,47 @@ def K2TranPixGif2(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceTyp
             c = plt.colorbar(fraction=0.046, pad=0.04)
             c.set_label('Counts')
             plt.plot(position[1],position[0],'r.',ms = 15)
-            
+
             plt.savefig(filename)
             plt.close();
+
+        if Eventtime[i][-1] - Eventtime[i][0] >= 78:
+            if maxcolor <= 10:
+                if 'Near: ' in Source[i]:
+                    directory = Save+'/Figures/Long/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
+
+                else:
+                    directory = Save+'/Figures/Long/Faint/' + SourceType[i] + '/'
+
+            else:
+                if 'Near: ' in Source[i]:
+                    directory = Save+'/Figures/Long/Bright/Near/' + SourceType[i].split('Near: ')[-1] + '/'
+
+                else:
+                    directory = Save+'/Figures/Long/Bright/' + SourceType[i] + '/'
+
+        else:
+            if maxcolor <= 10:
+                if 'Near: ' in Source[i]:
+                    directory = Save+'/Figures/Short/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
+
+                else:
+                    directory = Save+'/Figures/Short/Faint/' + SourceType[i] + '/'
+
+            else:
+                if 'Near: ' in Source[i]:
+                    directory = Save+'/Figures/Short/Bright/Near/' + SourceType[i].split('Near: ')[-1] + '/'
+
+                else:
+                    directory = Save+'/Figures/Short/Bright/' + SourceType[i] + '/'
+
+
+        Save_space(directory)
+
+        framerate = (xmax-xmin)/5
+        ffmpegcall = 'ffmpeg -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4'
+
+        os.system(ffmpegcall);
 
 
 def K2TranPix(pixelfile,save): # More efficient in checking frames
