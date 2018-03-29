@@ -203,7 +203,7 @@ def ThrusterElim(Events,Times,Masks,Firings,Quality,qual,Data):
                 end = Quality[(Quality == Times[i][-1])] #& (Quality <= Times[i][-1]+1)]
             eventthrust = Firings[(Firings >= Times[i][0]) & (Firings <= Times[i][-1])]
 
-            if (~begining.any() & ~end.any()) & (len(eventthrust) < 3):
+            if (~begining.any() & ~end.any()) & Range < 78: # Change to the nominal cadences between 3 thruster firings. 
                 
                 if Asteroid_fitter(Masks[i],Times[i],Data):
                     asteroid.append(Events[i])
@@ -519,9 +519,9 @@ def Database_event_check(Data,Eventtime,Eventmask,WCS):
     Objtype = []
     for I in range(len(Eventtime)):
         maxcolor = np.nanmax(Data[Eventtime[I][0]:Eventtime[I][-1]]*(Eventmask[I]==1))
-            
+
         Mid = np.where(Data[Eventtime[I][0]:Eventtime[I][-1]]*(Eventmask[I]==1) == maxcolor)
-        
+
         Coord = pix2coord(Mid[1],Mid[0],WCS)
 
         c = coordinates.SkyCoord(ra=Coord[0], dec=Coord[1],unit=(u.deg, u.deg), frame='icrs')
@@ -531,14 +531,12 @@ def Database_event_check(Data,Eventtime,Eventmask,WCS):
         try:
             result_table = Ned.query_region(c, radius = 6*u.arcsec, equinox='J2000')
             Ob = np.asarray(result_table['Object Name'])[0].decode("utf-8") 
-            if b'*' == result_table['Type'][0]:
-                objtype = 'Star'
-            elif b'G' == result_table['Type'][0]:
-                objtype = 'Galaxy'
-            elif b'QSO' == result_table['Type'][0]:
-                objtype = 'QSO'
-            else:
-                objtype = 'Ned'
+            objtype = result_table['Type'][0].decode("utf-8") 
+
+            if '*' in objtype:
+                objtype = objtype.replace('*','Star')
+            if '!' in objtype:
+                objtype = objtype.replace('!','G') # Galactic sources
 
         except RemoteServiceError:
             result_table = Simbad.query_region(c,radius = 6*u.arcsec)
@@ -550,8 +548,7 @@ def Database_event_check(Data,Eventtime,Eventmask,WCS):
                 pass
         Objects.append(Ob)
         Objtype.append(objtype)
-    #Objects = np.array(Objects)
-    #Objtype = np.array(Objtype)
+        
     return Objects, Objtype
 
 def Database_check_mask(Datacube,Thrusters,Masks,WCS):
@@ -564,7 +561,7 @@ def Database_check_mask(Datacube,Thrusters,Masks,WCS):
 
         Mid = np.where(av*Masks[I] == np.nanmax(av*Masks[I]))
 
-        Coord = pix2coord(Mid[0][0],Mid[1][0],WCS)
+        Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
 
         c = coordinates.SkyCoord(ra=Coord[0], dec=Coord[1],unit=(u.deg, u.deg), frame='icrs')
         Ob = 'Unknown'
@@ -572,15 +569,13 @@ def Database_check_mask(Datacube,Thrusters,Masks,WCS):
         try:
             result_table = Ned.query_region(c, radius = 12*u.arcsec, equinox='J2000')
             Ob = np.asarray(result_table['Object Name'])[0].decode("utf-8") 
-            if b'*' == result_table['Type'][0]:
-                objtype = 'Star'
-            elif b'G' == result_table['Type'][0]:
-                objtype = 'Galaxy'
-            elif b'QSO' == result_table['Type'][0]:
-                objtype = 'QSO'
-            else:
-                objtype = 'Ned'
+            objtype = result_table['Type'][0].decode("utf-8") 
 
+            if '*' in objtype:
+                objtype = objtype.replace('*','Star')
+            if '!' in objtype:
+                objtype = objtype.replace('!','G') # Galactic sources
+                
         except RemoteServiceError:
             result_table = Simbad.query_region(c,radius = 12*u.arcsec)
             try:
@@ -591,8 +586,7 @@ def Database_check_mask(Datacube,Thrusters,Masks,WCS):
                 pass
         Objects.append(Ob)
         Objtype.append(objtype)
-    #Objects = np.array(Objects)
-    #Objtype = np.array(Objtype)
+
     return Objects, Objtype
 
 def Near_which_mask(Eventmask,Objmasks):
@@ -631,7 +625,9 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
 
         Obj = np.ma.masked_invalid(Data[Framemin]).mask
         ObjLC = np.nansum(Datacube*Obj,axis = (1,2))
-        ObjLC = ObjLC/np.nanmedian(ObjLC)*np.nanmedian(LC)#np.nanmax(LC)/np.nanmax(ObjLC)
+        ObjLC = ObjLC/np.nanmedian(ObjLC)*np.nanmedian(LC)
+
+        OrigLC = np.nansum(Datacube*Eventmask[i], axis = (1,2))
 
 
         fig = plt.figure(figsize=(10,6))
@@ -644,6 +640,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         plt.xlabel('Time (+'+str(Time[0])+' BJD)')
         plt.ylabel('Counts')
         plt.plot(Time - Time[0], LC,'.', label = 'Event LC')
+        plt.plot(Time - Time[0], OrigLC,'.', label = 'Original data')
         plt.plot(Time - Time[0], BGLC,'k.', label = 'Background LC')
         plt.plot(Time - Time[0], ObjLC,'kx', label = 'Scaled object LC')
         if Eventtime[i][-1] < len(Time):
@@ -686,7 +683,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         plt.plot(position[1],position[0],'r.',ms = 15)
         
 
-        if len(Thrusters[(Thrusters >= Eventtime[i][0]) & (Thrusters <= Eventtime[i][-1])]) >= 3:
+        if Eventtime[i][-1] - Eventtime[i][0] >= 78:
             if maxcolor <= 10:
                 if 'Near: ' in Source[i]:
                     directory = Save+'/Figures/Long/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
@@ -800,7 +797,39 @@ def K2TranPixGif2(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceTyp
             xmax = len(Data)-1
         Section = Data[int(xmin):int(xmax),:,:]
         
-        FrameSave = Save + '/Figures/Frames/' + File.split('/')[-1].split('-')[0] + '/' + str(int(i)) + '/'
+        FrameSave = Save + '/Figures/Frames/'
+
+        if Eventtime[i][-1] - Eventtime[i][0] >= 78:
+            if maxcolor <= 10:
+                if 'Near: ' in Source[i]:
+                    directory = FrameSave + '/Long/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
+                    
+                else:
+                    directory = FrameSave + '/Long/Faint/' + SourceType[i] + '/'
+                    
+            else:
+                if 'Near: ' in Source[i]:
+                    directory = FrameSave + '/Long/Bright/Near/' + SourceType[i].split('Near: ')[-1] + '/'
+                    
+                else:
+                    directory = FrameSave + '/Long/Bright/' + SourceType[i] + '/'
+                    
+        else:
+            if maxcolor <= 10:
+                if 'Near: ' in Source[i]:
+                    directory = FrameSave + '/Short/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
+                    
+                else:
+                    directory = FrameSave + '/Short/Faint/' + SourceType[i] + '/'
+                    
+            else:
+                if 'Near: ' in Source[i]:
+                    directory = FrameSave + '/Short/Bright/Near/' + SourceType[i].split('Near: ')[-1] + '/'
+                    
+                else:
+                    directory = FrameSave + '/Short/Bright/' + SourceType[i] + '/'
+                    
+        directory = directory + File.split('/')[-1].split('-')[0] + '/' + str(int(i)) + '/'
         Save_space(FrameSave)
         
         for j in range(Section.shape[0]):
