@@ -12,6 +12,7 @@ from astropy.io import fits
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.wcs import WCS
+import xml
 
 from astroquery.simbad import Simbad
 from astroquery.ned import Ned
