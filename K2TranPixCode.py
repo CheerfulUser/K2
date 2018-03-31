@@ -432,6 +432,10 @@ def Motion_correction(Data,Mask,Thrusters):
             ErrorCheck = np.copy(Data[Thrusters[i]+1:Thrusters[i]+3,X[j],Y[j]])
             ErrorCheck[ErrorCheck >= np.nanmedian(ErrorCheck)+3*np.nanstd(ErrorCheck)] = np.nan
             AvSplinepoints[i] = np.nanmin(ErrorCheck)
+            
+            if (i < len(Thrusters)-1): 
+                if (Thrusters[i+1] - Thrusters[i] < 20):
+                    AvSplinepoints[i] = np.nan
             if ~np.isnan(AvSplinepoints[i]):
                 if len(np.where(AvSplinepoints[i] == Data[Thrusters[i]+1:Thrusters[i]+3,X[j],Y[j]])[0]+Thrusters[i]+1) > 1:
                     AvSplineind[i] = np.where(AvSplinepoints[i] == Data[Thrusters[i]+1:Thrusters[i]+3,X[j],Y[j]])[0][0]+Thrusters[i]+1
@@ -448,7 +452,7 @@ def Motion_correction(Data,Mask,Thrusters):
 
                 if abs(Thrusters[i]-Thrusters[i+1]) > 5:
                     try:
-                        Section = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - Spline[Thrusters[i]+2:Thrusters[i+1]]
+                        Section = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - Spline[thrusters[i]+2:thrusters[i+1]]
                         temp2 = np.copy(Section)
                         x = np.arange(0,len(Section))
                         limit =np.nanmedian(np.diff(np.diff(Section)))+2.5*np.nanstd(np.diff(np.diff(Section)))
@@ -468,14 +472,14 @@ def Motion_correction(Data,Mask,Thrusters):
                         if len(yo) == 1:
                             temp[yo] = np.nan
                         xx = np.where(~np.isnan(temp2))[0]
-                        if len(xx)/len(x) > 0.5:
+                        if (len(xx)/len(x) > 0.5) & (len(xx) > 5):
                             p3 = np.poly1d(np.polyfit(xx, Section[xx], 3))
-                            temp[x+Thrusters[i]+2] = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) 
+                            temp[x+Thrusters[i]+2] = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) #+ Spline[thrusters[i]+2:thrusters[i+1]]
                             fit[x+Thrusters[i]+2] = p3(x)
-                        
+                        #else:
+                         #   print(i)
                     except RuntimeError:
                         pass
-
         Corrected[:,X[j],Y[j]] = temp
         
                     
