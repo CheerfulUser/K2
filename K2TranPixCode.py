@@ -218,7 +218,7 @@ def ThrusterElim(Events,Times,Masks,Firings,Quality,qual,Data):
                         temp2.append(Times[i])
                         temp3.append(Masks[i])
 
-            elif len(eventthrust) >= 3:
+            elif Range >= 78:
 
                 if begining.shape[0] == 0:
                     begining = 0
@@ -475,10 +475,9 @@ def Motion_correction(Data,Mask,Thrusters):
                         xx = np.where(~np.isnan(temp2))[0]
                         if (len(xx)/len(x) > 0.5) & (len(xx) > 5):
                             p3 = np.poly1d(np.polyfit(xx, Section[xx], 3))
-                            temp[x+Thrusters[i]+2] = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) #+ Spline[thrusters[i]+2:thrusters[i+1]]
+                            temp[x+Thrusters[i]+2] = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) 
                             fit[x+Thrusters[i]+2] = p3(x)
-                        #else:
-                         #   print(i)
+
                     except RuntimeError:
                         pass
         Corrected[:,X[j],Y[j]] = temp
