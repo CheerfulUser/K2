@@ -527,8 +527,10 @@ def Database_event_check(Data,Eventtime,Eventmask,WCS):
         maxcolor = np.nanmax(Data[Eventtime[I][0]:Eventtime[I][-1]]*(Eventmask[I]==1))
 
         Mid = np.where(Data[Eventtime[I][0]:Eventtime[I][-1]]*(Eventmask[I]==1) == maxcolor)
-
-        Coord = pix2coord(Mid[1],Mid[0],WCS)
+        if len(Mid[0]) == 1:
+            Coord = pix2coord(Mid[1],Mid[0],WCS)
+        elif len(Mid[0]) > 1:
+            Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
 
         c = coordinates.SkyCoord(ra=Coord[0], dec=Coord[1],unit=(u.deg, u.deg), frame='icrs')
 
@@ -566,8 +568,10 @@ def Database_check_mask(Datacube,Thrusters,Masks,WCS):
     for I in range(len(Masks)):
 
         Mid = np.where(av*Masks[I] == np.nanmax(av*Masks[I]))
-
-        Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
+        if len(Mid[0]) == 1:
+            Coord = pix2coord(Mid[1],Mid[0],WCS)
+        elif len(Mid[0]) > 1:
+            Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
 
         c = coordinates.SkyCoord(ra=Coord[0], dec=Coord[1],unit=(u.deg, u.deg), frame='icrs')
         Ob = 'Unknown'
@@ -804,6 +808,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
         dat = hdu[1].data
         datacube = fits.ImageHDU(hdu[1].data.field('FLUX')[:]).data#np.copy(testdata)#
         if datacube.shape[1] > 1 and datacube.shape[2] > 1:
+            print(pixelfile)
             time = dat["TIME"] + 2454833.0
             Qual = hdu[1].data.field('QUALITY')
             thrusters = np.where((Qual == 1048576) | (Qual == 1089568) | (Qual == 1056768) | (Qual == 1064960) | (Qual == 1081376) | (Qual == 10240) | (Qual == 32768) | (Qual == 1097760))[0]
@@ -945,8 +950,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             Fieldsave = Save + '/Field/' + pixelfile.split('ktwo')[-1].split('-')[0]+'_Field'
             Save_space(Save + '/Field/')
             np.savez(Fieldsave)
-            print('saved')
-            print(Save)
+
 
             # Find all spatially seperate objects in the event mask.
             Objmasks = Identify_masks(obj)
