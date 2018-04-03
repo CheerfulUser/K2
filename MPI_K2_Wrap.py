@@ -20,6 +20,7 @@ try:
     lines  = log.split('\n')
     files = []
     for line in lines:
+        print(line)
         if '/avatar/ryanr/Data/' in line:
             files.append(line)
     for j in range(len(files)):
