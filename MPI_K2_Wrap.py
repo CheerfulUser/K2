@@ -17,7 +17,7 @@ Files = np.asarray(glob(path+'*.gz'))
 try:
     Log = open('/avatar/ryanr/Code/shell'+ field + '.out')
     log = Log.read()
-    lines  = test.split('\n')
+    lines  = log.split('\n')
     files = []
     for line in lines:
         if '/avatar/ryanr/Data/' in line:
