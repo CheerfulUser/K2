@@ -17,6 +17,7 @@ from astroquery.simbad import Simbad
 from astroquery.ned import Ned
 from astroquery.ned.core import RemoteServiceError
 from xml.parsers.expat import ExpatError
+from astroquery.exceptions import TableParseError
 from astropy import coordinates
 import astropy.units as u
 
@@ -431,7 +432,7 @@ def Motion_correction(Data,Mask,Thrusters):
         AvSplineind = np.zeros(len(Thrusters))
         for i in range(len(Thrusters)):
             ErrorCheck = np.copy(Data[Thrusters[i]+1:Thrusters[i]+3,X[j],Y[j]])
-            ErrorCheck[ErrorCheck >= np.nanmedian(ErrorCheck)+3*np.nanstd(ErrorCheck)] = np.nan
+            ErrorCheck[ErrorCheck >= np.nanmedian(Data[Thrusters[i]+3:Thrusters[i+1],X[j],Y[j]])+2*np.nanstd(Data[Thrusters[i]+3:Thrusters[i+1],X[j],Y[j]])] = np.nan
             AvSplinepoints[i] = np.nanmin(ErrorCheck)
             
             if (i < len(Thrusters)-1): 
@@ -473,7 +474,7 @@ def Motion_correction(Data,Mask,Thrusters):
                         if len(yo) == 1:
                             temp[yo] = np.nan
                         xx = np.where(~np.isnan(temp2))[0]
-                        if (len(xx)/len(x) > 0.5) & (len(xx) > 5):
+                        if (len(xx)/len(x) > 0.5) & (len(xx) > 10):
                             p3 = np.poly1d(np.polyfit(xx, Section[xx], 3))
                             temp[x+Thrusters[i]+2] = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) 
                             fit[x+Thrusters[i]+2] = p3(x)
@@ -546,13 +547,13 @@ def Database_event_check(Data,Eventtime,Eventmask,WCS):
             if '!' in objtype:
                 objtype = objtype.replace('!','G') # Galactic sources
                 
-        except (RemoteServiceError,ExpatError) as e:
+        except (RemoteServiceError,ExpatError,TableParseError) as e:
             result_table = Simbad.query_region(c,radius = 6*u.arcsec)
             try:
                 if len(result_table.colnames) > 0:
                     Ob = np.asarray(result_table['MAIN_ID'])[0].decode("utf-8") 
                     objtype = 'Simbad'
-            except (AttributeError,ExpatError) as e:
+            except (AttributeError,ExpatError,TableParseError) as e:
                 pass
         Objects.append(Ob)
         Objtype.append(objtype)
@@ -586,13 +587,13 @@ def Database_check_mask(Datacube,Thrusters,Masks,WCS):
             if '!' in objtype:
                 objtype = objtype.replace('!','G') # Galactic sources
                 
-        except (RemoteServiceError,ExpatError) as e:
+        except (RemoteServiceError,ExpatError,TableParseError) as e:
             result_table = Simbad.query_region(c,radius = 6*u.arcsec)
             try:
                 if len(result_table.colnames) > 0:
                     Ob = np.asarray(result_table['MAIN_ID'])[0].decode("utf-8") 
                     objtype = 'Simbad'
-            except (AttributeError,ExpatError) as e:
+            except (AttributeError,ExpatError,TableParseError) as e:
                 pass
         Objects.append(Ob)
         Objtype.append(objtype)
