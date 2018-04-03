@@ -14,19 +14,19 @@ save = '/avatar/ryanr/Results/'
 
 Files = np.asarray(glob(path+'*.gz'))
 # Code to remove files from the list that have already been calculated
-try:
-    Log = open('/avatar/ryanr/Code/shell'+ field + '.out')
-    log = Log.read()
-    lines  = log.split('\n')
-    files = []
-    for line in lines:
-        if '/avatar/ryanr/Data/' in line:
-            print(line)
-            files.append(line)
-    for j in range(len(files)):
-        Files = np.delete(Files,np.where(files[j] in Files))
-except (FileNotFoundError):
-    print('FileNotFoundError')
+#try:
+#    Log = open('/avatar/ryanr/Code/shell'+ field + '.out')
+#    log = Log.read()
+#    lines  = log.split('\n')
+#    files = []
+#    for line in lines:
+#        if '/avatar/ryanr/Data/' in line:
+#            print(line)
+#            files.append(line)
+#    for j in range(len(files)):
+#        Files = np.delete(Files,np.where(files[j] in Files))
+#except (FileNotFoundError):
+#    print('FileNotFoundError')
 
 dims = int(len(Files)) # set to be length of your task
 start = sys_time.time()
