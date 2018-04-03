@@ -547,13 +547,13 @@ def Database_event_check(Data,Eventtime,Eventmask,WCS):
             if '!' in objtype:
                 objtype = objtype.replace('!','G') # Galactic sources
                 
-        except (RemoteServiceError,ExpatError,TableParseError) as e:
+        except (RemoteServiceError,ExpatError,TableParseError,ValueError) as e:
             result_table = Simbad.query_region(c,radius = 6*u.arcsec)
             try:
                 if len(result_table.colnames) > 0:
                     Ob = np.asarray(result_table['MAIN_ID'])[0].decode("utf-8") 
                     objtype = 'Simbad'
-            except (AttributeError,ExpatError,TableParseError) as e:
+            except (AttributeError,ExpatError,TableParseError,ValueError) as e:
                 pass
         Objects.append(Ob)
         Objtype.append(objtype)
@@ -587,13 +587,13 @@ def Database_check_mask(Datacube,Thrusters,Masks,WCS):
             if '!' in objtype:
                 objtype = objtype.replace('!','G') # Galactic sources
                 
-        except (RemoteServiceError,ExpatError,TableParseError) as e:
+        except (RemoteServiceError,ExpatError,TableParseError,ValueError) as e:
             result_table = Simbad.query_region(c,radius = 6*u.arcsec)
             try:
                 if len(result_table.colnames) > 0:
                     Ob = np.asarray(result_table['MAIN_ID'])[0].decode("utf-8") 
                     objtype = 'Simbad'
-            except (AttributeError,ExpatError,TableParseError) as e:
+            except (AttributeError,ExpatError,TableParseError,ValueError) as e:
                 pass
         Objects.append(Ob)
         Objtype.append(objtype)

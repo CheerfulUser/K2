@@ -6,7 +6,7 @@ import time as sys_time
 # Import all the functions
 from K2TranPixCode import *
 
-field = 'c14'
+field = 'c01'
 path = '/avatar/ryanr/Data/'+field+'/'
 Files = np.asarray(glob(path+'*.gz'))
 
