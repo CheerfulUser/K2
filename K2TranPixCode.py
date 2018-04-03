@@ -430,13 +430,13 @@ def Motion_correction(Data,Mask,Thrusters):
         zz = np.arange(0,len(Data))
         AvSplinepoints = np.zeros(len(Thrusters))
         AvSplineind = np.zeros(len(Thrusters))
-        for i in range(len(Thrusters)):
+        for i in range(len(Thrusters)-1):
             ErrorCheck = np.copy(Data[Thrusters[i]+1:Thrusters[i]+3,X[j],Y[j]])
             ErrorCheck[ErrorCheck >= np.nanmedian(Data[Thrusters[i]+3:Thrusters[i+1],X[j],Y[j]])+2*np.nanstd(Data[Thrusters[i]+3:Thrusters[i+1],X[j],Y[j]])] = np.nan
             AvSplinepoints[i] = np.nanmin(ErrorCheck)
             
             if (i < len(Thrusters)-1): 
-                if (Thrusters[i+1] - Thrusters[i] < 20):
+                if (Thrusters[i+1] - Thrusters[i] < 15):
                     AvSplinepoints[i] = np.nan
             if ~np.isnan(AvSplinepoints[i]):
                 if len(np.where(AvSplinepoints[i] == Data[Thrusters[i]+1:Thrusters[i]+3,X[j],Y[j]])[0]+Thrusters[i]+1) > 1:
@@ -500,24 +500,23 @@ def Identify_masks(Obj):
     Objmasks = []
 
     mask1 = np.zeros((Obj.shape))
-    if np.nansum(objsub) > 0:
-        mask1[np.where(objsub==1)[0][0],np.where(objsub==1)[1][0]] = 1
-        while np.nansum(objsub) > 0:
+    mask1[np.where(objsub==1)[0][0],np.where(objsub==1)[1][0]] = 1
+    while np.nansum(objsub) > 0:
 
-            conv = ((convolve(mask1*1,np.ones((3,3)),mode='constant', cval=0.0)) > 0)*1.0
-            objsub = objsub - mask1
-            objsub[objsub < 0] = 0
+        conv = ((convolve(mask1*1,np.ones((3,3)),mode='constant', cval=0.0)) > 0)*1.0
+        objsub = objsub - mask1
+        objsub[objsub < 0] = 0
 
-            if np.nansum(conv*objsub) > 0:
-                
-                mask1 = mask1 + (conv * objsub)
-                mask1 = (mask1 > 0)*1
-            else:
-                
-                Objmasks.append(mask1)
-                mask1 = np.zeros((Obj.shape))
-                if np.nansum(objsub) > 0:
-                    mask1[np.where(objsub==1)[0][0],np.where(objsub==1)[1][0]] = 1
+        if np.nansum(conv*objsub) > 0:
+            
+            mask1 = mask1 + (conv * objsub)
+            mask1 = (mask1 > 0)*1
+        else:
+            
+            Objmasks.append(mask1)
+            mask1 = np.zeros((Obj.shape))
+            if np.nansum(objsub) > 0:
+                mask1[np.where(objsub==1)[0][0],np.where(objsub==1)[1][0]] = 1
     return Objmasks
 
 def Database_event_check(Data,Eventtime,Eventmask,WCS):
@@ -548,8 +547,8 @@ def Database_event_check(Data,Eventtime,Eventmask,WCS):
                 objtype = objtype.replace('!','G') # Galactic sources
                 
         except (RemoteServiceError,ExpatError,TableParseError,ValueError) as e:
-            result_table = Simbad.query_region(c,radius = 6*u.arcsec)
             try:
+                result_table = Simbad.query_region(c,radius = 6*u.arcsec)
                 if len(result_table.colnames) > 0:
                     Ob = np.asarray(result_table['MAIN_ID'])[0].decode("utf-8") 
                     objtype = 'Simbad'
@@ -588,8 +587,8 @@ def Database_check_mask(Datacube,Thrusters,Masks,WCS):
                 objtype = objtype.replace('!','G') # Galactic sources
                 
         except (RemoteServiceError,ExpatError,TableParseError,ValueError) as e:
-            result_table = Simbad.query_region(c,radius = 6*u.arcsec)
             try:
+                result_table = Simbad.query_region(c,radius = 6*u.arcsec)
                 if len(result_table.colnames) > 0:
                     Ob = np.asarray(result_table['MAIN_ID'])[0].decode("utf-8") 
                     objtype = 'Simbad'
