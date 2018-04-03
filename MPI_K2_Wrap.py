@@ -20,14 +20,13 @@ try:
     lines  = log.split('\n')
     files = []
     for line in lines:
-
         if '/avatar/ryanr/Data/' in line:
             print(line)
             files.append(line)
     for j in range(len(files)):
         Files = np.delete(Files,np.where(files[j] in Files))
 except (FileNotFoundError):
-    pass
+    print('FileNotFoundError')
 
 dims = int(len(Files)) # set to be length of your task
 start = sys_time.time()
