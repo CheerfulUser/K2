@@ -545,6 +545,12 @@ def Database_event_check(Data,Eventtime,Eventmask,WCS):
                 objtype = objtype.replace('*','Star')
             if '!' in objtype:
                 objtype = objtype.replace('!','G') # Galactic sources
+            try:
+                result_table = Simbad.query_region(c,radius = 6*u.arcsec)
+                if len(result_table.colnames) > 0:
+                    objtype = objtype + ' Simbad'
+            except (AttributeError,ExpatError,TableParseError,ValueError) as e:
+                pass
                 
         except (RemoteServiceError,ExpatError,TableParseError,ValueError) as e:
             try:
@@ -585,6 +591,12 @@ def Database_check_mask(Datacube,Thrusters,Masks,WCS):
                 objtype = objtype.replace('*','Star')
             if '!' in objtype:
                 objtype = objtype.replace('!','G') # Galactic sources
+            try:
+                result_table = Simbad.query_region(c,radius = 6*u.arcsec)
+                if len(result_table.colnames) > 0:
+                    objtype = objtype + ' Simbad'
+            except (AttributeError,ExpatError,TableParseError,ValueError) as e:
+                pass
                 
         except (RemoteServiceError,ExpatError,TableParseError,ValueError) as e:
             try:
@@ -597,7 +609,7 @@ def Database_check_mask(Datacube,Thrusters,Masks,WCS):
         Objects.append(Ob)
         Objtype.append(objtype)
 
-    return Objects, Objtype`
+    return Objects, Objtype
 
 def Near_which_mask(Eventmask,Objmasks):
     # Finds which mask in the object mask an event is near. The value assigned to Near_mask 
@@ -619,7 +631,7 @@ def Save_space(Save):
     except FileExistsError:
         pass
 
-def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quality,Thrusters,Framemin,Datacube,Source,SourceType):
+def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quality,Thrusters,Framemin,Datacube,Source,SourceType,ObjMask):
     for i in range(len(Events)):
         # Check if there are multiple transients
         #Find Coords of transient
@@ -633,7 +645,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         BG[BG <= 0] =np.nan
         BGLC = np.nanmedian(BG, axis = (1,2))
 
-        Obj = np.ma.masked_invalid(Data[Framemin]).mask
+        Obj = ObjMask[i]
         ObjLC = np.nansum(Datacube*Obj,axis = (1,2))
         ObjLC = ObjLC/np.nanmedian(ObjLC)*np.nanmedian(LC)
 
@@ -672,8 +684,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
             xmin = 0
         if xmax > Time[-1] - Time[0]:
             xmax = Time[-1] - Time[0]
-        if np.isfinite(xmax) & np.isfinite(xmin):
-            plt.xlim(xmin,xmax)
+        plt.xlim(xmin,xmax) # originally 48 for some reason
         plt.ylim(np.nanmedian(LC)-np.nanstd(LC),np.nanmax(LC[Eventtime[i][0]:Eventtime[i][-1]])+0.1*np.nanmax(LC[Eventtime[i][0]:Eventtime[i][-1]]))
         plt.legend(loc = 1)
         # small subplot 1 Reference image plot
@@ -727,7 +738,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
             
 
         plt.savefig(directory+File.split('/')[-1].split('-')[0]+'_'+str(i)+'.pdf', bbox_inches = 'tight')
-        #plt.close();
+        plt.close();
 
 def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType):
     # Save the frames to be combined into a gif with ffmpeg with another set of code.
@@ -954,18 +965,25 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
 
             # Find all spatially seperate objects in the event mask.
             Objmasks = Identify_masks(obj)
+            Objmasks = np.array(Objmasks)
+            
             if len(events) > 0:
                 Source, SourceType = Database_event_check(Maskdata,eventtime,eventmask,mywcs)
                 ObjName, ObjType = Database_check_mask(datacube,thrusters,Objmasks,mywcs)
                 Near = Near_which_mask(eventmask,Objmasks)
+                Maskobj = np.zeros((len(events),Maskdata.shape[1],Maskdata.shape[2])) # for plotting masked object reference
+                CentralMask = 0 
+                CentralMask = np.where(Objmasks[:,int(Maskdata.shape[1]/2),int(Maskdata.shape[2]/2)] == 1)[0]
+                Maskobj[:] = Objmasks[CentralMask]
 
                 for ind in np.where(Near != -1)[0]:
                     Source[ind] = 'Near: ' + ObjName[Near[ind]]
                     SourceType[ind] = 'Near: ' + ObjType[Near[ind]]
+                    Maskobj[ind] = Objmasks[Near[ind]]
 
 
                 # Print figures
-                K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType)
+                K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType,Maskobj)
                 K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
             
             
