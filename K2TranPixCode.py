@@ -545,12 +545,13 @@ def Database_event_check(Data,Eventtime,Eventmask,WCS):
                 objtype = objtype.replace('*','Star')
             if '!' in objtype:
                 objtype = objtype.replace('!','G') # Galactic sources
-            try:
-                result_table = Simbad.query_region(c,radius = 6*u.arcsec)
-                if len(result_table.colnames) > 0:
-                    objtype = objtype + ' Simbad'
-            except (AttributeError,ExpatError,TableParseError,ValueError) as e:
-                pass
+            if objtype == 'G'
+                try:
+                    result_table = Simbad.query_region(c,radius = 6*u.arcsec)
+                    if len(result_table.colnames) > 0:
+                        objtype = objtype + ' Simbad'
+                except (AttributeError,ExpatError,TableParseError,ValueError) as e:
+                    pass
                 
         except (RemoteServiceError,ExpatError,TableParseError,ValueError) as e:
             try:
@@ -591,12 +592,13 @@ def Database_check_mask(Datacube,Thrusters,Masks,WCS):
                 objtype = objtype.replace('*','Star')
             if '!' in objtype:
                 objtype = objtype.replace('!','G') # Galactic sources
-            try:
-                result_table = Simbad.query_region(c,radius = 6*u.arcsec)
-                if len(result_table.colnames) > 0:
-                    objtype = objtype + ' Simbad'
-            except (AttributeError,ExpatError,TableParseError,ValueError) as e:
-                pass
+            if objtype == 'G'
+                try:
+                    result_table = Simbad.query_region(c,radius = 6*u.arcsec)
+                    if len(result_table.colnames) > 0:
+                        objtype = objtype + ' Simbad'
+                except (AttributeError,ExpatError,TableParseError,ValueError) as e:
+                    pass
                 
         except (RemoteServiceError,ExpatError,TableParseError,ValueError) as e:
             try:
@@ -972,14 +974,22 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
                 ObjName, ObjType = Database_check_mask(datacube,thrusters,Objmasks,mywcs)
                 Near = Near_which_mask(eventmask,Objmasks)
                 Maskobj = np.zeros((len(events),Maskdata.shape[1],Maskdata.shape[2])) # for plotting masked object reference
-                CentralMask = 0 
-                CentralMask = np.where(Objmasks[:,int(Maskdata.shape[1]/2),int(Maskdata.shape[2]/2)] == 1)[0]
-                Maskobj[:] = Objmasks[CentralMask]
+                if len(np.where(Objmasks[:,int(Maskdata.shape[1]/2),int(Maskdata.shape[2]/2)] == 1)[0]) > 0:
+                    CentralMask = np.where(Objmasks[:,int(Maskdata.shape[1]/2),int(Maskdata.shape[2]/2)] == 1)[0]
+                elif len(np.where(Objmasks[:,int(Maskdata.shape[1]/2),int(Maskdata.shape[2]/2)] == 1)[0]) > 1:
+                    CentralMask = np.where(Objmasks[:,int(Maskdata.shape[1]/2),int(Maskdata.shape[2]/2)] == 1)[0][0]
+                else:
+                    CentralMask = -1
+                if CentralMask == -1:
+                    Maskobj[:] = Mask
+                else:
+                    Maskobj[:] = Objmasks[CentralMask]
 
                 for ind in np.where(Near != -1)[0]:
                     Source[ind] = 'Near: ' + ObjName[Near[ind]]
                     SourceType[ind] = 'Near: ' + ObjType[Near[ind]]
                     Maskobj[ind] = Objmasks[Near[ind]]
+
 
 
                 # Print figures
