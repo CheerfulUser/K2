@@ -597,7 +597,7 @@ def Database_check_mask(Datacube,Thrusters,Masks,WCS):
         Objects.append(Ob)
         Objtype.append(objtype)
 
-    return Objects, Objtype
+    return Objects, Objtype`
 
 def Near_which_mask(Eventmask,Objmasks):
     # Finds which mask in the object mask an event is near. The value assigned to Near_mask 
