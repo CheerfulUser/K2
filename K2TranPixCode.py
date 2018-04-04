@@ -141,7 +141,7 @@ def Asteroid_fitter(Mask,Time,Data, plot = False):
         p2 = np.poly1d(p1)
         AvLeft = np.nansum(abs(lc[Time[0]:Time[-1]]/np.nanmedian(lc[x]) - p2(np.arange(Time[0],Time[-1]))))/(Time[-1]-Time[0])
         maxpoly = np.where(np.nanmax(p2(x)) == p2(x))[0][0]
-        if (AvLeft < 2) &  (abs(middle - x[maxpoly]) < 2):
+        if (AvLeft < 5) &  (abs(middle - x[maxpoly]) < 2):
             asteroid = True
             if plot == True:
                 p2 = np.poly1d(p1)
