@@ -545,7 +545,7 @@ def Database_event_check(Data,Eventtime,Eventmask,WCS):
                 objtype = objtype.replace('*','Star')
             if '!' in objtype:
                 objtype = objtype.replace('!','G') # Galactic sources
-            if objtype == 'G'
+            if objtype == 'G':
                 try:
                     result_table = Simbad.query_region(c,radius = 6*u.arcsec)
                     if len(result_table.colnames) > 0:
@@ -592,7 +592,7 @@ def Database_check_mask(Datacube,Thrusters,Masks,WCS):
                 objtype = objtype.replace('*','Star')
             if '!' in objtype:
                 objtype = objtype.replace('!','G') # Galactic sources
-            if objtype == 'G'
+            if objtype == 'G':
                 try:
                     result_table = Simbad.query_region(c,radius = 6*u.arcsec)
                     if len(result_table.colnames) > 0:
