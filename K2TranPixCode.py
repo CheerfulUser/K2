@@ -563,6 +563,7 @@ def Database_event_check(Data,Eventtime,Eventmask,WCS):
                 pass
         Objects.append(Ob)
         Objtype.append(objtype)
+        print(objtype)
         
     return Objects, Objtype
 
