@@ -315,7 +315,12 @@ def Remove_asteroids(Asteroid,Asttime,Astmask,Maskdata):
 
 def First_pass(Datacube,Qual,Quality,Thrusters,Pixelfile):
     #calculate the reference frame
-    Framemin = Thrusters[3]+1#FindMinFrame(Datacube)
+    if len(Thrusters) > 4:
+        Framemin = Thrusters[3]+1
+    elif len(Thrusters) > 0:
+        Framemin = Thrusters[0]+1
+    else:
+        Framemin = 100 # Arbitrarily chosen, Data is probably screwed anway if there are no thruster firings.
     # Apply object mask to data
     Mask = ThrustObjectMask(Datacube,Thrusters)
 
@@ -609,6 +614,18 @@ def Database_check_mask(Datacube,Thrusters,Masks,WCS):
     return Objects, Objtype
 
 
+
+def Near_which_mask(Eventmask,Objmasks):
+    # Finds which mask in the object mask an event is near. The value assigned to Near_mask 
+    # is the index of Objmask that corresponds to the event. If not mask is near, value is nan.
+    Near_mask = np.ones(len(Eventmask),dtype=int)*-1
+    for i in range(len(Objmasks)):
+        near_mask = ((convolve(Objmasks[i]*1,np.ones((3,3)),mode='constant', cval=0.0)) > 0)*1
+        isnear = near_mask*Eventmask
+        Near_mask[np.where(isnear==1)[0]] = int(i)
+    return Near_mask
+
+
 def Save_space(Save):
     try:
         if not os.path.exists(Save):
@@ -792,9 +809,9 @@ def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType
         Save_space(directory)
 
         framerate = (xmax-xmin)/5
-        ffmpegcall = 'ffmpeg -nostats -loglevel 0 -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4'
+        ffmpegcall = 'ffmpeg -y -nostats -loglevel 0 -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4'
 
-        os.system(ffmpegcall)
+        os.system(ffmpegcall);
 
 
 def K2TranPix(pixelfile,save): # More efficient in checking frames
