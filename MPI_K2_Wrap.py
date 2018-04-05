@@ -69,7 +69,7 @@ filename = "my_prog_"+str(myPE).zfill(4)
 
 for n in range(my_start, my_end+1):
     mytimestart = sys_time.time()
-    
+    print(Files[n])
     K2TranPix(Files[n],save)
     
     mytimestop = sys_time.time()

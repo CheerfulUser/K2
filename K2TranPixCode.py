@@ -821,7 +821,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
         dat = hdu[1].data
         datacube = fits.ImageHDU(hdu[1].data.field('FLUX')[:]).data#np.copy(testdata)#
         if datacube.shape[1] > 1 and datacube.shape[2] > 1:
-            print(pixelfile)
+            #print(pixelfile)
             time = dat["TIME"] + 2454833.0
             Qual = hdu[1].data.field('QUALITY')
             thrusters = np.where((Qual == 1048576) | (Qual == 1089568) | (Qual == 1056768) | (Qual == 1064960) | (Qual == 1081376) | (Qual == 10240) | (Qual == 32768) | (Qual == 1097760))[0]
