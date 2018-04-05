@@ -26,7 +26,7 @@ import os
 import time as t
 
 import warnings
-warnings.filterwarnings("ignore",category =RuntimeWarning)
+warnings.filterwarnings("ignore",category = RuntimeWarning)
 warnings.filterwarnings("ignore",category = UserWarning)
 
 
@@ -141,7 +141,7 @@ def Asteroid_fitter(Mask,Time,Data, plot = False):
         p2 = np.poly1d(p1)
         AvLeft = np.nansum(abs(lc[Time[0]:Time[-1]]/np.nanmedian(lc[x]) - p2(np.arange(Time[0],Time[-1]))))/(Time[-1]-Time[0])
         maxpoly = np.where(np.nanmax(p2(x)) == p2(x))[0][0]
-        if (AvLeft < 5) &  (abs(middle - x[maxpoly]) < 2):
+        if (AvLeft < 2) &  (abs(middle - x[maxpoly]) < 2):
             asteroid = True
             if plot == True:
                 p2 = np.poly1d(p1)
@@ -315,12 +315,7 @@ def Remove_asteroids(Asteroid,Asttime,Astmask,Maskdata):
 
 def First_pass(Datacube,Qual,Quality,Thrusters,Pixelfile):
     #calculate the reference frame
-    if len(Thrusters) > 4:
-        Framemin = Thrusters[3]+1
-    elif len(Thrusters) > 0:
-        Framemin = Thrusters[0]+1
-    else:
-        Framemin = 100 # Arbitrarily chosen, Data is probably screwed anway if there are no thruster firings.
+    Framemin = Thrusters[3]+1#FindMinFrame(Datacube)
     # Apply object mask to data
     Mask = ThrustObjectMask(Datacube,Thrusters)
 
@@ -613,18 +608,6 @@ def Database_check_mask(Datacube,Thrusters,Masks,WCS):
 
     return Objects, Objtype
 
-def Near_which_mask(Eventmask,Objmasks):
-    # Finds which mask in the object mask an event is near. The value assigned to Near_mask 
-    # is the index of Objmask that corresponds to the event. If not mask is near, value is nan.
-    Near_mask = np.ones(len(Eventmask),dtype=int)*-1
-    for i in range(len(Objmasks)):
-        near_mask = ((convolve(Objmasks[i]*1,np.ones((3,3)),mode='constant', cval=0.0)) > 0)*1
-        isnear = near_mask*Eventmask
-        Near_mask[np.where(isnear==1)[0]] = int(i)
-    return Near_mask
-
-
-
 
 def Save_space(Save):
     try:
@@ -740,8 +723,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
             
 
         plt.savefig(directory+File.split('/')[-1].split('-')[0]+'_'+str(i)+'.pdf', bbox_inches = 'tight')
-        print('Save',directory)
-        plt.close();
+        #plt.close();
 
 def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType):
     # Save the frames to be combined into a gif with ffmpeg with another set of code.
@@ -780,38 +762,39 @@ def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType
             if maxcolor <= 10:
                 if 'Near: ' in Source[i]:
                     directory = Save+'/Figures/Long/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-                    Save_space(directory)
+
                 else:
                     directory = Save+'/Figures/Long/Faint/' + SourceType[i] + '/'
-                    Save_space(directory)
+
             else:
                 if 'Near: ' in Source[i]:
                     directory = Save+'/Figures/Long/Bright/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-                    Save_space(directory)
+
                 else:
                     directory = Save+'/Figures/Long/Bright/' + SourceType[i] + '/'
-                    Save_space(directory)
+
         else:
             if maxcolor <= 10:
                 if 'Near: ' in Source[i]:
                     directory = Save+'/Figures/Short/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-                    Save_space(directory)
+
                 else:
                     directory = Save+'/Figures/Short/Faint/' + SourceType[i] + '/'
-                    Save_space(directory)
+
             else:
                 if 'Near: ' in Source[i]:
                     directory = Save+'/Figures/Short/Bright/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-                    Save_space(directory)
+
                 else:
                     directory = Save+'/Figures/Short/Bright/' + SourceType[i] + '/'
-                    Save_space(directory)
 
+
+        Save_space(directory)
 
         framerate = (xmax-xmin)/5
-        ffmpegcall = 'ffmpeg -y -nostats -loglevel 0 -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4'
+        ffmpegcall = 'ffmpeg -nostats -loglevel 0 -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4'
 
-        os.system(ffmpegcall);
+        os.system(ffmpegcall)
 
 
 def K2TranPix(pixelfile,save): # More efficient in checking frames
