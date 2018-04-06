@@ -29,6 +29,17 @@ import warnings
 warnings.filterwarnings("ignore",category = RuntimeWarning)
 warnings.filterwarnings("ignore",category = UserWarning)
 
+from mpi4py import MPI
+
+def print_mpi(string):
+    comm = MPI.COMM_WORLD
+    print("["+str(comm.Get_rank())+"] "+string)
+
+def print_master(string):
+    comm = MPI.COMM_WORLD
+    if comm.Get_rank() == 0:
+        print("["+str(comm.Get_rank())+"] "+string)
+
 
 
 def DriftKiller(data,thrust):
@@ -1031,8 +1042,8 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             Fieldsave = Save + '/Field/' + pixelfile.split('ktwo')[-1].split('-')[0]+'_Field'
             Save_space(Save + '/Field/')
             np.savez(Fieldsave)
-            print('saved')
-            print(Save)
+            #print('saved')
+            #print(Save)
 
             # Find all spatially seperate objects in the event mask.
             Objmasks = Identify_masks(obj)
