@@ -712,36 +712,38 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
             if maxcolor <= 10:
                 if 'Near: ' in Source[i]:
                     directory = Save+'/Figures/Long/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-                    Save_space(directory)
+
                 else:
                     directory = Save+'/Figures/Long/Faint/' + SourceType[i] + '/'
-                    Save_space(directory)
+
             else:
                 if 'Near: ' in Source[i]:
                     directory = Save+'/Figures/Long/Bright/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-                    Save_space(directory)
+
                 else:
                     directory = Save+'/Figures/Long/Bright/' + SourceType[i] + '/'
-                    Save_space(directory)
+
         else:
             if maxcolor <= 10:
                 if 'Near: ' in Source[i]:
                     directory = Save+'/Figures/Short/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-                    Save_space(directory)
+
                 else:
                     directory = Save+'/Figures/Short/Faint/' + SourceType[i] + '/'
-                    Save_space(directory)
+
             else:
                 if 'Near: ' in Source[i]:
                     directory = Save+'/Figures/Short/Bright/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-                    Save_space(directory)
+
                 else:
                     directory = Save+'/Figures/Short/Bright/' + SourceType[i] + '/'
-                    Save_space(directory)
+
+
+        Save_space(directory)
             
 
         plt.savefig(directory+File.split('/')[-1].split('-')[0]+'_'+str(i)+'.pdf', bbox_inches = 'tight')
-        #plt.close();
+        plt.close();
 
 def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType):
     # Save the frames to be combined into a gif with ffmpeg with another set of code.
