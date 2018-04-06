@@ -474,11 +474,12 @@ def Motion_correction(Data,Mask,Thrusters):
                         if len(yo) == 1:
                             temp[yo] = np.nan
                         xx = np.where(~np.isnan(temp2))[0]
-                        if (len(xx)/len(x) > 0.5) & (len(xx) > 10):
+                        if (len(xx)/len(x) > 0.5) & (len(xx) > 5):
                             p3 = np.poly1d(np.polyfit(xx, Section[xx], 3))
-                            temp[x+Thrusters[i]+2] = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) 
+                            temp[x+Thrusters[i]+2] = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) #+ Spline[thrusters[i]+2:thrusters[i+1]]
                             fit[x+Thrusters[i]+2] = p3(x)
-
+                        #else:
+                         #   print(i)
                     except RuntimeError:
                         pass
         Corrected[:,X[j],Y[j]] = temp
