@@ -26,7 +26,7 @@ import os
 import time as t
 
 import warnings
-warnings.filterwarnings("ignore",category =RuntimeWarning)
+warnings.filterwarnings("ignore",category = RuntimeWarning)
 warnings.filterwarnings("ignore",category = UserWarning)
 
 
@@ -219,7 +219,7 @@ def ThrusterElim(Events,Times,Masks,Firings,Quality,qual,Data):
                         temp2.append(Times[i])
                         temp3.append(Masks[i])
 
-            elif len(eventthrust) >= 3:
+            elif Range >= 78:
 
                 if begining.shape[0] == 0:
                     begining = 0
@@ -430,13 +430,13 @@ def Motion_correction(Data,Mask,Thrusters):
         zz = np.arange(0,len(Data))
         AvSplinepoints = np.zeros(len(Thrusters))
         AvSplineind = np.zeros(len(Thrusters))
-        for i in range(len(Thrusters)):
+        for i in range(len(Thrusters)-1):
             ErrorCheck = np.copy(Data[Thrusters[i]+1:Thrusters[i]+3,X[j],Y[j]])
-            ErrorCheck[ErrorCheck >= np.nanmedian(ErrorCheck)+3*np.nanstd(ErrorCheck)] = np.nan
+            ErrorCheck[ErrorCheck >= np.nanmedian(Data[Thrusters[i]+3:Thrusters[i+1],X[j],Y[j]])+2*np.nanstd(Data[Thrusters[i]+3:Thrusters[i+1],X[j],Y[j]])] = np.nan
             AvSplinepoints[i] = np.nanmin(ErrorCheck)
             
             if (i < len(Thrusters)-1): 
-                if (Thrusters[i+1] - Thrusters[i] < 20):
+                if (Thrusters[i+1] - Thrusters[i] < 15):
                     AvSplinepoints[i] = np.nan
             if ~np.isnan(AvSplinepoints[i]):
                 if len(np.where(AvSplinepoints[i] == Data[Thrusters[i]+1:Thrusters[i]+3,X[j],Y[j]])[0]+Thrusters[i]+1) > 1:
@@ -474,12 +474,11 @@ def Motion_correction(Data,Mask,Thrusters):
                         if len(yo) == 1:
                             temp[yo] = np.nan
                         xx = np.where(~np.isnan(temp2))[0]
-                        if (len(xx)/len(x) > 0.5) & (len(xx) > 5):
+                        if (len(xx)/len(x) > 0.5) & (len(xx) > 10):
                             p3 = np.poly1d(np.polyfit(xx, Section[xx], 3))
-                            temp[x+Thrusters[i]+2] = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) #+ Spline[thrusters[i]+2:thrusters[i+1]]
+                            temp[x+Thrusters[i]+2] = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) 
                             fit[x+Thrusters[i]+2] = p3(x)
-                        #else:
-                         #   print(i)
+
                     except RuntimeError:
                         pass
         Corrected[:,X[j],Y[j]] = temp
@@ -501,24 +500,23 @@ def Identify_masks(Obj):
     Objmasks = []
 
     mask1 = np.zeros((Obj.shape))
-    if np.nansum(objsub) > 0:
-        mask1[np.where(objsub==1)[0][0],np.where(objsub==1)[1][0]] = 1
-        while np.nansum(objsub) > 0:
+    mask1[np.where(objsub==1)[0][0],np.where(objsub==1)[1][0]] = 1
+    while np.nansum(objsub) > 0:
 
-            conv = ((convolve(mask1*1,np.ones((3,3)),mode='constant', cval=0.0)) > 0)*1.0
-            objsub = objsub - mask1
-            objsub[objsub < 0] = 0
+        conv = ((convolve(mask1*1,np.ones((3,3)),mode='constant', cval=0.0)) > 0)*1.0
+        objsub = objsub - mask1
+        objsub[objsub < 0] = 0
 
-            if np.nansum(conv*objsub) > 0:
-                
-                mask1 = mask1 + (conv * objsub)
-                mask1 = (mask1 > 0)*1
-            else:
-                
-                Objmasks.append(mask1)
-                mask1 = np.zeros((Obj.shape))
-                if np.nansum(objsub) > 0:
-                    mask1[np.where(objsub==1)[0][0],np.where(objsub==1)[1][0]] = 1
+        if np.nansum(conv*objsub) > 0:
+            
+            mask1 = mask1 + (conv * objsub)
+            mask1 = (mask1 > 0)*1
+        else:
+            
+            Objmasks.append(mask1)
+            mask1 = np.zeros((Obj.shape))
+            if np.nansum(objsub) > 0:
+                mask1[np.where(objsub==1)[0][0],np.where(objsub==1)[1][0]] = 1
     return Objmasks
 
 def Database_event_check(Data,Eventtime,Eventmask,WCS):
@@ -616,6 +614,8 @@ def Database_check_mask(Datacube,Thrusters,Masks,WCS):
 
     return Objects, Objtype
 
+
+
 def Near_which_mask(Eventmask,Objmasks):
     # Finds which mask in the object mask an event is near. The value assigned to Near_mask 
     # is the index of Objmask that corresponds to the event. If not mask is near, value is nan.
@@ -625,8 +625,6 @@ def Near_which_mask(Eventmask,Objmasks):
         isnear = near_mask*Eventmask
         Near_mask[np.where(isnear==1)[0]] = int(i)
     return Near_mask
-
-
 
 
 def Save_space(Save):
@@ -689,8 +687,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
             xmin = 0
         if xmax > Time[-1] - Time[0]:
             xmax = Time[-1] - Time[0]
-        if np.isfinite(xmin) & np.isfinite(xmax):
-            plt.xlim(xmin,xmax) # originally 48 for some reason
+        plt.xlim(xmin,xmax) # originally 48 for some reason
         plt.ylim(np.nanmedian(LC)-np.nanstd(LC),np.nanmax(LC[Eventtime[i][0]:Eventtime[i][-1]])+0.1*np.nanmax(LC[Eventtime[i][0]:Eventtime[i][-1]]))
         plt.legend(loc = 1)
         # small subplot 1 Reference image plot
@@ -748,71 +745,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         plt.savefig(directory+File.split('/')[-1].split('-')[0]+'_'+str(i)+'.pdf', bbox_inches = 'tight')
         plt.close();
 
-
-
-def K2TranPixGif(Events,Eventtime,Eventmask,Data,Thrusters,wcs,Save,File,Source,SourceType):
-    #Writer = animation.writers['ffmpeg']
-    #writer = Writer(fps=15, metadata=dict(artist='RGRH'), bitrate=1800)
-    for i in range(len(Events)):
-        position = np.where(Eventmask[i])
-        
-        maxcolor = np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1],(Eventmask[i] == 1)])
-
-        xmin = Eventtime[i][0]-(Eventtime[i][1]-Eventtime[i][0])
-        xmax = Eventtime[i][1]+(Eventtime[i][1]-Eventtime[i][0])
-        if xmin < 0:
-            xmin = 0
-        if xmax > len(Data):
-            xmax = len(Data)-1
-        Section = Data[int(xmin):int(xmax),:,:]
-        fig = plt.figure()
-        fig.set_size_inches(6,6)
-        ims = []
-        for j in range(Section.shape[0]):
-            im = plt.imshow(Section[j], origin='lower',vmin = 0, vmax = maxcolor, animated=True)
-            plt.plot(position[1],position[0],'r.',ms = 15)
-            ims.append([im])
-        plt.suptitle('Source: '+ Source[i] + ' (' + SourceType[i] + ')')
-        plt.title(File.split('/')[-1].split('-')[0]+' Event # '+str(i))
-        ani = animation.ArtistAnimation(fig, ims, interval=300, blit=True, repeat = False)
-        c = plt.colorbar(fraction=0.046, pad=0.04)
-        c.set_label('Counts')
-        
-        if len(Thrusters[(Thrusters >= Eventtime[i][0]) & (Thrusters <= Eventtime[i][-1])]) >= 3:
-            if maxcolor <= 10:
-                if 'Near: ' in Source[i]:
-                    directory = Save+'/Figures/Long/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-                    Save_space(directory)
-                else:
-                    directory = Save+'/Figures/Long/Faint/' + SourceType[i] + '/'
-                    Save_space(directory)
-            else:
-                if 'Near: ' in Source[i]:
-                    directory = Save+'/Figures/Long/Bright/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-                    Save_space(directory)
-                else:
-                    directory = Save+'/Figures/Long/Bright/' + SourceType[i] + '/'
-                    Save_space(directory)
-        else:
-            if maxcolor <= 10:
-                if 'Near: ' in Source[i]:
-                    directory = Save+'/Figures/Short/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-                    Save_space(directory)
-                else:
-                    directory = Save+'/Figures/Short/Faint/' + SourceType[i] + '/'
-                    Save_space(directory)
-            else:
-                if 'Near: ' in Source[i]:
-                    directory = Save+'/Figures/Short/Bright/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-                    Save_space(directory)
-                else:
-                    directory = Save+'/Figures/Short/Bright/' + SourceType[i] + '/'
-                    Save_space(directory)
-            
-        ani.save(directory+File.split('/')[-1].split('-')[0]+'_'+str(i)+'.mp4',dpi=300)
-        plt.close();
-
-def K2TranPixGif2(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType):
+def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType):
     # Save the frames to be combined into a gif with ffmpeg with another set of code.
     for i in range(len(Events)):
         position = np.where(Eventmask[i])
@@ -891,6 +824,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
         dat = hdu[1].data
         datacube = fits.ImageHDU(hdu[1].data.field('FLUX')[:]).data#np.copy(testdata)#
         if datacube.shape[1] > 1 and datacube.shape[2] > 1:
+            #print(pixelfile)
             time = dat["TIME"] + 2454833.0
             Qual = hdu[1].data.field('QUALITY')
             thrusters = np.where((Qual == 1048576) | (Qual == 1089568) | (Qual == 1056768) | (Qual == 1064960) | (Qual == 1081376) | (Qual == 10240) | (Qual == 32768) | (Qual == 1097760))[0]
@@ -1032,8 +966,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             Fieldsave = Save + '/Field/' + pixelfile.split('ktwo')[-1].split('-')[0]+'_Field'
             Save_space(Save + '/Field/')
             np.savez(Fieldsave)
-            print('saved')
-            print(Save)
+
 
             # Find all spatially seperate objects in the event mask.
             Objmasks = Identify_masks(obj)
@@ -1064,8 +997,9 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
 
                 # Print figures
                 K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType,Maskobj)
-                K2TranPixGif2(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
+                K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
             
             
     except (OSError):
         pass
+    
