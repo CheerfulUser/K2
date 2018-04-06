@@ -16,6 +16,8 @@ from astropy.wcs import WCS
 from astroquery.simbad import Simbad
 from astroquery.ned import Ned
 from astroquery.ned.core import RemoteServiceError
+from xml.parsers.expat import ExpatError
+from astroquery.exceptions import TableParseError
 from astropy import coordinates
 import astropy.units as u
 
@@ -527,8 +529,10 @@ def Database_event_check(Data,Eventtime,Eventmask,WCS):
         maxcolor = np.nanmax(Data[Eventtime[I][0]:Eventtime[I][-1]]*(Eventmask[I]==1))
 
         Mid = np.where(Data[Eventtime[I][0]:Eventtime[I][-1]]*(Eventmask[I]==1) == maxcolor)
-
-        Coord = pix2coord(Mid[1],Mid[0],WCS)
+        if len(Mid[0]) == 1:
+            Coord = pix2coord(Mid[1],Mid[0],WCS)
+        elif len(Mid[0]) > 1:
+            Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
 
         c = coordinates.SkyCoord(ra=Coord[0], dec=Coord[1],unit=(u.deg, u.deg), frame='icrs')
 
@@ -543,17 +547,25 @@ def Database_event_check(Data,Eventtime,Eventmask,WCS):
                 objtype = objtype.replace('*','Star')
             if '!' in objtype:
                 objtype = objtype.replace('!','G') # Galactic sources
-
-        except RemoteServiceError | xml.parsers.expat.ExpatError:
-            result_table = Simbad.query_region(c,radius = 6*u.arcsec)
+            if objtype == 'G':
+                try:
+                    result_table = Simbad.query_region(c,radius = 6*u.arcsec)
+                    if len(result_table.colnames) > 0:
+                        objtype = objtype + ' Simbad'
+                except (AttributeError,ExpatError,TableParseError,ValueError) as e:
+                    pass
+                
+        except (RemoteServiceError,ExpatError,TableParseError,ValueError) as e:
             try:
+                result_table = Simbad.query_region(c,radius = 6*u.arcsec)
                 if len(result_table.colnames) > 0:
                     Ob = np.asarray(result_table['MAIN_ID'])[0].decode("utf-8") 
                     objtype = 'Simbad'
-            except AttributeError | xml.parsers.expat.ExpatError:
+            except (AttributeError,ExpatError,TableParseError,ValueError) as e:
                 pass
         Objects.append(Ob)
         Objtype.append(objtype)
+        print(objtype)
         
     return Objects, Objtype
 
@@ -566,14 +578,16 @@ def Database_check_mask(Datacube,Thrusters,Masks,WCS):
     for I in range(len(Masks)):
 
         Mid = np.where(av*Masks[I] == np.nanmax(av*Masks[I]))
-
-        Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
+        if len(Mid[0]) == 1:
+            Coord = pix2coord(Mid[1],Mid[0],WCS)
+        elif len(Mid[0]) > 1:
+            Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
 
         c = coordinates.SkyCoord(ra=Coord[0], dec=Coord[1],unit=(u.deg, u.deg), frame='icrs')
         Ob = 'Unknown'
         objtype = 'Unknown'
         try:
-            result_table = Ned.query_region(c, radius = 12*u.arcsec, equinox='J2000')
+            result_table = Ned.query_region(c, radius = 6*u.arcsec, equinox='J2000')
             Ob = np.asarray(result_table['Object Name'])[0].decode("utf-8") 
             objtype = result_table['Type'][0].decode("utf-8") 
 
@@ -581,14 +595,21 @@ def Database_check_mask(Datacube,Thrusters,Masks,WCS):
                 objtype = objtype.replace('*','Star')
             if '!' in objtype:
                 objtype = objtype.replace('!','G') # Galactic sources
+            if objtype == 'G':
+                try:
+                    result_table = Simbad.query_region(c,radius = 6*u.arcsec)
+                    if len(result_table.colnames) > 0:
+                        objtype = objtype + ' Simbad'
+                except (AttributeError,ExpatError,TableParseError,ValueError) as e:
+                    pass
                 
-        except RemoteServiceError | xml.parsers.expat.ExpatError:
-            result_table = Simbad.query_region(c,radius = 12*u.arcsec)
+        except (RemoteServiceError,ExpatError,TableParseError,ValueError) as e:
             try:
+                result_table = Simbad.query_region(c,radius = 6*u.arcsec)
                 if len(result_table.colnames) > 0:
                     Ob = np.asarray(result_table['MAIN_ID'])[0].decode("utf-8") 
                     objtype = 'Simbad'
-            except AttributeError | xml.parsers.expat.ExpatError:
+            except (AttributeError,ExpatError,TableParseError,ValueError) as e:
                 pass
         Objects.append(Ob)
         Objtype.append(objtype)
