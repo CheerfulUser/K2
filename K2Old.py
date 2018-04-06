@@ -1062,7 +1062,9 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
 
 
                 # Print figures
+                print_mpi('Beep')
                 K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType,Maskobj)
+                print_mpi('Boop')
                 K2TranPixGif2(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
             
             
