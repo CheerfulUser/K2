@@ -430,9 +430,9 @@ def Motion_correction(Data,Mask,Thrusters):
         zz = np.arange(0,len(Data))
         AvSplinepoints = np.zeros(len(Thrusters))
         AvSplineind = np.zeros(len(Thrusters))
-        for i in range(len(Thrusters)):
+        for i in range(len(Thrusters)-1):
             ErrorCheck = np.copy(Data[Thrusters[i]+1:Thrusters[i]+3,X[j],Y[j]])
-            ErrorCheck[ErrorCheck >= np.nanmedian(ErrorCheck)+3*np.nanstd(ErrorCheck)] = np.nan
+            ErrorCheck[ErrorCheck >= np.nanmedian(Data[Thrusters[i]+3:Thrusters[i+1],X[j],Y[j]])+2*np.nanstd(Data[Thrusters[i]+3:Thrusters[i+1],X[j],Y[j]])] = np.nan
             AvSplinepoints[i] = np.nanmin(ErrorCheck)
             
             if (i < len(Thrusters)-1): 
