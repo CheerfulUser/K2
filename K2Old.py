@@ -636,7 +636,7 @@ def Save_space(Save):
     except FileExistsError:
         pass
 
-def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quality,Thrusters,Framemin,Datacube,Source,SourceType):
+def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quality,Thrusters,Framemin,Datacube,Source,SourceType,ObjMask):
     for i in range(len(Events)):
         # Check if there are multiple transients
         #Find Coords of transient
@@ -650,7 +650,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         BG[BG <= 0] =np.nan
         BGLC = np.nanmedian(BG, axis = (1,2))
 
-        Obj = np.ma.masked_invalid(Data[Framemin]).mask
+        Obj = ObjMask[i]
         ObjLC = np.nansum(Datacube*Obj,axis = (1,2))
         ObjLC = ObjLC/np.nanmedian(ObjLC)*np.nanmedian(LC)
 
@@ -660,7 +660,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         fig = plt.figure(figsize=(10,6))
         # set up subplot grid
         gridspec.GridSpec(2,3)
-        plt.suptitle('EPIC ID: ' + File.split('ktwo')[-1].split('-')[0] + '\nSource: '+ Source[i] + ' (' + SourceType[i] + ')')
+        plt.suptitle('EPIC ID: ' + File.split('ktwo')[-1].split('_')[0] + '\nSource: '+ Source[i] + ' (' + SourceType[i] + ')')
         # large subplot
         plt.subplot2grid((2,3), (0,0), colspan=2, rowspan=2)
         plt.title('Event light curve (BJD '+str(round(Time[Eventtime[i][0]]-Time[0],2))+', RA '+str(round(Coord[0],3))+', DEC '+str(round(Coord[1],3))+')')
@@ -689,9 +689,9 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
             xmin = 0
         if xmax > Time[-1] - Time[0]:
             xmax = Time[-1] - Time[0]
-        if np.isfinite(xmax) & np.isfinite(xmin):
-            plt.xlim(xmin,xmax)
-        plt.ylim(0,np.nanmax(LC[Eventtime[i][0]:Eventtime[i][-1]])+0.1*np.nanmax(LC[Eventtime[i][0]:Eventtime[i][-1]]))
+        if np.isfinite(xmin) & np.isfinite(xmax):
+            plt.xlim(xmin,xmax) # originally 48 for some reason
+        plt.ylim(np.nanmedian(LC)-np.nanstd(LC),np.nanmax(LC[Eventtime[i][0]:Eventtime[i][-1]])+0.1*np.nanmax(LC[Eventtime[i][0]:Eventtime[i][-1]]))
         plt.legend(loc = 1)
         # small subplot 1 Reference image plot
         plt.subplot2grid((2,3), (0,2))
@@ -715,32 +715,34 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
             if maxcolor <= 10:
                 if 'Near: ' in Source[i]:
                     directory = Save+'/Figures/Long/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-                    Save_space(directory)
+
                 else:
                     directory = Save+'/Figures/Long/Faint/' + SourceType[i] + '/'
-                    Save_space(directory)
+
             else:
                 if 'Near: ' in Source[i]:
                     directory = Save+'/Figures/Long/Bright/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-                    Save_space(directory)
+
                 else:
                     directory = Save+'/Figures/Long/Bright/' + SourceType[i] + '/'
-                    Save_space(directory)
+
         else:
             if maxcolor <= 10:
                 if 'Near: ' in Source[i]:
                     directory = Save+'/Figures/Short/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-                    Save_space(directory)
+
                 else:
                     directory = Save+'/Figures/Short/Faint/' + SourceType[i] + '/'
-                    Save_space(directory)
+
             else:
                 if 'Near: ' in Source[i]:
                     directory = Save+'/Figures/Short/Bright/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-                    Save_space(directory)
+
                 else:
                     directory = Save+'/Figures/Short/Bright/' + SourceType[i] + '/'
-                    Save_space(directory)
+
+
+        Save_space(directory)
             
 
         plt.savefig(directory+File.split('/')[-1].split('-')[0]+'_'+str(i)+'.pdf', bbox_inches = 'tight')
@@ -1061,7 +1063,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
 
 
                 # Print figures
-                K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType)
+                K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType,Maskobj)
                 K2TranPixGif2(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
             
             
