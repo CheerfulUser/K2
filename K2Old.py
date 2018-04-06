@@ -474,12 +474,11 @@ def Motion_correction(Data,Mask,Thrusters):
                         if len(yo) == 1:
                             temp[yo] = np.nan
                         xx = np.where(~np.isnan(temp2))[0]
-                        if (len(xx)/len(x) > 0.5) & (len(xx) > 5):
+                        if (len(xx)/len(x) > 0.5) & (len(xx) > 10):
                             p3 = np.poly1d(np.polyfit(xx, Section[xx], 3))
-                            temp[x+Thrusters[i]+2] = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) #+ Spline[thrusters[i]+2:thrusters[i+1]]
+                            temp[x+Thrusters[i]+2] = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) 
                             fit[x+Thrusters[i]+2] = p3(x)
-                        #else:
-                         #   print(i)
+
                     except RuntimeError:
                         pass
         Corrected[:,X[j],Y[j]] = temp
@@ -555,13 +554,13 @@ def Database_event_check(Data,Eventtime,Eventmask,WCS):
                 except (AttributeError,ExpatError,TableParseError,ValueError) as e:
                     pass
                 
-        except (RemoteServiceError,ExpatError,TableParseError,ValueError) as e:
+        except (RemoteServiceError,ExpatError,TableParseError,ValueError,EOFError) as e:
             try:
                 result_table = Simbad.query_region(c,radius = 6*u.arcsec)
                 if len(result_table.colnames) > 0:
                     Ob = np.asarray(result_table['MAIN_ID'])[0].decode("utf-8") 
                     objtype = 'Simbad'
-            except (AttributeError,ExpatError,TableParseError,ValueError) as e:
+            except (AttributeError,ExpatError,TableParseError,ValueError,EOFError) as e:
                 pass
         Objects.append(Ob)
         Objtype.append(objtype)
