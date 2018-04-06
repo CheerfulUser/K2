@@ -1073,12 +1073,12 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
 
 
                 # Print figures
-                print_mpi('Beep')
+                print_master('Beep')
                 K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType,Maskobj)
-                print_mpi('Boop')
-                print_mpi('Blep')
+                print_master('Boop')
+                print_master('Blep')
                 K2TranPixGif2(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
-                print_mpi('Blop')
+                print_master('Blop')
             
     except (OSError):
         pass
