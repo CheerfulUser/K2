@@ -205,7 +205,7 @@ def ThrusterElim(Events,Times,Masks,Firings,Quality,qual,Data):
                 end = Quality[(Quality == Times[i][-1])] #& (Quality <= Times[i][-1]+1)]
             eventthrust = Firings[(Firings >= Times[i][0]) & (Firings <= Times[i][-1])]
 
-            if (~begining.any() & ~end.any()) & Range < 78: # Change to the nominal cadences between 3 thruster firings. 
+            if (~begining.any() & ~end.any()) & (Range < 78): # Change to the nominal cadences between 3 thruster firings. 
                 
                 if Asteroid_fitter(Masks[i],Times[i],Data):
                     asteroid.append(Events[i])
@@ -500,23 +500,24 @@ def Identify_masks(Obj):
     Objmasks = []
 
     mask1 = np.zeros((Obj.shape))
-    mask1[np.where(objsub==1)[0][0],np.where(objsub==1)[1][0]] = 1
-    while np.nansum(objsub) > 0:
+    if np.nansum(objsub) > 0:
+        mask1[np.where(objsub==1)[0][0],np.where(objsub==1)[1][0]] = 1
+        while np.nansum(objsub) > 0:
 
-        conv = ((convolve(mask1*1,np.ones((3,3)),mode='constant', cval=0.0)) > 0)*1.0
-        objsub = objsub - mask1
-        objsub[objsub < 0] = 0
+            conv = ((convolve(mask1*1,np.ones((3,3)),mode='constant', cval=0.0)) > 0)*1.0
+            objsub = objsub - mask1
+            objsub[objsub < 0] = 0
 
-        if np.nansum(conv*objsub) > 0:
-            
-            mask1 = mask1 + (conv * objsub)
-            mask1 = (mask1 > 0)*1
-        else:
-            
-            Objmasks.append(mask1)
-            mask1 = np.zeros((Obj.shape))
-            if np.nansum(objsub) > 0:
-                mask1[np.where(objsub==1)[0][0],np.where(objsub==1)[1][0]] = 1
+            if np.nansum(conv*objsub) > 0:
+                
+                mask1 = mask1 + (conv * objsub)
+                mask1 = (mask1 > 0)*1
+            else:
+                
+                Objmasks.append(mask1)
+                mask1 = np.zeros((Obj.shape))
+                if np.nansum(objsub) > 0:
+                    mask1[np.where(objsub==1)[0][0],np.where(objsub==1)[1][0]] = 1
     return Objmasks
 
 def Database_event_check(Data,Eventtime,Eventmask,WCS):
@@ -614,8 +615,6 @@ def Database_check_mask(Datacube,Thrusters,Masks,WCS):
 
     return Objects, Objtype
 
-
-
 def Near_which_mask(Eventmask,Objmasks):
     # Finds which mask in the object mask an event is near. The value assigned to Near_mask 
     # is the index of Objmask that corresponds to the event. If not mask is near, value is nan.
@@ -625,6 +624,8 @@ def Near_which_mask(Eventmask,Objmasks):
         isnear = near_mask*Eventmask
         Near_mask[np.where(isnear==1)[0]] = int(i)
     return Near_mask
+
+
 
 
 def Save_space(Save):
@@ -687,7 +688,8 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
             xmin = 0
         if xmax > Time[-1] - Time[0]:
             xmax = Time[-1] - Time[0]
-        plt.xlim(xmin,xmax) # originally 48 for some reason
+        if np.isfinite(xmin) & np.isfinite(xmax):
+            plt.xlim(xmin,xmax) 
         plt.ylim(np.nanmedian(LC)-np.nanstd(LC),np.nanmax(LC[Eventtime[i][0]:Eventtime[i][-1]])+0.1*np.nanmax(LC[Eventtime[i][0]:Eventtime[i][-1]]))
         plt.legend(loc = 1)
         # small subplot 1 Reference image plot
@@ -744,6 +746,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
 
         plt.savefig(directory+File.split('/')[-1].split('-')[0]+'_'+str(i)+'.pdf', bbox_inches = 'tight')
         plt.close();
+
 
 def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType):
     # Save the frames to be combined into a gif with ffmpeg with another set of code.
@@ -824,7 +827,6 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
         dat = hdu[1].data
         datacube = fits.ImageHDU(hdu[1].data.field('FLUX')[:]).data#np.copy(testdata)#
         if datacube.shape[1] > 1 and datacube.shape[2] > 1:
-            #print(pixelfile)
             time = dat["TIME"] + 2454833.0
             Qual = hdu[1].data.field('QUALITY')
             thrusters = np.where((Qual == 1048576) | (Qual == 1089568) | (Qual == 1056768) | (Qual == 1064960) | (Qual == 1081376) | (Qual == 10240) | (Qual == 32768) | (Qual == 1097760))[0]
@@ -966,7 +968,8 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             Fieldsave = Save + '/Field/' + pixelfile.split('ktwo')[-1].split('-')[0]+'_Field'
             Save_space(Save + '/Field/')
             np.savez(Fieldsave)
-
+            #print('saved')
+            #print(Save)
 
             # Find all spatially seperate objects in the event mask.
             Objmasks = Identify_masks(obj)
@@ -1002,4 +1005,3 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             
     except (OSError):
         pass
-    
