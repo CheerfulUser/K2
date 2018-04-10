@@ -757,72 +757,9 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
 
         plt.savefig(directory+File.split('/')[-1].split('-')[0]+'_'+str(i)+'.pdf', bbox_inches = 'tight')
         plt.close();
-
-
-
-def K2TranPixGif(Events,Eventtime,Eventmask,Data,Thrusters,wcs,Save,File,Source,SourceType):
-    #Writer = animation.writers['ffmpeg']
-    #writer = Writer(fps=15, metadata=dict(artist='RGRH'), bitrate=1800)
-    for i in range(len(Events)):
-        position = np.where(Eventmask[i])
         
-        maxcolor = np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1],(Eventmask[i] == 1)])
 
-        xmin = Eventtime[i][0]-(Eventtime[i][1]-Eventtime[i][0])
-        xmax = Eventtime[i][1]+(Eventtime[i][1]-Eventtime[i][0])
-        if xmin < 0:
-            xmin = 0
-        if xmax > len(Data):
-            xmax = len(Data)-1
-        Section = Data[int(xmin):int(xmax),:,:]
-        fig = plt.figure()
-        fig.set_size_inches(6,6)
-        ims = []
-        for j in range(Section.shape[0]):
-            im = plt.imshow(Section[j], origin='lower',vmin = 0, vmax = maxcolor, animated=True)
-            plt.plot(position[1],position[0],'r.',ms = 15)
-            ims.append([im])
-        plt.suptitle('Source: '+ Source[i] + ' (' + SourceType[i] + ')')
-        plt.title(File.split('/')[-1].split('-')[0]+' Event # '+str(i))
-        ani = animation.ArtistAnimation(fig, ims, interval=300, blit=True, repeat = False)
-        c = plt.colorbar(fraction=0.046, pad=0.04)
-        c.set_label('Counts')
-        
-        if len(Thrusters[(Thrusters >= Eventtime[i][0]) & (Thrusters <= Eventtime[i][-1])]) >= 3:
-            if maxcolor <= 10:
-                if 'Near: ' in Source[i]:
-                    directory = Save+'/Figures/Long/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-                    Save_space(directory)
-                else:
-                    directory = Save+'/Figures/Long/Faint/' + SourceType[i] + '/'
-                    Save_space(directory)
-            else:
-                if 'Near: ' in Source[i]:
-                    directory = Save+'/Figures/Long/Bright/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-                    Save_space(directory)
-                else:
-                    directory = Save+'/Figures/Long/Bright/' + SourceType[i] + '/'
-                    Save_space(directory)
-        else:
-            if maxcolor <= 10:
-                if 'Near: ' in Source[i]:
-                    directory = Save+'/Figures/Short/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-                    Save_space(directory)
-                else:
-                    directory = Save+'/Figures/Short/Faint/' + SourceType[i] + '/'
-                    Save_space(directory)
-            else:
-                if 'Near: ' in Source[i]:
-                    directory = Save+'/Figures/Short/Bright/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-                    Save_space(directory)
-                else:
-                    directory = Save+'/Figures/Short/Bright/' + SourceType[i] + '/'
-                    Save_space(directory)
-            
-        ani.save(directory+File.split('/')[-1].split('-')[0]+'_'+str(i)+'.mp4',dpi=300)
-        plt.close();
-
-def K2TranPixGif2(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType):
+def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType):
     # Save the frames to be combined into a gif with ffmpeg with another set of code.
     for i in range(len(Events)):
         position = np.where(Eventmask[i])
@@ -1074,10 +1011,10 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
 
                 # Print figures
                 print_master('Beep')
-                K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType,Maskobj)
+                K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType,Maskobj)
                 print_master('Boop')
                 print_master('Blep')
-                K2TranPixGif2(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
+                K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
                 print_master('Blop')
             
     except (OSError):
