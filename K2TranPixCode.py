@@ -569,7 +569,7 @@ def Database_event_check(Data,Eventtime,Eventmask,WCS):
                 pass
         Objects.append(Ob)
         Objtype.append(objtype)
-        print(objtype)
+        #print(objtype)
         
     return Objects, Objtype
 
@@ -932,12 +932,12 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             # Save asteroids
             astsave = Save + '/Asteroid/' + pixelfile.split('ktwo')[-1].split('-')[0]+'_Asteroid'
             Save_space(Save + '/Asteroid/')
-            #np.savez(astsave,ast)
+            np.savez(astsave,ast)
             # Save baseline frame
             
             Limitsave = Save + '/Limit/' + pixelfile.split('ktwo')[-1].split('-')[0]+'_Limit'
             Save_space(Save + '/Limit/')
-            #np.savez(Limitsave,limit)
+            np.savez(Limitsave,limit)
             
             
             # Create an array that saves the total area of mask and time. 
@@ -972,7 +972,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             
             Fieldsave = Save + '/Field/' + pixelfile.split('ktwo')[-1].split('-')[0]+'_Field'
             Save_space(Save + '/Field/')
-            #np.savez(Fieldsave)
+            np.savez(Fieldsave)
 
 
             # Find all spatially seperate objects in the event mask.
