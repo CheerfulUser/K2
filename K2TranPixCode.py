@@ -205,7 +205,7 @@ def ThrusterElim(Events,Times,Masks,Firings,Quality,qual,Data):
                 end = Quality[(Quality == Times[i][-1])] #& (Quality <= Times[i][-1]+1)]
             eventthrust = Firings[(Firings >= Times[i][0]) & (Firings <= Times[i][-1])]
 
-            if (~begining.any() & ~end.any()) & Range < 78: # Change to the nominal cadences between 3 thruster firings. 
+            if (~begining.any() & ~end.any()) & (Range < 78): # Change to the nominal cadences between 3 thruster firings. 
                 
                 if Asteroid_fitter(Masks[i],Times[i],Data):
                     asteroid.append(Events[i])
@@ -436,7 +436,7 @@ def Motion_correction(Data,Mask,Thrusters):
             AvSplinepoints[i] = np.nanmin(ErrorCheck)
             
             if (i < len(Thrusters)-1): 
-                if (Thrusters[i+1] - Thrusters[i] < 15):
+                if (Thrusters[i+1] - Thrusters[i] < 10):
                     AvSplinepoints[i] = np.nan
             if ~np.isnan(AvSplinepoints[i]):
                 if len(np.where(AvSplinepoints[i] == Data[Thrusters[i]+1:Thrusters[i]+3,X[j],Y[j]])[0]+Thrusters[i]+1) > 1:
@@ -844,7 +844,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
 
             Maskdata, ast = First_pass(np.copy(datacube),Qual,quality,thrusters,pixelfile)
             Maskdata = Maskdata*Mask
-            Maskdata = Motion_correction(Maskdata,Mask,thrusters)*Mask
+            #Maskdata = Motion_correction(Maskdata,Mask,thrusters)*Mask
 
             # Make a mask for the object to use as a test to eliminate very bad pointings
             obj = np.ma.masked_invalid(Mask).mask
