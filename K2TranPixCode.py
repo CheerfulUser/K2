@@ -420,7 +420,6 @@ def First_pass(Datacube,Qual,Quality,Thrusters,Pixelfile):
 
 def Motion_correction(Data,Mask,Thrusters):
     Corrected = np.zeros((Data.shape[0],Data.shape[1],Data.shape[2]))
-    
     fit = np.zeros(len(Data))
     X = np.where(Mask == 1)[0]
     Y = np.where(Mask == 1)[1]
@@ -436,7 +435,7 @@ def Motion_correction(Data,Mask,Thrusters):
             AvSplinepoints[i] = np.nanmin(ErrorCheck)
             
             if (i < len(Thrusters)-1): 
-                if (Thrusters[i+1] - Thrusters[i] < 10):
+                if ((Thrusters[i+1] - Thrusters[i]) < 15):
                     AvSplinepoints[i] = np.nan
             if ~np.isnan(AvSplinepoints[i]):
                 if len(np.where(AvSplinepoints[i] == Data[Thrusters[i]+1:Thrusters[i]+3,X[j],Y[j]])[0]+Thrusters[i]+1) > 1:
@@ -473,14 +472,19 @@ def Motion_correction(Data,Mask,Thrusters):
                                 yo = np.delete(yo,[0,1])
                         if len(yo) == 1:
                             temp[yo] = np.nan
-                        xx = np.where(~np.isnan(temp2))[0]
-                        if (len(xx)/len(x) > 0.5) & (len(xx) > 10):
-                            p3 = np.poly1d(np.polyfit(xx, Section[xx], 3))
-                            temp[x+Thrusters[i]+2] = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) 
-                            fit[x+Thrusters[i]+2] = p3(x)
+                        ind = np.where(~np.isnan(temp2))[0]
+                        
+                        if len(x[ind]) > 3:
+                            polyfit, resid, _, _, _  = np.polyfit(x[ind], Section[ind], 3, full = True)
+                            p3 = np.poly1d(polyfit)
+                            
+                            if resid/len(x) < 6:
+                                temp[x+Thrusters[i]+2] = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) 
+                                fit[x+Thrusters[i]+2] = p3(x)
 
                     except RuntimeError:
                         pass
+        
         Corrected[:,X[j],Y[j]] = temp
         
                     
@@ -830,7 +834,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             #print(pixelfile)
             time = dat["TIME"] + 2454833.0
             Qual = hdu[1].data.field('QUALITY')
-            thrusters = np.where((Qual == 1048576) | (Qual == 1089568) | (Qual == 1056768) | (Qual == 1064960) | (Qual == 1081376) | (Qual == 10240) | (Qual == 32768) | (Qual == 1097760))[0]
+            thrusters = np.where((Qual == 1048576) | (Qual == 1089568) | (Qual == 1056768) | (Qual == 1064960) | (Qual == 1081376) | (Qual == 10240) | (Qual == 32768) | (Qual == 1097760) | (Qual == 1048580) | (Qual == 1081348))[0]
             quality = np.where(Qual != 0)[0]
             #calculate the reference frame
             if len(thrusters) > 4:
