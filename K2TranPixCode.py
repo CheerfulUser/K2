@@ -844,7 +844,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
 
             Maskdata, ast = First_pass(np.copy(datacube),Qual,quality,thrusters,pixelfile)
             Maskdata = Maskdata*Mask
-            #Maskdata = Motion_correction(Maskdata,Mask,thrusters)*Mask
+            Maskdata = Motion_correction(Maskdata,Mask,thrusters)*Mask
 
             # Make a mask for the object to use as a test to eliminate very bad pointings
             obj = np.ma.masked_invalid(Mask).mask
@@ -874,10 +874,10 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
 
                 similar = np.where(((Eventmask[Index[0]]*Eventmask_ref[Index[0]:]) == Eventmask[Index[0]]).all(axis = (1,2)))[0]+Index[0]
 
-                if len((np.diff(similar)<5)) > 1:
+                if len((np.diff(similar)<3)) > 1: # Choide for this value is arbitrary 
 
-                    if len(np.where((np.diff(similar)<5) == False)[0]) > 0:
-                        simEnd = np.where((np.diff(similar)<5) == False)[0][0] 
+                    if len(np.where((np.diff(similar)<3) == False)[0]) > 0:
+                        simEnd = np.where((np.diff(similar)<3) == False)[0][0] 
                     else:
                         simEnd = -1
                 else:
