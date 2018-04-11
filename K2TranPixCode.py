@@ -139,9 +139,9 @@ def Asteroid_fitter(Mask,Time,Data, plot = False):
         y = lc[x]/np.nanmedian(lc[x])
         p1, residual, _, _, _ = np.polyfit(x,y,2, full = True)
         p2 = np.poly1d(p1)
-        AvLeft = np.nansum(abs(lc[Time[0]:Time[-1]]/np.nanmedian(lc[x]) - p2(np.arange(Time[0],Time[-1]))))/(Time[-1]-Time[0])
+        AvLeft = residual/len(x)#np.nansum(abs(lc[Time[0]:Time[-1]]/np.nanmedian(lc[x]) - p2(np.arange(Time[0],Time[-1]))))/(Time[-1]-Time[0])
         maxpoly = np.where(np.nanmax(p2(x)) == p2(x))[0][0]
-        if (AvLeft < 2) &  (abs(middle - x[maxpoly]) < 2):
+        if (AvLeft < 10) &  (abs(middle - x[maxpoly]) < 2):
             asteroid = True
             if plot == True:
                 p2 = np.poly1d(p1)
@@ -474,11 +474,11 @@ def Motion_correction(Data,Mask,Thrusters):
                             temp[yo] = np.nan
                         ind = np.where(~np.isnan(temp2))[0]
                         
-                        if len(x[ind]) > 3:
+                        if (len(x[ind]) > 3) & (len(x[ind])/len(x) > 0.6):
                             polyfit, resid, _, _, _  = np.polyfit(x[ind], Section[ind], 3, full = True)
                             p3 = np.poly1d(polyfit)
                             
-                            if resid/len(x) < 6:
+                            if resid/len(x) < 10:
                                 temp[x+Thrusters[i]+2] = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) 
                                 fit[x+Thrusters[i]+2] = p3(x)
 
