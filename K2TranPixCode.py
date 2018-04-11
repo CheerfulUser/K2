@@ -494,29 +494,31 @@ def Get_gal_lat(mywcs,datacube):
     ra, dec = mywcs.wcs_pix2world(int(datacube.shape[1]/2), int(datacube.shape[2]/2), 0)
     b = SkyCoord(ra=float(ra)*u.degree, dec=float(dec)*u.degree, frame='icrs').galactic.b.degree
     return b
+
 def Identify_masks(Obj):
     # Uses an iterrative process to find spacially seperated masks in the object mask.
     objsub = np.copy(Obj)
     Objmasks = []
 
     mask1 = np.zeros((Obj.shape))
-    mask1[np.where(objsub==1)[0][0],np.where(objsub==1)[1][0]] = 1
-    while np.nansum(objsub) > 0:
+    if np.nansum(objsub) > 0:
+        mask1[np.where(objsub==1)[0][0],np.where(objsub==1)[1][0]] = 1
+        while np.nansum(objsub) > 0:
 
-        conv = ((convolve(mask1*1,np.ones((3,3)),mode='constant', cval=0.0)) > 0)*1.0
-        objsub = objsub - mask1
-        objsub[objsub < 0] = 0
+            conv = ((convolve(mask1*1,np.ones((3,3)),mode='constant', cval=0.0)) > 0)*1.0
+            objsub = objsub - mask1
+            objsub[objsub < 0] = 0
 
-        if np.nansum(conv*objsub) > 0:
-            
-            mask1 = mask1 + (conv * objsub)
-            mask1 = (mask1 > 0)*1
-        else:
-            
-            Objmasks.append(mask1)
-            mask1 = np.zeros((Obj.shape))
-            if np.nansum(objsub) > 0:
-                mask1[np.where(objsub==1)[0][0],np.where(objsub==1)[1][0]] = 1
+            if np.nansum(conv*objsub) > 0:
+                
+                mask1 = mask1 + (conv * objsub)
+                mask1 = (mask1 > 0)*1
+            else:
+                
+                Objmasks.append(mask1)
+                mask1 = np.zeros((Obj.shape))
+                if np.nansum(objsub) > 0:
+                    mask1[np.where(objsub==1)[0][0],np.where(objsub==1)[1][0]] = 1
     return Objmasks
 
 def Database_event_check(Data,Eventtime,Eventmask,WCS):
@@ -550,16 +552,16 @@ def Database_event_check(Data,Eventtime,Eventmask,WCS):
                     result_table = Simbad.query_region(c,radius = 6*u.arcsec)
                     if len(result_table.colnames) > 0:
                         objtype = objtype + ' Simbad'
-                except (AttributeError,ExpatError,TableParseError,ValueError) as e:
+                except (AttributeError,ExpatError,TableParseError,ValueError,EOFError) as e:
                     pass
                 
-        except (RemoteServiceError,ExpatError,TableParseError,ValueError) as e:
+        except (RemoteServiceError,ExpatError,TableParseError,ValueError,EOFError) as e:
             try:
                 result_table = Simbad.query_region(c,radius = 6*u.arcsec)
                 if len(result_table.colnames) > 0:
                     Ob = np.asarray(result_table['MAIN_ID'])[0].decode("utf-8") 
                     objtype = 'Simbad'
-            except (AttributeError,ExpatError,TableParseError,ValueError) as e:
+            except (AttributeError,ExpatError,TableParseError,ValueError,EOFError) as e:
                 pass
         Objects.append(Ob)
         Objtype.append(objtype)
@@ -598,16 +600,16 @@ def Database_check_mask(Datacube,Thrusters,Masks,WCS):
                     result_table = Simbad.query_region(c,radius = 6*u.arcsec)
                     if len(result_table.colnames) > 0:
                         objtype = objtype + ' Simbad'
-                except (AttributeError,ExpatError,TableParseError,ValueError) as e:
+                except (AttributeError,ExpatError,TableParseError,ValueError,EOFError) as e:
                     pass
                 
-        except (RemoteServiceError,ExpatError,TableParseError,ValueError) as e:
+        except (RemoteServiceError,ExpatError,TableParseError,ValueError,EOFError) as e:
             try:
                 result_table = Simbad.query_region(c,radius = 6*u.arcsec)
                 if len(result_table.colnames) > 0:
                     Ob = np.asarray(result_table['MAIN_ID'])[0].decode("utf-8") 
                     objtype = 'Simbad'
-            except (AttributeError,ExpatError,TableParseError,ValueError) as e:
+            except (AttributeError,ExpatError,TableParseError,ValueError,EOFError) as e:
                 pass
         Objects.append(Ob)
         Objtype.append(objtype)
@@ -687,7 +689,8 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
             xmin = 0
         if xmax > Time[-1] - Time[0]:
             xmax = Time[-1] - Time[0]
-        plt.xlim(xmin,xmax) # originally 48 for some reason
+        if np.isfinite(xmin) & np.isfinite(xmax):
+            plt.xlim(xmin,xmax) # originally 48 for some reason
         plt.ylim(np.nanmedian(LC)-np.nanstd(LC),np.nanmax(LC[Eventtime[i][0]:Eventtime[i][-1]])+0.1*np.nanmax(LC[Eventtime[i][0]:Eventtime[i][-1]]))
         plt.legend(loc = 1)
         # small subplot 1 Reference image plot
