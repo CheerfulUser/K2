@@ -828,7 +828,7 @@ def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType
 def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Data, WCS, Path):
     feild = Pixelfile.split('-')[1].split('_')[0]
     ID = Pixelfile.split('ktwo')[1].split('-')[0]
-    for i in range(len(events)):
+    for i in range(len(Events)):
         start = Eventtime[i][0]
         duration = Eventtime[i][1] - Eventtime[i][0]
         maxlc = np.nanmax(np.nansum(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1),axis=(1,2)))
@@ -1033,7 +1033,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
                 # Print figures
                 K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType,Maskobj)
                 K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
-                Write_event(pixelfile,eventtime,eventmask,Source,SourceType,Maskdata,mywcs,save)
+                Write_event(pixelfile,eventtime,eventmask,Source,SourceType,Maskdata,mywcs,Save)
             
             
     except (OSError):
