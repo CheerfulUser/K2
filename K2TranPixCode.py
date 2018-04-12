@@ -21,6 +21,8 @@ from astroquery.exceptions import TableParseError
 from astropy import coordinates
 import astropy.units as u
 
+import csv
+
 from glob import glob
 import os
 import time as t
@@ -823,6 +825,32 @@ def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType
 
         os.system(ffmpegcall);
 
+def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Data, WCS, Path):
+    feild = Pixelfile.split('-')[1].split('_')[0]
+    ID = Pixelfile.split('ktwo')[1].split('-')[0]
+    for i in range(len(events)):
+        start = Eventtime[i][0]
+        duration = Eventtime[i][1] - Eventtime[i][0]
+        maxlc = np.nanmax(np.nansum(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1),axis=(1,2)))
+        maxcolor = np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1))
+        Mid = np.where(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1) == maxcolor)
+        Coord = pix2coord(Mid[2],Mid[1],WCS)
+        size = np.nansum(Eventmask[i])
+        CVSstring = [str(feild), str(ID), str(i), Sourcetype[i], str(start), str(duration), str(maxlc), str(size), str(Coord[0]), str(Coord[1]), Source[i] ]                
+        if os.path.isfile(Path + 'Events.csv'):
+            with open(Path + 'Events.csv', 'a') as csvfile:
+                spamwriter = csv.writer(csvfile, delimiter=',')
+                spamwriter.writerow(CVSstring)
+        else:
+            with open(path + 'Events.csv', 'w') as csvfile:
+                spamwriter = csv.writer(csvfile, delimiter=',')
+                Topline = 'Field,EPIC,Host,Start,Duration,Counts,Size,RA,DEC'
+                spamwriter.writerow(['Field', 'EPIC', 'Event #', 'Host type', 'Start', 'Duration', 'Counts', 'Size','RA','DEC','Host'])
+                spamwriter.writerow(CVSstring)
+            
+    
+
+
 
 def K2TranPix(pixelfile,save): # More efficient in checking frames
     Save = save + pixelfile.split('-')[1].split('_')[0]
@@ -1005,6 +1033,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
                 # Print figures
                 K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType,Maskobj)
                 K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
+                Write_event(pixelfile,eventtime,eventmask,Source,SourceType,Maskdata,mywcs,save)
             
             
     except (OSError):
