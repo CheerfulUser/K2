@@ -842,7 +842,7 @@ def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Data, WCS, 
                 spamwriter = csv.writer(csvfile, delimiter=',')
                 spamwriter.writerow(CVSstring)
         else:
-            with open(path + 'Events.csv', 'w') as csvfile:
+            with open(Path + 'Events.csv', 'w') as csvfile:
                 spamwriter = csv.writer(csvfile, delimiter=',')
                 Topline = 'Field,EPIC,Host,Start,Duration,Counts,Size,RA,DEC'
                 spamwriter.writerow(['Field', 'EPIC', 'Event #', 'Host type', 'Start', 'Duration', 'Counts', 'Size','RA','DEC','Host'])
