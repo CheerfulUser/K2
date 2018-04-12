@@ -828,7 +828,7 @@ def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType
 def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Data, WCS, Path):
     feild = Pixelfile.split('-')[1].split('_')[0]
     ID = Pixelfile.split('ktwo')[1].split('-')[0]
-    for i in range(len(Events)):
+    for i in range(len(Eventtime)):
         start = Eventtime[i][0]
         duration = Eventtime[i][1] - Eventtime[i][0]
         maxlc = np.nanmax(np.nansum(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1),axis=(1,2)))
