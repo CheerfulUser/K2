@@ -848,7 +848,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
 
             Maskdata, ast = First_pass(np.copy(datacube),Qual,quality,thrusters,pixelfile)
             Maskdata = Maskdata*Mask
-            Maskdata = Motion_correction(Maskdata,Mask,thrusters)*Mask
+            #Maskdata = Motion_correction(Maskdata,Mask,thrusters)*Mask
 
             # Make a mask for the object to use as a test to eliminate very bad pointings
             obj = np.ma.masked_invalid(Mask).mask
