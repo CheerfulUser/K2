@@ -1012,21 +1012,24 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
                 ObjName, ObjType = Database_check_mask(datacube,thrusters,Objmasks,mywcs)
                 Near = Near_which_mask(eventmask,Objmasks)
                 Maskobj = np.zeros((len(events),Maskdata.shape[1],Maskdata.shape[2])) # for plotting masked object reference
-                if len(np.where(Objmasks[:,int(Maskdata.shape[1]/2),int(Maskdata.shape[2]/2)] == 1)[0]) > 0:
-                    CentralMask = np.where(Objmasks[:,int(Maskdata.shape[1]/2),int(Maskdata.shape[2]/2)] == 1)[0]
-                elif len(np.where(Objmasks[:,int(Maskdata.shape[1]/2),int(Maskdata.shape[2]/2)] == 1)[0]) > 1:
-                    CentralMask = np.where(Objmasks[:,int(Maskdata.shape[1]/2),int(Maskdata.shape[2]/2)] == 1)[0][0]
-                else:
-                    CentralMask = -1
-                if CentralMask == -1:
-                    Maskobj[:] = Mask
-                else:
-                    Maskobj[:] = Objmasks[CentralMask]
+                if len(Objmasks) > 0:
+                    if len(np.where(Objmasks[:,int(Maskdata.shape[1]/2),int(Maskdata.shape[2]/2)] == 1)[0]) > 0:
+                        CentralMask = np.where(Objmasks[:,int(Maskdata.shape[1]/2),int(Maskdata.shape[2]/2)] == 1)[0]
+                    elif len(np.where(Objmasks[:,int(Maskdata.shape[1]/2),int(Maskdata.shape[2]/2)] == 1)[0]) > 1:
+                        CentralMask = np.where(Objmasks[:,int(Maskdata.shape[1]/2),int(Maskdata.shape[2]/2)] == 1)[0][0]
+                    else:
+                        CentralMask = -1
+                    if CentralMask == -1:
+                        Maskobj[:] = Mask
+                    else:
+                        Maskobj[:] = Objmasks[CentralMask]
 
-                for ind in np.where(Near != -1)[0]:
-                    Source[ind] = 'Near: ' + ObjName[Near[ind]]
-                    SourceType[ind] = 'Near: ' + ObjType[Near[ind]]
-                    Maskobj[ind] = Objmasks[Near[ind]]
+                    for ind in np.where(Near != -1)[0]:
+                        Source[ind] = 'Near: ' + ObjName[Near[ind]]
+                        SourceType[ind] = 'Near: ' + ObjType[Near[ind]]
+                        Maskobj[ind] = Objmasks[Near[ind]]
+                else:
+                    Maskobj[:] = Mask
 
 
 
