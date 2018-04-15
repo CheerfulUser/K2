@@ -838,8 +838,11 @@ def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Data, WCS, 
         duration = Eventtime[i][1] - Eventtime[i][0]
         maxlc = np.nanmax(np.nansum(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1),axis=(1,2)))
         maxcolor = np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1))
-        Mid = np.where(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1) == maxcolor)
-        Coord = pix2coord(Mid[2],Mid[1],WCS)
+        Mid = np.where(Data[Eventtime[I][0]:Eventtime[I][-1]]*(Eventmask[I]==1) == maxcolor)
+        if len(Mid[0]) == 1:
+            Coord = pix2coord(Mid[1],Mid[0],WCS)
+        elif len(Mid[0]) > 1:
+            Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
         size = np.nansum(Eventmask[i])
         CVSstring = [str(feild), str(ID), str(i), Sourcetype[i], str(start), str(duration), str(maxlc), str(size), str(Coord[0]), str(Coord[1]), Source[i] ]                
         if os.path.isfile(Path + 'Events.csv'):
