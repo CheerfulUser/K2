@@ -648,11 +648,13 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         #Find Coords of transient
         position = np.where(Eventmask[i])
         maxcolor = np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1))
-        Mid = np.where(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1) == maxcolor)
-        if len(Mid[2]) == 1:
-            Coord = pix2coord(Mid[2],Mid[1],wcs)
-        elif len(Mid[2]) > 1:
-            Coord = pix2coord(Mid[2][0],Mid[1][0],wcs)
+        Mid = np.where(av*Masks[I] == np.nanmax(av*Masks[I]))
+        if len(Mid[0]) == 1:
+            Coord = pix2coord(Mid[1],Mid[0],WCS)
+        elif len(Mid[0]) > 1:
+            Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
+
+        
         # Generate a light curve from the transient masks
         LC = np.nansum(Data*Eventmask[i], axis = (1,2))
         BG = Data*~Frames[Events[i]]
