@@ -648,13 +648,13 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         #Find Coords of transient
         position = np.where(Eventmask[i])
         maxcolor = np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1))
-        Mid = np.where(av*Masks[I] == np.nanmax(av*Masks[I]))
+        Mid = np.where(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1) == maxcolor)
         if len(Mid[0]) == 1:
             Coord = pix2coord(Mid[1],Mid[0],WCS)
         elif len(Mid[0]) > 1:
             Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
 
-        
+
         # Generate a light curve from the transient masks
         LC = np.nansum(Data*Eventmask[i], axis = (1,2))
         BG = Data*~Frames[Events[i]]
@@ -838,7 +838,7 @@ def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Data, WCS, 
         duration = Eventtime[i][1] - Eventtime[i][0]
         maxlc = np.nanmax(np.nansum(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1),axis=(1,2)))
         maxcolor = np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1))
-        Mid = np.where(Data[Eventtime[I][0]:Eventtime[I][-1]]*(Eventmask[I]==1) == maxcolor)
+        Mid = np.where(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1) == maxcolor)
         if len(Mid[0]) == 1:
             Coord = pix2coord(Mid[1],Mid[0],WCS)
         elif len(Mid[0]) > 1:
