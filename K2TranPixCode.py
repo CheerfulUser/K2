@@ -207,7 +207,7 @@ def ThrusterElim(Events,Times,Masks,Firings,Quality,qual,Data):
                 end = Quality[(Quality == Times[i][-1])] #& (Quality <= Times[i][-1]+1)]
             eventthrust = Firings[(Firings >= Times[i][0]) & (Firings <= Times[i][-1])]
 
-            if (~begining.any() & ~end.any()) & (Range < 78): # Change to the nominal cadences between 3 thruster firings. 
+            if (~begining.any() & ~end.any()) & (Range < 48): # Change to the nominal cadences  for a day 
                 
                 if Asteroid_fitter(Masks[i],Times[i],Data):
                     asteroid.append(Events[i])
@@ -221,7 +221,7 @@ def ThrusterElim(Events,Times,Masks,Firings,Quality,qual,Data):
                         temp2.append(Times[i])
                         temp3.append(Masks[i])
 
-            elif Range >= 78:
+            elif Range >= 48:
 
                 if begining.shape[0] == 0:
                     begining = 0
@@ -722,7 +722,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         plt.plot(position[1],position[0],'r.',ms = 15)
         
 
-        if Eventtime[i][-1] - Eventtime[i][0] >= 78:
+        if Eventtime[i][-1] - Eventtime[i][0] >= 48:
             if maxcolor <= 10:
                 if 'Near: ' in Source[i]:
                     directory = Save+'/Figures/Long/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
@@ -792,7 +792,7 @@ def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType
             plt.savefig(filename)
             plt.close();
 
-        if Eventtime[i][-1] - Eventtime[i][0] >= 78:
+        if Eventtime[i][-1] - Eventtime[i][0] >= 48:
             if maxcolor <= 10:
                 if 'Near: ' in Source[i]:
                     directory = Save+'/Figures/Long/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
