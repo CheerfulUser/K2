@@ -1008,7 +1008,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             
             Fieldsave = Save + '/Field/' + pixelfile.split('ktwo')[-1].split('-')[0]+'_Field'
             Save_space(Save + '/Field/')
-            np.savez(Fieldsave)
+            np.savez(Fieldsave, Fieldprop)
 
 
             # Find all spatially seperate objects in the event mask.
