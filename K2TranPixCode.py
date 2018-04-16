@@ -650,9 +650,9 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         maxcolor = np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1))
         Mid = np.where(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1) == maxcolor)
         if len(Mid[0]) == 1:
-            Coord = pix2coord(Mid[1],Mid[0],WCS)
+            Coord = pix2coord(Mid[1],Mid[0],wcs)
         elif len(Mid[0]) > 1:
-            Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
+            Coord = pix2coord(Mid[1][0],Mid[0][0],wcs)
 
 
         # Generate a light curve from the transient masks
