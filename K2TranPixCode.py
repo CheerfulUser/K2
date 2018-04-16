@@ -884,7 +884,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
 
             Maskdata, ast = First_pass(np.copy(datacube),Qual,quality,thrusters,pixelfile)
             Maskdata = Maskdata*Mask
-            #Maskdata = Motion_correction(Maskdata,Mask,thrusters)*Mask
+            Maskdata = Motion_correction(Maskdata,Mask,thrusters)*Mask
 
             # Make a mask for the object to use as a test to eliminate very bad pointings
             obj = np.ma.masked_invalid(Mask).mask
@@ -1001,8 +1001,8 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             # Save thrusts and quality flags and time 
             Fieldprop = {}
             Fieldprop['File'] = pixelfile
-            Fieldprop['Thruster'] = len(thrusters)
-            Fieldprop['Quality'] = len(quality)-len(thrusters)
+            Fieldprop['Thruster'] = thrusters
+            Fieldprop['Quality'] = quality
             Fieldprop['Duration'] = len(time)
             Fieldprop['Gal_lat'] = Get_gal_lat(mywcs,datacube)
             
