@@ -642,6 +642,43 @@ def Save_space(Save):
     except FileExistsError:
         pass
 
+def Save_environment(Eventtime,maxcolor,Source,SourceType,Save):
+    if Eventtime[-1] - Eventtime[0] >= 48:
+        if maxcolor <= 10:
+            if 'Near: ' in Source:
+                directory = Save+'/Figures/Long/Faint/Near/' + SourceType.split('Near: ')[-1] + '/'
+            elif 'Prob:' in Source:
+                directory = Save+'/Figures/Long/Faint/Prob/' + SourceType.split('Prob: ')[-1] + '/'
+            else:
+                directory = Save+'/Figures/Long/Faint/' + SourceType + '/'
+
+        else:
+            if 'Near: ' in Source:
+                directory = Save+'/Figures/Long/Bright/Near/' + SourceType.split('Near: ')[-1] + '/'
+            elif 'Prob:' in Source:
+                directory = Save+'/Figures/Long/Faint/Prob/' + SourceType.split('Prob: ')[-1] + '/'
+            else:
+                directory = Save+'/Figures/Long/Bright/' + SourceType + '/'
+
+    else:
+        if maxcolor <= 10:
+            if 'Near: ' in Source:
+                directory = Save+'/Figures/Short/Faint/Near/' + SourceType.split('Near: ')[-1] + '/'
+            elif 'Prob:' in Source:
+                directory = Save+'/Figures/Long/Faint/Prob/' + SourceType.split('Prob: ')[-1] + '/'
+            else:
+                directory = Save+'/Figures/Short/Faint/' + SourceType + '/'
+
+        else:
+            if 'Near: ' in Source:
+                directory = Save+'/Figures/Short/Bright/Near/' + SourceType.split('Near: ')[-1] + '/'
+            elif 'Prob:' in Source:
+                directory = Save+'/Figures/Long/Faint/Prob/' + SourceType.split('Prob: ')[-1] + '/'
+            else:
+                directory = Save+'/Figures/Short/Bright/' + SourceType + '/'
+    Save_space(directory)
+    return directory
+
 def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quality,Thrusters,Framemin,Datacube,Source,SourceType,ObjMask):
     for i in range(len(Events)):
         # Check if there are multiple transients
@@ -722,38 +759,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         plt.plot(position[1],position[0],'r.',ms = 15)
         
 
-        if Eventtime[i][-1] - Eventtime[i][0] >= 48:
-            if maxcolor <= 10:
-                if 'Near: ' in Source[i]:
-                    directory = Save+'/Figures/Long/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-
-                else:
-                    directory = Save+'/Figures/Long/Faint/' + SourceType[i] + '/'
-
-            else:
-                if 'Near: ' in Source[i]:
-                    directory = Save+'/Figures/Long/Bright/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-
-                else:
-                    directory = Save+'/Figures/Long/Bright/' + SourceType[i] + '/'
-
-        else:
-            if maxcolor <= 10:
-                if 'Near: ' in Source[i]:
-                    directory = Save+'/Figures/Short/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-
-                else:
-                    directory = Save+'/Figures/Short/Faint/' + SourceType[i] + '/'
-
-            else:
-                if 'Near: ' in Source[i]:
-                    directory = Save+'/Figures/Short/Bright/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-
-                else:
-                    directory = Save+'/Figures/Short/Bright/' + SourceType[i] + '/'
-
-
-        Save_space(directory)
+        directory = Save_environment(Eventtime[i],maxcolor,Source[i],SourceType[i],Save)
             
 
         plt.savefig(directory+File.split('/')[-1].split('-')[0]+'_'+str(i)+'.pdf', bbox_inches = 'tight')
@@ -792,38 +798,7 @@ def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType
             plt.savefig(filename)
             plt.close();
 
-        if Eventtime[i][-1] - Eventtime[i][0] >= 48:
-            if maxcolor <= 10:
-                if 'Near: ' in Source[i]:
-                    directory = Save+'/Figures/Long/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-
-                else:
-                    directory = Save+'/Figures/Long/Faint/' + SourceType[i] + '/'
-
-            else:
-                if 'Near: ' in Source[i]:
-                    directory = Save+'/Figures/Long/Bright/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-
-                else:
-                    directory = Save+'/Figures/Long/Bright/' + SourceType[i] + '/'
-
-        else:
-            if maxcolor <= 10:
-                if 'Near: ' in Source[i]:
-                    directory = Save+'/Figures/Short/Faint/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-
-                else:
-                    directory = Save+'/Figures/Short/Faint/' + SourceType[i] + '/'
-
-            else:
-                if 'Near: ' in Source[i]:
-                    directory = Save+'/Figures/Short/Bright/Near/' + SourceType[i].split('Near: ')[-1] + '/'
-
-                else:
-                    directory = Save+'/Figures/Short/Bright/' + SourceType[i] + '/'
-
-
-        Save_space(directory)
+        directory = Save_environment(Eventtime[i],maxcolor,Source[i],SourceType[i],Save)
 
         framerate = (xmax-xmin)/5
         ffmpegcall = 'ffmpeg -y -nostats -loglevel 0 -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4'
@@ -856,7 +831,23 @@ def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Data, WCS, 
                 spamwriter.writerow(['Field', 'EPIC', 'Event #', 'Host type', 'Start', 'Duration', 'Counts', 'Size','RA','DEC','Host'])
                 spamwriter.writerow(CVSstring)
             
-    
+def Probable_host(Eventtime,Eventmask,Source,SourceType,Objmasks,ObjName,ObjType,Data):
+    for i in range(len(Eventtime)):
+        if 'Near' not in SourceType[i]:
+            maxlc = np.nanmax(np.nansum(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1),axis=(1,2)))
+            maxcolor = np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1))
+            maxframe = Data[np.where(Data*Eventmask[i]==np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1]]*Eventmask[i]))[0][0]]       
+            conv = (convolve(Eventmask[i],np.ones((3,3)),mode='constant', cval=0.0) > 0) - Eventmask[i]
+            if len(np.where(maxframe*conv >= maxcolor)[0]) > 1:
+                Mid = np.where(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1) == maxcolor)
+                if len(Mid[0]) == 1:
+                    distance = np.sqrt((np.where(Objmasks==1)[1] - Mid[1])**2 + (np.where(Objmasks==1)[2] - Mid[2])**2)
+                elif len(Mid[0]) > 1:
+                    distance = np.sqrt((np.where(Objmasks==1)[1] - Mid[1][0])**2 + (np.where(Objmasks==1)[2] - Mid[2][0])**2)
+                minind = np.where((np.nanmin(distance) == distance))[0]
+                SourceType[i] = 'Prob:' + ObjType[minind]
+                Source[i] = 'Prob:' + ObjName[minind]
+    return Source, SourceType
 
 
 
@@ -1040,7 +1031,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
                     Maskobj[:] = Mask
 
 
-
+                Source, SourceType = Probable_host(eventtime,eventmask,Source,SourceType,Objmasks,ObjName,ObjType,Maskdata)
                 # Print figures
                 K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType,Maskobj)
                 K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
