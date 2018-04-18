@@ -665,7 +665,7 @@ def Save_environment(Eventtime,maxcolor,Source,SourceType,Save):
             if 'Near: ' in Source:
                 directory = Save+'/Figures/Short/Faint/Near/' + SourceType.split('Near: ')[-1] + '/'
             elif 'Prob:' in Source:
-                directory = Save+'/Figures/Long/Faint/Prob/' + SourceType.split('Prob: ')[-1] + '/'
+                directory = Save+'/Figures/Short/Faint/Prob/' + SourceType.split('Prob: ')[-1] + '/'
             else:
                 directory = Save+'/Figures/Short/Faint/' + SourceType + '/'
 
@@ -673,7 +673,7 @@ def Save_environment(Eventtime,maxcolor,Source,SourceType,Save):
             if 'Near: ' in Source:
                 directory = Save+'/Figures/Short/Bright/Near/' + SourceType.split('Near: ')[-1] + '/'
             elif 'Prob:' in Source:
-                directory = Save+'/Figures/Long/Faint/Prob/' + SourceType.split('Prob: ')[-1] + '/'
+                directory = Save+'/Figures/Short/Faint/Prob/' + SourceType.split('Prob: ')[-1] + '/'
             else:
                 directory = Save+'/Figures/Short/Bright/' + SourceType + '/'
     Save_space(directory)
