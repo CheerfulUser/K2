@@ -27,20 +27,11 @@ from glob import glob
 import os
 import time as t
 
-from mpi4py import MPI
 
 import warnings
 warnings.filterwarnings("ignore",category = RuntimeWarning)
 warnings.filterwarnings("ignore",category = UserWarning)
 
-def print_mpi(string):
-    comm = MPI.COMM_WORLD
-    print("["+str(comm.Get_rank())+"] "+string)
-
-def print_master(string):
-    comm = MPI.COMM_WORLD
-    if comm.Get_rank() == 0:
-        print("["+str(comm.Get_rank())+"] "+string)
 
 def DriftKiller(data,thrust):
     # The right value choice here is a bit ambiguous, though it seems that typical variations are <10.
@@ -856,10 +847,9 @@ def Probable_host(Eventtime,Eventmask,Source,SourceType,Objmasks,ObjName,ObjType
                 minind = np.where((np.nanmin(distance) == distance))[0]
                 if len(minind) > 1:
                     minind = minind[0][0]
-                minind = np.where(Objmasks==1)[0][minind]
-                print_mpi(minind)
-                SourceType[i] = 'Prob:' + ObjType[minind]
-                Source[i] = 'Prob:' + ObjName[minind]
+                minind = np.where(Objmasks==1)[0][minind][0]
+                SourceType[i] = 'Prob: ' + ObjType[minind]
+                Source[i] = 'Prob: ' + ObjName[minind]
     return Source, SourceType
 
 
