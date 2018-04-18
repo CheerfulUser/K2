@@ -844,10 +844,8 @@ def Probable_host(Eventtime,Eventmask,Source,SourceType,Objmasks,ObjName,ObjType
                     distance = np.sqrt((np.where(Objmasks==1)[1] - Mid[1])**2 + (np.where(Objmasks==1)[2] - Mid[2])**2)
                 elif len(Mid[0]) > 1:
                     distance = np.sqrt((np.where(Objmasks==1)[1] - Mid[1][0])**2 + (np.where(Objmasks==1)[2] - Mid[2][0])**2)
-                minind = np.where((np.nanmin(distance) == distance))[0]
-                if len(minind) > 1:
-                    minind = minind[0][0]
-                minind = np.where(Objmasks==1)[0][minind][0]
+                minind = np.where((np.nanmin(distance) == distance))[0][0]
+                minind = np.where(Objmasks==1)[0][minind]
                 SourceType[i] = 'Prob: ' + ObjType[minind]
                 Source[i] = 'Prob: ' + ObjName[minind]
     return Source, SourceType
