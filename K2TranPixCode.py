@@ -840,14 +840,15 @@ def Probable_host(Eventtime,Eventmask,Source,SourceType,Objmasks,ObjName,ObjType
             conv = (convolve(Eventmask[i],np.ones((3,3)),mode='constant', cval=0.0) > 0) - Eventmask[i]
             if len(np.where(maxframe*conv >= maxcolor)[0]) > 1:
                 Mid = np.where(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1) == maxcolor)
-                if len(Mid[0]) == 1:
-                    distance = np.sqrt((np.where(Objmasks==1)[1] - Mid[1])**2 + (np.where(Objmasks==1)[2] - Mid[2])**2)
-                elif len(Mid[0]) > 1:
-                    distance = np.sqrt((np.where(Objmasks==1)[1] - Mid[1][0])**2 + (np.where(Objmasks==1)[2] - Mid[2][0])**2)
-                minind = np.where((np.nanmin(distance) == distance))[0][0]
-                minind = np.where(Objmasks==1)[0][minind]
-                SourceType[i] = 'Prob: ' + ObjType[minind]
-                Source[i] = 'Prob: ' + ObjName[minind]
+                if len(Objmasks) > 0:
+                    if len(Mid[0]) == 1:
+                        distance = np.sqrt((np.where(Objmasks==1)[1] - Mid[1])**2 + (np.where(Objmasks==1)[2] - Mid[2])**2)
+                    elif len(Mid[0]) > 1:
+                        distance = np.sqrt((np.where(Objmasks==1)[1] - Mid[1][0])**2 + (np.where(Objmasks==1)[2] - Mid[2][0])**2)
+                    minind = np.where((np.nanmin(distance) == distance))[0][0]
+                    minind = np.where(Objmasks==1)[0][minind]
+                    SourceType[i] = 'Prob: ' + ObjType[minind]
+                    Source[i] = 'Prob: ' + ObjName[minind]
     return Source, SourceType
 
 
