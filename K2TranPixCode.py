@@ -896,49 +896,64 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             # Identify if there is a sequence of consecutive or near consecutive frames that meet condtition 
             
 
-            Eventmask_ref = (convolve(framemask,np.ones((1,3,3)),mode='constant', cval=0.0))*1
-            Eventmask = np.copy(Eventmask_ref)
-            Eventmask[~np.where((convolve(Eventmask_ref,np.ones((5,1,1)),mode='constant', cval=0.0) >= 4))[0]] = 0
+            Eventmask = np.copy(framemask)
+            Eventmask[~np.where((convolve(framemask,np.ones((5,1,1)),mode='constant', cval=0.0) >= 4))[0]] = 0
             Eventmask[Qual!=0,:,:] = False
-            Eventmask_ref[Qual!=0,:,:] = False
+
 
             Index = np.where(np.nansum(Eventmask*1, axis = (1,2))>0)[0]
-
+            EMcopy = np.copy(Eventmask)
             events = []
             eventtime = []
+            eventmask = []
             while len(Index) > 1:
 
-                similar = np.where(((Eventmask[Index[0]]*Eventmask_ref[Index[0]:]) == Eventmask[Index[0]]).all(axis = (1,2)))[0]+Index[0]
+                triggers = np.where(EMcopy[Index[0]])
+                for i in range(len(triggers[0])):
+                    similar = np.where(Eventmask[Index[0]:,triggers[0][i],triggers[1][i]]==1)[0] + Index[0]
 
-                if len((np.diff(similar)<3)) > 1: # Choide for this value is arbitrary 
 
-                    if len(np.where((np.diff(similar)<3) == False)[0]) > 0:
-                        simEnd = np.where((np.diff(similar)<3) == False)[0][0] 
+
+                    if len((np.diff(similar)<10)) > 1:
+                 #       print('in')
+                        if len(np.where((np.diff(similar)<10) == False)[0]) > 0:
+                            simEnd = np.where((np.diff(similar)<10) == False)[0][0] 
+                            if Index[0] == 3446:
+                                print(simEnd)
+                        else:
+                            simEnd = -1
                     else:
-                        simEnd = -1
-                else:
-                    simEnd = 0
-                if (simEnd > 0):
-                    similar = similar[:simEnd]
-                elif (simEnd == 0):
-                    similar = np.array([similar[0]])
+                        simEnd = 0
+                    if (simEnd > 0):
+                        similar = similar[:simEnd]
+                    elif (simEnd == 0):
+                        similar = np.array([similar[0]])
 
-                if len(similar) > 1:
+                    if len(similar) > 1:
 
-                    events.append(similar[0])
-                    temp = [similar[0]-1,similar[-1]+1]
-                    eventtime.append(temp)
-                    temp = []
-                template = Eventmask[Index[0]]
-                for number in similar:
-                    if (np.nansum(template*1-Eventmask[number]*1) == 0):
-                        Index = np.delete(Index, np.where(Index == number)[0])
+                        events.append(similar[0])
+                        temp = [similar[0]-1,similar[-1]+1]
+                        eventtime.append(temp)
+                        tempmask = np.zeros((Eventmask[Index[0]].shape))
+                        tempmask[triggers[0][i],triggers[1][i]] = 1
+                        eventmask.append(tempmask)
+                        temp = []
 
-            events, eventtime, eventmask = EventSplitter(events,eventtime,Eventmask,framemask)  
 
-            events = np.array(events)
-            eventmask = np.array(eventmask)
+                    temp = EMcopy[similar]
+                    temp[:,triggers[0][i],triggers[1][i]] = False
+                    EMcopy[similar] = temp
+
+                    Index = np.where(np.nansum(EMcopy*1, axis = (1,2))>0)[0]
+            events = np.array(events)          
             eventtime = np.array(eventtime)
+            eventmask = np.array(eventmask)
+
+            events, eventtime, eventmask = Match_events(events,eventtime,eventmask)#EventSplitter(events,eventtime,Eventmask,framemask)  
+
+            #events = np.array(events)
+            #eventmask = np.array(eventmask)
+            #eventtime = np.array(eventtime)
 
             temp = []
             for i in range(len(events)):
@@ -948,9 +963,9 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             events = events[temp]
             eventmask = eventmask[temp]
 
-            if len(eventmask) > 0:
-                middle = (convolve(eventmask,np.ones((1,3,3))) == np.nanmax(convolve(eventmask,np.ones((1,3,3))))) & (convolve(eventmask,np.ones((1,3,3)),mode='constant', cval=0.0) == np.nanmax(convolve(eventmask,np.ones((1,3,3)),mode='constant', cval=0.0)))
-                eventmask = eventmask*middle
+            #if len(eventmask) > 0:
+            #    middle = (convolve(eventmask,np.ones((1,3,3))) == np.nanmax(convolve(eventmask,np.ones((1,3,3))))) & (convolve(eventmask,np.ones((1,3,3)),mode='constant', cval=0.0) == np.nanmax(convolve(eventmask,np.ones((1,3,3)),mode='constant', cval=0.0)))
+            #    eventmask = eventmask*middle
 
 
             # Eliminate events that do not meet thruster firing conditions
