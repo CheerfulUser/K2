@@ -732,7 +732,10 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
             j = j+1 
             plt.axvline(Time[Thrusters[j]]-Time[0],color = 'red', alpha = 0.5)
         xmin = Time[Eventtime[i][0]]-Time[0]-(Eventtime[i][-1]-Eventtime[i][0])/10
-        xmax = Time[Eventtime[i][-1]]-Time[0]+(Eventtime[i][-1]-Eventtime[i][0])/10
+        if Eventtime[i][-1] < len(Time):
+            xmax = Time[Eventtime[i][-1]]-Time[0]+(Eventtime[i][-1]-Eventtime[i][0])/10
+        else:
+            xmax = Time[-1]-Time[0]+(Eventtime[i][-1]-Eventtime[i][0])/10
         if xmin < 0:
             xmin = 0
         if xmax > Time[-1] - Time[0]:
