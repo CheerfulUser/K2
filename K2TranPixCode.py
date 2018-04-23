@@ -288,7 +288,7 @@ def Match_events(Events,Eventtime,Eventmask):
             Events = np.delete(Events,np.where(coincident)[0][1:])
             Eventtime = np.delete(Eventtime,np.where(coincident)[0][1:], axis = (0))
             Eventmask = np.delete(Eventmask,np.where(coincident)[0][1:], axis = (0))
-            Eventmask[i] = newmask
+            Eventmask[np.where(coincident)[0][0]] = newmask
 
         i +=1
         
