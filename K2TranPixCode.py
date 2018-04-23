@@ -279,7 +279,6 @@ def Asteroid_identifier(Events,Times,Masks,Firings,Quality,qual,Data):
 
 def Match_events(Events,Eventtime,Eventmask):
     i = 0
-    new = []
     while i < len(Events):
         coincident = (((Eventtime[:,0] >= Eventtime[i,0]-3) & (Eventtime[:,0] <= Eventtime[i,0]+3)) | ((Eventtime[:,1] >= Eventtime[i,1]-3) & (Eventtime[:,1] <= Eventtime[i,1]+3))) & (np.nansum(convolve(Eventmask[i],np.ones((3,3)), mode = 'constant', cval=0.0)*Eventmask[:],axis=(1,2)) > 0)
 
@@ -289,10 +288,10 @@ def Match_events(Events,Eventtime,Eventmask):
             Events = np.delete(Events,np.where(coincident)[0][1:])
             Eventtime = np.delete(Eventtime,np.where(coincident)[0][1:], axis = (0))
             Eventmask = np.delete(Eventmask,np.where(coincident)[0][1:], axis = (0))
-            new.append(newmask)
+            Eventmask[i] = newmask
 
         i +=1
-    Eventmask = np.array(new)
+        
     return Events, Eventtime,Eventmask
 
 def Match_asteroids(Events,Eventtime,Eventmask):
