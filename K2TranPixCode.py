@@ -680,9 +680,26 @@ def Save_environment(Eventtime,maxcolor,Source,SourceType,Save):
     Save_space(directory)
     return directory
 
+def Thumbnail(LC,BGLC,Eventtime,Time,Xlim,Ylim,Eventnum,File,Save):
+    plt.figure()
+    if Eventtime[-1] < len(Time):
+        plt.axvspan(Time[Eventtime[0]]-Time[0],Time[Eventtime[-1]]-Time[0], color = 'orange')
+    else:
+        plt.axvspan(Time[Eventtime[0]]-Time[0],Time[-1]-Time[0], color = 'orange')
+    plt.plot(Time - Time[0], LC,'.', label = 'Event LC')
+    plt.plot(Time - Time[0], BGLC,'k.', label = 'Background LC')
+    plt.title
+    plt.xlim(Xlim[0],Xlim[1])
+    plt.ylim(Ylim[0],Ylim[1])
+    plt.title(File.split('ktwo')[1].split('_')[0] + ' Event ' + str(Eventnum))
+    plt.ylabel('Counts')
+    plt.xlabel('Time (days)')
+    Save_space(Save + '/Figures/Thumb/')
+    plt.savefig(Save + '/Figures/Thumb/'+ File.split('/')[-1].split('-')[0]+'_'+str(Eventnum)+'.png', bbox_inches = 'tight')
+    plt.close();
+
 def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quality,Thrusters,Framemin,Datacube,Source,SourceType,ObjMask):
     for i in range(len(Events)):
-        # Check if there are multiple transients
         #Find Coords of transient
         position = np.where(Eventmask[i])
         maxcolor = np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1))
@@ -692,12 +709,18 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         elif len(Mid[0]) > 1:
             Coord = pix2coord(Mid[1][0],Mid[0][0],wcs)
 
-
-        # Generate a light curve from the transient masks
-        LC = np.nansum(Data*Eventmask[i], axis = (1,2))
+        test = np.ma.masked_invalid(Maskdata).mask*1
+        wide = convolve(test,np.ones((1,3,3))) > 0
+        bgmask = -(wide+Eventmask[i]) + 1
+        bgmask[bgmask==0] = np.nan
+        background = Data*bgmask
+        level = np.nanmedian(background,axis=(1,2))
         BG = Data*~Frames[Events[i]]
-        BG[BG <= 0] =np.nan
-        BGLC = np.nanmedian(BG, axis = (1,2))
+        BG[BG <= 0] = np.nan
+        BGLC = level
+        # Generate a light curve from the transient masks
+        LC = np.nansum(Data*Eventmask[i], axis = (1,2)) - level
+        
 
         Obj = ObjMask[i]
         ObjLC = np.nansum(Datacube*Obj,axis = (1,2))
@@ -715,10 +738,6 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         plt.title('Event light curve (BJD '+str(round(Time[Eventtime[i][0]]-Time[0],2))+', RA '+str(round(Coord[0],3))+', DEC '+str(round(Coord[1],3))+')')
         plt.xlabel('Time (+'+str(Time[0])+' BJD)')
         plt.ylabel('Counts')
-        plt.plot(Time - Time[0], LC,'.', label = 'Event LC')
-        plt.plot(Time - Time[0], OrigLC,'m+',alpha=0.9, label = 'Original data')
-        plt.plot(Time - Time[0], BGLC,'k.', label = 'Background LC')
-        plt.plot(Time - Time[0], ObjLC,'kx', label = 'Scaled object LC')
         if Eventtime[i][-1] < len(Time):
             plt.axvspan(Time[Eventtime[i][0]]-Time[0],Time[Eventtime[i][-1]]-Time[0], color = 'orange', label = 'Event duration')
         else:
@@ -732,6 +751,14 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         for j in range(Thrusters.shape[0]-1):
             j = j+1 
             plt.axvline(Time[Thrusters[j]]-Time[0],color = 'red', alpha = 0.5)
+            
+        
+        
+        plt.plot(Time - Time[0], BGLC,'k.', label = 'Background LC')
+        plt.plot(Time - Time[0], ObjLC,'kx', label = 'Scaled object LC')
+        plt.plot(Time - Time[0], OrigLC,'m+',alpha=0.9, label = 'Original data')
+        plt.plot(Time - Time[0], LC,'.', label = 'Event LC')
+        
         xmin = Time[Eventtime[i][0]]-Time[0]-(Eventtime[i][-1]-Eventtime[i][0])/10
         if Eventtime[i][-1] < len(Time):
             xmax = Time[Eventtime[i][-1]]-Time[0]+(Eventtime[i][-1]-Eventtime[i][0])/10
@@ -742,8 +769,10 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         if xmax > Time[-1] - Time[0]:
             xmax = Time[-1] - Time[0]
         if np.isfinite(xmin) & np.isfinite(xmax):
-            plt.xlim(xmin,xmax) # originally 48 for some reason
-        plt.ylim(np.nanmedian(LC)-np.nanstd(LC),np.nanmax(LC[Eventtime[i][0]:Eventtime[i][-1]])+0.1*np.nanmax(LC[Eventtime[i][0]:Eventtime[i][-1]]))
+            plt.xlim(xmin,xmax) 
+        ymin = np.nanmedian(LC)-np.nanstd(LC[Eventtime[i][0]:Eventtime[i][-1]])
+        ymax = np.nanmax(LC[Eventtime[i][0]:Eventtime[i][-1]])+0.1*np.nanmax(LC[Eventtime[i][0]:Eventtime[i][-1]])
+        plt.ylim(ymin,ymax)
         plt.legend(loc = 1)
         # small subplot 1 Reference image plot
         plt.subplot2grid((2,3), (0,2))
@@ -767,7 +796,9 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
             
 
         plt.savefig(directory+File.split('/')[-1].split('-')[0]+'_'+str(i)+'.pdf', bbox_inches = 'tight')
-        plt.close();
+        
+        plt.close()
+        Thumbnail(LC,BGLC,Eventtime[i],Time,[xmin,xmax],[ymin,ymax],i,File,Save);
 
 def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType):
     # Save the frames to be combined into a gif with ffmpeg with another set of code.
