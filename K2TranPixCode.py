@@ -474,7 +474,7 @@ def Motion_correction(Data,Mask,Thrusters):
                                 temp2[yoarr] = np.nan
                                 yo = np.delete(yo,[0,1])
                         if len(yo) == 1:
-                            temp[yo] = np.nan
+                            temp2[yo] = np.nan
                         ind = np.where(~np.isnan(temp2))[0]
                         
                         if (len(x[ind]) > 3) & (len(x[ind])/len(x) > 0.6):
@@ -809,7 +809,7 @@ def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType
 
         os.system(ffmpegcall);
 
-def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Data, WCS, Path):
+def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Data, WCS, hdu, Path):
     feild = Pixelfile.split('-')[1].split('_')[0]
     ID = Pixelfile.split('ktwo')[1].split('-')[0]
     for i in range(len(Eventtime)):
@@ -823,7 +823,7 @@ def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Data, WCS, 
         elif len(Mid[0]) > 1:
             Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
         size = np.nansum(Eventmask[i])
-        CVSstring = [str(feild), str(ID), str(i), Sourcetype[i], str(start), str(duration), str(maxlc), str(size), str(Coord[0]), str(Coord[1]), Source[i] ]                
+        CVSstring = [str(feild), str(ID), str(i), Sourcetype[i], str(start), str(duration), str(maxlc), str(size), str(Coord[0]), str(Coord[1]), Source[i], str(hdu[0].header['CHANNEL']), str(hdu[0].header['MODULE']), str(hdu[0].header['OUTPUT']) ]                
         if os.path.isfile(Path + 'Events.csv'):
             with open(Path + 'Events.csv', 'a') as csvfile:
                 spamwriter = csv.writer(csvfile, delimiter=',')
@@ -831,8 +831,7 @@ def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Data, WCS, 
         else:
             with open(Path + 'Events.csv', 'w') as csvfile:
                 spamwriter = csv.writer(csvfile, delimiter=',')
-                Topline = 'Field,EPIC,Host,Start,Duration,Counts,Size,RA,DEC'
-                spamwriter.writerow(['Field', 'EPIC', 'Event #', 'Host type', 'Start', 'Duration', 'Counts', 'Size','RA','DEC','Host'])
+                spamwriter.writerow(['Field', 'EPIC', 'Event #', 'Host type', 'Start', 'Duration', 'Counts', 'Size','RA','DEC','Host', 'Channel', 'Module', 'Output'])
                 spamwriter.writerow(CVSstring)
             
 def Probable_host(Eventtime,Eventmask,Source,SourceType,Objmasks,ObjName,ObjType,Data):
@@ -868,6 +867,8 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             time = dat["TIME"] + 2454833.0
             Qual = hdu[1].data.field('QUALITY')
             thrusters = np.where((Qual == 1048576) | (Qual == 1089568) | (Qual == 1056768) | (Qual == 1064960) | (Qual == 1081376) | (Qual == 10240) | (Qual == 32768) | (Qual == 1097760) | (Qual == 1048580) | (Qual == 1081348))[0]
+            if len(thrusters) > 0:
+                thrusters = np.insert(thrusters,0,-1) # set the first frame as a stable frame
             quality = np.where(Qual != 0)[0]
             #calculate the reference frame
             if len(thrusters) > 4:
@@ -876,6 +877,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
                 Framemin = thrusters[0]+1
             else:
                 Framemin = 100 # Arbitrarily chosen, Data is probably screwed anway if there are no thruster firings.
+                thrusters = np.array([-1]) # stops it from killing my code 
             # Apply object mask to data
             Mask = ThrustObjectMask(datacube,thrusters)
 
