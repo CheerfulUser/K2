@@ -940,7 +940,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             # Apply object mask to data
             Mask = ThrustObjectMask(datacube,thrusters)
 
-            Maskdata, ast = First_pass(np.copy(datacube),Qual,quality,thrusters,pixelfile)
+            #Maskdata, ast = First_pass(np.copy(datacube),Qual,quality,thrusters,pixelfile)
             Maskdata = Maskdata*Mask
             Maskdata = Motion_correction(Maskdata,Mask,thrusters)*Mask
 
