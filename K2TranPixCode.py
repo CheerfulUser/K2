@@ -7,6 +7,7 @@ import numpy as np
 
 from scipy.ndimage.filters import convolve
 from scipy.interpolate import interp1d
+from astropy.stats import sigma_clip
 
 from astropy.io import fits
 from astropy import units as u
@@ -32,16 +33,6 @@ import warnings
 warnings.filterwarnings("ignore",category = RuntimeWarning)
 warnings.filterwarnings("ignore",category = UserWarning)
 
-
-def DriftKiller(data,thrust):
-    # The right value choice here is a bit ambiguous, though it seems that typical variations are <10.
-    Drift = (abs(data[thrust+1]-data[thrust-1]) < 10)*1.0 
-    Drift[Drift == 0] = np.nan
-    j = 0
-    for i in range(len(thrust)):
-        data[j:thrust[i]] = data[j:thrust[i]]*Drift[i]
-        j = thrust[i]
-    return data
 
 def FindMinFrame(data,thrusters):
     # Finding the reference frame
@@ -85,47 +76,45 @@ def ThrustObjectMask(data,thrust):
     Mask[Mask==2] = np.nan
     return Mask
 
+def Event_ID(Eventmask,Mask):
+    tarr = np.copy(Eventmask)
+    leng = 10
+    X = np.where(Mask)[0]
+    Y = np.where(Mask)[1]
+
+    for i in range(10-2):
+        kern = np.zeros((leng,1,1))
+        kern[[0,-1]] = 1
+        tarr[convolve(tarr*1,kern) > 1] = True
+        leng -= 1
+
+    events = []
+    eventtime = []
+    eventmask = []
+
+    for i in range(len(X)):
+        testf = np.diff(np.where(~tarr[:,X[i],Y[i]])[0])
+        indf = np.where(~tarr[:,X[i],Y[i]])[0]
+        testf[testf == 1] = 0
+        testf = np.append(testf,0)
+
+        if len(indf[testf>3]+1) == 1:
+            events.append(indf[testf>3][0]+1)
+            eventtime.append([indf[testf>3][0]+1, (indf[testf>3][0]+1 + testf[testf>3][0]-1)])
+            masky = [np.array(X[i]), np.array(Y[i])]
+            eventmask.append(masky)
+        elif len(indf[testf>3]+1) > 1:
+            for j in range(len(indf[testf>3])):
+                events.append(indf[testf>3][j]+1)
+                eventtime.append([indf[testf>3][j]+1, (indf[testf>3][j]+1 + testf[testf>3][j]-1)])
+                masky = [np.array(X[i]), np.array(Y[i])]
+                eventmask.append(masky)
+
+    events = np.array(events)
+    eventtime = np.array(eventtime)
+    return events, eventtime, eventmask
 
 
-def EventSplitter(events,Times,Masks,framemask):
-    Events = []
-    times = []
-    mask = []
-    for i in range(len(events)):
-        # Check if there are multiple transients
-        Coincident = Masks[events[i]]*framemask[events[i]]*1
-        positions = np.where(Coincident == 1)
-        if len(positions[0]) > 1:
-            for p in range(len(positions[0])):
-                eventmask = np.zeros((Masks.shape[1],Masks.shape[2]))
-                eventmask[positions[0][p],positions[1][p]] = 1
-                eventmask = convolve(eventmask,np.ones((3,3)),mode='constant', cval=0.0)
-                Similar = np.where((Masks[Times[i][0]:,:,:]*eventmask == eventmask).all(axis=(1,2)))[0]
-                
-                if len((np.diff(Similar)<5)) > 1:
-                    
-                    if len(np.where((np.diff(Similar)<5) == False)[0]) > 0:
-                        SimEnd = np.where((np.diff(Similar)<5) == False)[0][0] 
-                    else:
-                        SimEnd = -1
-                else:
-                    SimEnd = 0
-
-                Similar = Similar[:SimEnd]
-                if len(Similar) > 1:
-                    timerange = [Similar[0]+Times[i][0]-1,Similar[-1]+Times[i][0]+1]
-                    if len(timerange) > 1:
-                        Events.append(events[i])
-                        times.append(timerange)
-                        mask.append(eventmask)
-                
-        else:
-            Events.append(events[i])
-            times.append(Times[i])
-            mask.append(Masks[events[i]])
-            
-
-    return Events, times, mask
 
 def Asteroid_fitter(Mask,Time,Data, plot = False):
     lc = np.nansum(Data*Mask,axis=(1,2))
@@ -197,6 +186,8 @@ def ThrusterElim(Events,Times,Masks,Firings,Quality,qual,Data):
     asttime = []
     astmask = []
     for i in range(len(Events)):
+        mask = np.zeros((Data.shape[1],Data.shape[2]))
+        mask[Masks[i][0],Masks[i][1]] = 1
         Range = Times[i][-1] - Times[i][0]
         if (Range > 0) & (Range/Data.shape[0] < 0.8) & (Times[i][0] > 5): 
             begining = Firings[(Firings >= Times[i][0]-2) & (Firings <= Times[i][0]+1)]
@@ -209,12 +200,12 @@ def ThrusterElim(Events,Times,Masks,Firings,Quality,qual,Data):
 
             if (~begining.any() & ~end.any()) & (Range < 48): # Change to the nominal cadences  for a day 
                 
-                if Asteroid_fitter(Masks[i],Times[i],Data):
+                if Asteroid_fitter(mask,Times[i],Data):
                     asteroid.append(Events[i])
                     asttime.append(Times[i])
                     astmask.append(Masks[i])
                 else:
-                    LC = np.nansum(Data[Times[i][0]:Times[i][-1]+3]*Masks[i], axis = (1,2))
+                    LC = Data[Times[i][0]:Times[i][-1]+3,Masks[i,0],Masks[i,1]]
                     if (np.where(np.nanmax(LC) == LC)[0] < Range).all():
                     
                         temp.append(Events[i])
@@ -231,7 +222,9 @@ def ThrusterElim(Events,Times,Masks,Firings,Quality,qual,Data):
                     end = Times[i][-1] + 10
                 else:
                     end = end[0]
-                LC = np.nansum(Data*Masks[i], axis = (1,2))
+                LC = Data[:,Masks[i][0],Masks[i][1]]
+                #print(Masks[i])
+                #print(LC.shape)
                 maxloc = Smoothmax(Times[i],LC,qual)
 
                 if ((maxloc > begining).all() & (maxloc < end)).all(): 
@@ -278,17 +271,20 @@ def Asteroid_identifier(Events,Times,Masks,Firings,Quality,qual,Data):
 
 
 def Match_events(Events,Eventtime,Eventmask):
-    i = 0
-    while i < len(Events):
-        coincident = (((Eventtime[:,0] >= Eventtime[i,0]-3) & (Eventtime[:,0] <= Eventtime[i,0]+3)) | ((Eventtime[:,1] >= Eventtime[i,1]-3) & (Eventtime[:,1] <= Eventtime[i,1]+3))) & (np.nansum(convolve(Eventmask[i],np.ones((3,3)), mode = 'constant', cval=0.0)*Eventmask[:],axis=(1,2)) > 0)
-
+    if len(Events) > 1:
+        i = 0
+        coincident = np.isclose(Eventtime[i,0],Eventtime[i:,0],atol=9) & np.isclose(Eventtime[i,1],Eventtime[i:,1],atol=9)
         if sum(coincident*1) > 1:
-            newmask = (np.nansum(Eventmask[coincident],axis = (0)) > 0)*1 
+            newmask = Eventmask[i]
+            for j in np.where(coincident)[0][1:]:
+                newmask[0] = np.append(newmask[0],Eventmask[j][0])
+                newmask[1] = np.append(newmask[1],Eventmask[j][1])
+            Eventmask[i] = newmask
 
             Events = np.delete(Events,np.where(coincident)[0][1:])
             Eventtime = np.delete(Eventtime,np.where(coincident)[0][1:], axis = (0))
             Eventmask = np.delete(Eventmask,np.where(coincident)[0][1:], axis = (0))
-            Eventmask[np.where(coincident)[0][0]] = newmask
+            
 
         i +=1
         
@@ -337,7 +333,8 @@ def First_pass(Datacube,Qual,Quality,Thrusters,Pixelfile):
 
     framemask = np.zeros(Maskdata.shape)
 
-    limit = abs(np.nanmedian(Maskdata[Qual == 0], axis = (0))+2*(np.nanstd(Maskdata[Qual == 0], axis = (0))))
+    limit = abs(np.nanmedian(Maskdata[Qual == 0], axis = (0))+3*(np.nanstd(Maskdata[Qual == 0], axis = (0))))
+    limit[limit<20] = 20
     framemask = ((Maskdata/limit) >= 1)
     framemask[:,np.where(Maskdata > 100000)[1],np.where(Maskdata > 100000)[2]] = 0
 
@@ -421,7 +418,7 @@ def First_pass(Datacube,Qual,Quality,Thrusters,Pixelfile):
 
     return Cleandata, ast
 
-def Motion_correction(Data,Mask,Thrusters):
+def Motion_correction(Data,Mask,Thrusters,Dist):
     Corrected = np.zeros((Data.shape[0],Data.shape[1],Data.shape[2]))
     fit = np.zeros(len(Data))
     X = np.where(Mask == 1)[0]
@@ -430,21 +427,22 @@ def Motion_correction(Data,Mask,Thrusters):
         temp = np.copy(Data[:,X[j],Y[j]])
         #temp[temp==0] = np.nan
         zz = np.arange(0,len(Data))
-        AvSplinepoints = np.zeros(len(Thrusters))
-        AvSplineind = np.zeros(len(Thrusters))
-        for i in range(len(Thrusters)-1):
-            ErrorCheck = np.copy(Data[Thrusters[i]+1:Thrusters[i]+3,X[j],Y[j]])
-            ErrorCheck[ErrorCheck >= np.nanmedian(Data[Thrusters[i]+3:Thrusters[i+1],X[j],Y[j]])+2*np.nanstd(Data[Thrusters[i]+3:Thrusters[i+1],X[j],Y[j]])] = np.nan
+        goodthrust = Thrusters[np.where(Dist[Thrusters+1] < 0.2)[0]]
+        AvSplinepoints = np.zeros(len(goodthrust))
+        AvSplineind = np.zeros(len(goodthrust))
+        for i in range(len(goodthrust)-1):
+            ErrorCheck = np.copy(Data[goodthrust[i]+1:goodthrust[i]+3,X[j],Y[j]])
+            ErrorCheck[ErrorCheck >= np.nanmedian(Data[goodthrust[i]+3:goodthrust[i+1],X[j],Y[j]])+2*np.nanstd(Data[goodthrust[i]+3:goodthrust[i+1],X[j],Y[j]])] = np.nan
             AvSplinepoints[i] = np.nanmin(ErrorCheck)
             
-            if (i < len(Thrusters)-1): 
-                if ((Thrusters[i+1] - Thrusters[i]) < 15):
+            if (i < len(goodthrust)-1): 
+                if ((goodthrust[i+1] - goodthrust[i]) < 15):
                     AvSplinepoints[i] = np.nan
             if ~np.isnan(AvSplinepoints[i]):
-                if len(np.where(AvSplinepoints[i] == Data[Thrusters[i]+1:Thrusters[i]+3,X[j],Y[j]])[0]+Thrusters[i]+1) > 1:
-                    AvSplineind[i] = np.where(AvSplinepoints[i] == Data[Thrusters[i]+1:Thrusters[i]+3,X[j],Y[j]])[0][0]+Thrusters[i]+1
+                if len(np.where(AvSplinepoints[i] == Data[goodthrust[i]+1:goodthrust[i]+3,X[j],Y[j]])[0]+goodthrust[i]+1) > 1:
+                    AvSplineind[i] = np.where(AvSplinepoints[i] == Data[goodthrust[i]+1:goodthrust[i]+3,X[j],Y[j]])[0][0]+goodthrust[i]+1
                 else:
-                    AvSplineind[i] = np.where(AvSplinepoints[i] == Data[Thrusters[i]+1:Thrusters[i]+3,X[j],Y[j]])[0]+Thrusters[i]+1 
+                    AvSplineind[i] = np.where(AvSplinepoints[i] == Data[goodthrust[i]+1:goodthrust[i]+3,X[j],Y[j]])[0]+goodthrust[i]+1 
             else:
                 AvSplineind[i] = np.nan
         ind = np.where(~np.isnan(AvSplineind))
@@ -533,14 +531,16 @@ def Database_event_check(Data,Eventtime,Eventmask,WCS):
     Objects = []
     Objtype = []
     for I in range(len(Eventtime)):
-        maxcolor = np.nanmax(Data[Eventtime[I][0]:Eventtime[I][-1]]*(Eventmask[I]==1))
+        mask = np.zeros((Data.shape[1],Data.shape[2]))
+        mask[Eventmask[I][0],Eventmask[I][1]] = 1
+        maxcolor = np.nanmax(Data[Eventtime[I][0]:Eventtime[I][-1]]*(mask==1))
 
-        Mid = np.where(Data[Eventtime[I][0]:Eventtime[I][-1]]*(Eventmask[I]==1) == maxcolor)
+        Mid = np.where(Data[Eventtime[I][0]:Eventtime[I][-1]]*(mask==1) == maxcolor)
         if len(Mid[0]) == 1:
             Coord = pix2coord(Mid[1],Mid[0],WCS)
         elif len(Mid[0]) > 1:
             Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
-
+        print(Coord)
         c = coordinates.SkyCoord(ra=Coord[0], dec=Coord[1],unit=(u.deg, u.deg), frame='icrs')
 
         Ob = 'Unknown'
@@ -625,13 +625,17 @@ def Database_check_mask(Datacube,Thrusters,Masks,WCS):
 
 
 
-def Near_which_mask(Eventmask,Objmasks):
+def Near_which_mask(Eventmask,Objmasks,Data):
     # Finds which mask in the object mask an event is near. The value assigned to Near_mask 
     # is the index of Objmask that corresponds to the event. If not mask is near, value is nan.
     Near_mask = np.ones(len(Eventmask),dtype=int)*-1
+    mask = np.zeros((len(Eventmask),Data.shape[1],Data.shape[2]))
+    for i in range(len(Eventmask)):
+        mask[i,Eventmask[i][0],Eventmask[i][1]] = 1
+
     for i in range(len(Objmasks)):
         near_mask = ((convolve(Objmasks[i]*1,np.ones((3,3)),mode='constant', cval=0.0)) > 0)*1
-        isnear = near_mask*Eventmask
+        isnear = near_mask*mask
         Near_mask[np.where(isnear==1)[0]] = int(i)
     return Near_mask
 
@@ -700,10 +704,12 @@ def Thumbnail(LC,BGLC,Eventtime,Time,Xlim,Ylim,Eventnum,File,Save):
 
 def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quality,Thrusters,Framemin,Datacube,Source,SourceType,ObjMask):
     for i in range(len(Events)):
+        mask = np.zeros((Data.shape[1],Data.shape[2]))
+        mask[Eventmask[i][0],Eventmask[i][1]] = 1
         #Find Coords of transient
-        position = np.where(Eventmask[i])
-        maxcolor = np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1))
-        Mid = np.where(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1) == maxcolor)
+        position = np.where(mask)
+        maxcolor = np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1]]*(mask==1))
+        Mid = np.where(Data[Eventtime[i][0]:Eventtime[i][-1]]*(mask==1) == maxcolor)
         if len(Mid[0]) == 1:
             Coord = pix2coord(Mid[1],Mid[0],wcs)
         elif len(Mid[0]) > 1:
@@ -711,7 +717,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
 
         test = np.ma.masked_invalid(Maskdata).mask*1
         wide = convolve(test,np.ones((1,3,3))) > 0
-        bgmask = -(wide+Eventmask[i]) + 1
+        bgmask = -(wide+mask) + 1
         bgmask[bgmask==0] = np.nan
         background = Data*bgmask
         level = np.nanmedian(background,axis=(1,2))
@@ -719,14 +725,14 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         BG[BG <= 0] = np.nan
         BGLC = level
         # Generate a light curve from the transient masks
-        LC = np.nansum(Data*Eventmask[i], axis = (1,2)) - level
+        LC = np.nansum(Data*mask, axis = (1,2)) - level
         
 
         Obj = ObjMask[i]
         ObjLC = np.nansum(Datacube*Obj,axis = (1,2))
         ObjLC = ObjLC/np.nanmedian(ObjLC)*np.nanmedian(LC)
 
-        OrigLC = np.nansum(Datacube*Eventmask[i], axis = (1,2))
+        OrigLC = np.nansum(Datacube*mask, axis = (1,2))
 
 
         fig = plt.figure(figsize=(10,6))
@@ -735,45 +741,46 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         plt.suptitle('EPIC ID: ' + File.split('ktwo')[-1].split('_')[0] + '\nSource: '+ Source[i] + ' (' + SourceType[i] + ')')
         # large subplot
         plt.subplot2grid((2,3), (0,0), colspan=2, rowspan=2)
-        plt.title('Event light curve (BJD '+str(round(Time[Eventtime[i][0]]-Time[0],2))+', RA '+str(round(Coord[0],3))+', DEC '+str(round(Coord[1],3))+')')
-        plt.xlabel('Time (+'+str(Time[0])+' BJD)')
+        plt.title('Event light curve (RA '+str(round(Coord[0],3))+', DEC '+str(round(Coord[1],3))+')')
+        plt.xlabel('Time (+'+str(np.floor(Time[0]))+' BJD)')
         plt.ylabel('Counts')
         if Eventtime[i][-1] < len(Time):
-            plt.axvspan(Time[Eventtime[i][0]]-Time[0],Time[Eventtime[i][-1]]-Time[0], color = 'orange', label = 'Event duration')
+            plt.axvspan(Time[Eventtime[i][0]]-np.floor(Time[0]),Time[Eventtime[i][-1]]-np.floor(Time[0]), color = 'orange', label = 'Event duration')
         else:
-            plt.axvspan(Time[Eventtime[i][0]]-Time[0],Time[-1]-Time[0], color = 'orange', label = 'Event duration')
-        plt.axvline(Time[Quality[0]]-Time[0],color = 'red', linestyle='dashed',label = 'Quality', alpha = 0.5)
+            plt.axvspan(Time[Eventtime[i][0]]-np.floor(Time[0]),Time[-1]-np.floor(Time[0]), color = 'orange', label = 'Event duration')
+        plt.axvline(Time[Quality[0]]-np.floor(Time[0]),color = 'red', linestyle='dashed',label = 'Quality', alpha = 0.5)
         for j in range(Quality.shape[0]-1):
             j = j+1 
-            plt.axvline(Time[Quality[j]]-Time[0], linestyle='dashed', color = 'red', alpha = 0.5)
+            plt.axvline(Time[Quality[j]]-np.floor(Time[0]), linestyle='dashed', color = 'red', alpha = 0.5)
         # plot Thurster firings 
-        plt.axvline(Time[Thrusters[0]]-Time[0],color = 'red',label = 'Thruster', alpha = 0.5)
+        plt.axvline(Time[Thrusters[0]]-np.floor(Time[0]),color = 'red',label = 'Thruster', alpha = 0.5)
         for j in range(Thrusters.shape[0]-1):
             j = j+1 
-            plt.axvline(Time[Thrusters[j]]-Time[0],color = 'red', alpha = 0.5)
+            plt.axvline(Time[Thrusters[j]]-np.floor(Time[0]),color = 'red', alpha = 0.5)
             
         
+
+        plt.plot(Time - np.floor(Time[0]), BGLC,'k.', label = 'Background LC')
+        plt.plot(Time - np.floor(Time[0]), ObjLC,'kx', label = 'Scaled object LC')
+        plt.plot(Time - np.floor(Time[0]), OrigLC,'m+',alpha=0.9, label = 'Original data')
+        plt.plot(Time - np.floor(Time[0]), LC,'.', label = 'Event LC',alpha=0.5)
         
-        plt.plot(Time - Time[0], BGLC,'k.', label = 'Background LC')
-        plt.plot(Time - Time[0], ObjLC,'kx', label = 'Scaled object LC')
-        plt.plot(Time - Time[0], OrigLC,'m+',alpha=0.9, label = 'Original data')
-        plt.plot(Time - Time[0], LC,'.', label = 'Event LC')
-        
-        xmin = Time[Eventtime[i][0]]-Time[0]-(Eventtime[i][-1]-Eventtime[i][0])/10
+        xmin = Time[Eventtime[i][0]]-np.floor(Time[0])-(Eventtime[i][-1]-Eventtime[i][0])/10
         if Eventtime[i][-1] < len(Time):
-            xmax = Time[Eventtime[i][-1]]-Time[0]+(Eventtime[i][-1]-Eventtime[i][0])/10
+            xmax = Time[Eventtime[i][-1]]-np.floor(Time[0])+(Eventtime[i][-1]-Eventtime[i][0])/10
         else:
-            xmax = Time[-1]-Time[0]+(Eventtime[i][-1]-Eventtime[i][0])/10
+            xmax = Time[-1]-np.floor(Time[0])+(Eventtime[i][-1]-Eventtime[i][0])/10
         if xmin < 0:
             xmin = 0
-        if xmax > Time[-1] - Time[0]:
-            xmax = Time[-1] - Time[0]
+        if xmax > Time[-1] - np.floor(Time[0]):
+            xmax = Time[-1] - np.floor(Time[0])
         if np.isfinite(xmin) & np.isfinite(xmax):
             plt.xlim(xmin,xmax) 
         ymin = np.nanmedian(LC)-np.nanstd(LC[Eventtime[i][0]:Eventtime[i][-1]])
         ymax = np.nanmax(LC[Eventtime[i][0]:Eventtime[i][-1]])+0.1*np.nanmax(LC[Eventtime[i][0]:Eventtime[i][-1]])
         plt.ylim(ymin,ymax)
         plt.legend(loc = 1)
+        plt.minorticks_on()
         # small subplot 1 Reference image plot
         plt.subplot2grid((2,3), (0,2))
         plt.title('Reference')
@@ -785,7 +792,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         # small subplot 2 Image of event
         plt.subplot2grid((2,3), (1,2))
         plt.title('Event')
-        plt.imshow(Data[np.where(Data*Eventmask[i]==np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1]]*Eventmask[i]))[0][0],:,:], origin='lower',vmin=0,vmax = maxcolor)
+        plt.imshow(Data[np.where(Data*mask==np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1]]*mask))[0][0],:,:], origin='lower',vmin=0,vmax = maxcolor)
         current_cmap = plt.cm.get_cmap()
         current_cmap.set_bad(color='black')
         plt.colorbar(fraction=0.046, pad=0.04)
@@ -803,9 +810,11 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
 def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType):
     # Save the frames to be combined into a gif with ffmpeg with another set of code.
     for i in range(len(Events)):
-        position = np.where(Eventmask[i])
+        mask = np.zeros((Data.shape[1],Data.shape[2]))
+        mask[Eventmask[i][0],Eventmask[i][1]] = 1
+        position = np.where(mask)
 
-        maxcolor = np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1],(Eventmask[i] == 1)])
+        maxcolor = np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1],(mask == 1)])
 
         xmin = Eventtime[i][0]-(Eventtime[i][1]-Eventtime[i][0])
         xmax = Eventtime[i][1]+(Eventtime[i][1]-Eventtime[i][0])
@@ -844,11 +853,13 @@ def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Data, WCS, 
     feild = Pixelfile.split('-')[1].split('_')[0]
     ID = Pixelfile.split('ktwo')[1].split('-')[0]
     for i in range(len(Eventtime)):
+        mask = np.zeros((Data.shape[1],Data.shape[2]))
+        mask[Eventmask[i][0],Eventmask[i][1]] = 1
         start = Eventtime[i][0]
         duration = Eventtime[i][1] - Eventtime[i][0]
-        maxlc = np.nanmax(np.nansum(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1),axis=(1,2)))
-        maxcolor = np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1))
-        Mid = np.where(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1) == maxcolor)
+        maxlc = np.nanmax(np.nansum(Data[Eventtime[i][0]:Eventtime[i][-1]]*(mask == 1),axis=(1,2)))
+        maxcolor = np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1]]*(mask == 1))
+        Mid = np.where(Data[Eventtime[i][0]:Eventtime[i][-1]]*(mask == maxcolor))
         if len(Mid[0]) == 1:
             Coord = pix2coord(Mid[1],Mid[0],WCS)
         elif len(Mid[0]) > 1:
@@ -868,12 +879,14 @@ def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Data, WCS, 
 def Probable_host(Eventtime,Eventmask,Source,SourceType,Objmasks,ObjName,ObjType,Data):
     for i in range(len(Eventtime)):
         if 'Near' not in SourceType[i]:
-            maxlc = np.nanmax(np.nansum(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1),axis=(1,2)))
-            maxcolor = np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1))
-            maxframe = Data[np.where(Data*Eventmask[i]==np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1]]*Eventmask[i]))[0][0]]       
-            conv = (convolve(Eventmask[i],np.ones((3,3)),mode='constant', cval=0.0) > 0) - Eventmask[i]
+            mask = np.zeros((Data.shape[1],Data.shape[2]))
+            mask[Eventmask[i][0],Eventmask[i][1]] = 1
+            maxlc = np.nanmax(np.nansum(Data[Eventtime[i][0]:Eventtime[i][-1]]*(mask==1),axis=(1,2)))
+            maxcolor = np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1]]*(mask==1))
+            maxframe = Data[np.where(Data*mask==np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1]]*mask))[0][0]]       
+            conv = (convolve(mask,np.ones((3,3)),mode='constant', cval=0.0) > 0) - mask
             if len(np.where(maxframe*conv >= maxcolor)[0]) > 1:
-                Mid = np.where(Data[Eventtime[i][0]:Eventtime[i][-1]]*(Eventmask[i]==1) == maxcolor)
+                Mid = np.where(Data[Eventtime[i][0]:Eventtime[i][-1]]*(mask==1) == maxcolor)
                 if len(Objmasks) > 0:
                     if len(Mid[0]) == 1:
                         distance = np.sqrt((np.where(Objmasks==1)[1] - Mid[1])**2 + (np.where(Objmasks==1)[2] - Mid[2])**2)
