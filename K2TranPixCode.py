@@ -922,27 +922,34 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
         dat = hdu[1].data
         datacube = fits.ImageHDU(hdu[1].data.field('FLUX')[:]).data#np.copy(testdata)#
         if datacube.shape[1] > 1 and datacube.shape[2] > 1:
+            ind = np.where(np.isfinite(datacube[0]))
+            for i in range(len(ind)):
+                lc = datacube[:,ind[0][i],ind[1][i]]
+                datacube[sigma_clip(lc,sigma=5.).mask,ind[0][i],ind[1][i]] = np.nan
             #print(pixelfile)
             time = dat["TIME"] + 2454833.0
             Qual = hdu[1].data.field('QUALITY')
             thrusters = np.where((Qual == 1048576) | (Qual == 1089568) | (Qual == 1056768) | (Qual == 1064960) | (Qual == 1081376) | (Qual == 10240) | (Qual == 32768) | (Qual == 1097760) | (Qual == 1048580) | (Qual == 1081348))[0]
-            if len(thrusters) > 0:
-                thrusters = np.insert(thrusters,0,-1) # set the first frame as a stable frame
+            thrusters = np.insert(thrusters,0,-1)
             quality = np.where(Qual != 0)[0]
+            
+            xdrif = dat['pos_corr1']
+            ydrif = dat['pos_corr2']
+            distdrif = np.sqrt(xdrif**2 + ydrif**2)
+            goodthrust = thrusters[np.where(distdrif[thrusters]<0.2)]
             #calculate the reference frame
-            if len(thrusters) > 4:
-                Framemin = thrusters[3]+1
-            elif len(thrusters) > 0:
-                Framemin = thrusters[0]+1
+            if len(goodthrust) > 4:
+                Framemin = goodthrust[3]+1
+            elif len(goodthrust) > 0:
+                Framemin = goodthrust[0]+1
             else:
                 Framemin = 100 # Arbitrarily chosen, Data is probably screwed anway if there are no thruster firings.
-                thrusters = np.array([-1]) # stops it from killing my code 
             # Apply object mask to data
-            Mask = ThrustObjectMask(datacube,thrusters)
+            Mask = ThrustObjectMask(datacube,goodthrust)
 
             #Maskdata, ast = First_pass(np.copy(datacube),Qual,quality,thrusters,pixelfile)
             Maskdata = datacube*Mask
-            Maskdata = Motion_correction(Maskdata,Mask,thrusters)*Mask
+            Maskdata = Motion_correction(Maskdata,Mask,thrusters,distdrif)*Mask
 
             # Make a mask for the object to use as a test to eliminate very bad pointings
             obj = np.ma.masked_invalid(Mask).mask
@@ -952,91 +959,31 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             framemask = np.zeros(Maskdata.shape)
 
             limit = abs(np.nanmedian(Maskdata[Qual == 0], axis = (0))+3*(np.nanstd(Maskdata[Qual == 0], axis = (0))))
+            limit[limit<20] = 20
             framemask = ((Maskdata/limit) >= 1)
             framemask[:,np.where(Maskdata > 100000)[1],np.where(Maskdata > 100000)[2]] = 0
 
             # Identify if there is a sequence of consecutive or near consecutive frames that meet condtition 
-            
 
             Eventmask = np.copy(framemask)
             Eventmask[~np.where((convolve(framemask,np.ones((5,1,1)),mode='constant', cval=0.0) >= 4))[0]] = 0
             Eventmask[Qual!=0,:,:] = False
 
 
-            Index = np.where(np.nansum(Eventmask*1, axis = (1,2))>0)[0]
-            EMcopy = np.copy(Eventmask)
-            events = []
-            eventtime = []
-            eventmask = []
-            while len(Index) > 1:
+            events, eventtime, eventmask = Event_ID(Eventmask,Mask)
 
-                triggers = np.where(EMcopy[Index[0]])
-                for i in range(len(triggers[0])):
-                    similar = np.where(Eventmask[Index[0]:,triggers[0][i],triggers[1][i]]==1)[0] + Index[0]
-
-
-
-                    if len((np.diff(similar)<10)) > 1:
-                 #       print('in')
-                        if len(np.where((np.diff(similar)<10) == False)[0]) > 0:
-                            simEnd = np.where((np.diff(similar)<10) == False)[0][0] 
-                            if Index[0] == 3446:
-                                print(simEnd)
-                        else:
-                            simEnd = -1
-                    else:
-                        simEnd = 0
-                    if (simEnd > 0):
-                        similar = similar[:simEnd]
-                    elif (simEnd == 0):
-                        similar = np.array([similar[0]])
-
-                    if len(similar) > 1:
-
-                        events.append(similar[0])
-                        temp = [similar[0]-1,similar[-1]+1]
-                        eventtime.append(temp)
-                        tempmask = np.zeros((Eventmask[Index[0]].shape))
-                        tempmask[triggers[0][i],triggers[1][i]] = 1
-                        eventmask.append(tempmask)
-                        temp = []
-
-
-                    temp = EMcopy[similar]
-                    temp[:,triggers[0][i],triggers[1][i]] = False
-                    EMcopy[similar] = temp
-
-                    Index = np.where(np.nansum(EMcopy*1, axis = (1,2))>0)[0]
-            events = np.array(events)          
-            eventtime = np.array(eventtime)
-            eventmask = np.array(eventmask)
-
-            events, eventtime, eventmask = Match_events(events,eventtime,eventmask)#EventSplitter(events,eventtime,Eventmask,framemask)  
-
-            #events = np.array(events)
-            #eventmask = np.array(eventmask)
-            #eventtime = np.array(eventtime)
-
+            # Eliminate events that do not meet thruster firing conditions
+            events, eventtime, eventmask, asteroid, asttime, astmask = ThrusterElim(events,eventtime,eventmask,thrusters,quality,Qual,Maskdata)
+            
+            events, eventtime, eventmask = Match_events(events,eventtime,eventmask)
+            
             temp = []
             for i in range(len(events)):
-                if len(np.where(datacube[eventtime[i][0]:eventtime[i][-1]]*eventmask[i] > 100000)[0]) == 0:
+                if len(np.where(datacube[eventtime[i][0]:eventtime[i][-1],eventmask[i][0],eventmask[i][1]] > 100000)[0]) == 0:
                     temp.append(i)
             eventtime = eventtime[temp]
             events = events[temp]
             eventmask = eventmask[temp]
-
-            #if len(eventmask) > 0:
-            #    middle = (convolve(eventmask,np.ones((1,3,3))) == np.nanmax(convolve(eventmask,np.ones((1,3,3))))) & (convolve(eventmask,np.ones((1,3,3)),mode='constant', cval=0.0) == np.nanmax(convolve(eventmask,np.ones((1,3,3)),mode='constant', cval=0.0)))
-            #    eventmask = eventmask*middle
-
-
-            # Eliminate events that do not meet thruster firing conditions
-            events, eventtime, eventmask, asteroid, asttime, astmask = ThrusterElim(events,eventtime,eventmask,thrusters,quality,Qual,Maskdata)
-            events = np.array(events)
-            eventtime = np.array(eventtime)
-            eventmask = np.array(eventmask)
-
-            events, eventtime, eventmask = Match_events(events,eventtime,eventmask)
             
             # Save asteroids
             astsave = Save + '/Asteroid/' + pixelfile.split('ktwo')[-1].split('-')[0]+'_Asteroid'
