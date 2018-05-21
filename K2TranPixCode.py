@@ -732,7 +732,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         elif len(Mid[0]) > 1:
             Coord = pix2coord(Mid[1][0],Mid[0][0],wcs)
 
-        test = np.ma.masked_invalid(Maskdata).mask*1
+        test = np.ma.masked_invalid(Data[0]).mask*1
         wide = convolve(test,np.ones((1,3,3))) > 0
         bgmask = -(wide+mask) + 1
         bgmask[bgmask==0] = np.nan
