@@ -642,7 +642,9 @@ def Near_which_mask(Eventmask,Objmasks,Data):
 def Isolation(Eventtime,Eventmask,Data,SourceType):
     Sourcetype = np.copy(SourceType)
     for i in range(len(Eventtime)):
-        surround = convolve(Eventmask[i], np.ones((3,3)), mode='constant', cval=0.0)-Eventmask[i]
+        mask = np.zeros((Data.shape[1],Data.shape[2]))
+        mask[Eventmask[i][0],Eventmask[i][1]] = 1
+        surround = convolve(mask, np.ones((3,3)), mode='constant', cval=0.0)-mask
         points= np.where(surround==1)
         condition = []
         for p in range(len(points[0])):
