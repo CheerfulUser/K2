@@ -205,7 +205,7 @@ def ThrusterElim(Events,Times,Masks,Firings,Quality,qual,Data):
                     asttime.append(Times[i])
                     astmask.append(Masks[i])
                 else:
-                    LC = Data[Times[i][0]:Times[i][-1]+3,Masks[i,0],Masks[i,1]]
+                    LC = Data[Times[i][0]:Times[i][-1]+3,Masks[i][0],Masks[i][1]]
                     if (np.where(np.nanmax(LC) == LC)[0] < Range).all():
                     
                         temp.append(Events[i])
@@ -986,9 +986,9 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             eventmask = eventmask[temp]
             
             # Save asteroids
-            astsave = Save + '/Asteroid/' + pixelfile.split('ktwo')[-1].split('-')[0]+'_Asteroid'
-            Save_space(Save + '/Asteroid/')
-            np.savez(astsave,ast)
+            #astsave = Save + '/Asteroid/' + pixelfile.split('ktwo')[-1].split('-')[0]+'_Asteroid'
+            #Save_space(Save + '/Asteroid/')
+            #np.savez(astsave,ast)
             # Save baseline frame
             
             Limitsave = Save + '/Limit/' + pixelfile.split('ktwo')[-1].split('-')[0]+'_Limit'
