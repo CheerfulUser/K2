@@ -639,6 +639,21 @@ def Near_which_mask(Eventmask,Objmasks,Data):
         Near_mask[np.where(isnear==1)[0]] = int(i)
     return Near_mask
 
+def Isolation(Eventtime,Eventmask,Data,SourceType):
+    Sourcetype = np.copy(SourceType)
+    for i in range(len(Eventtime)):
+        surround = convolve(Eventmask[i], np.ones((3,3)), mode='constant', cval=0.0)-Eventmask[i]
+        points= np.where(surround==1)
+        condition = []
+        for p in range(len(points[0])):
+            outside = np.nanmedian(Data[:,points[0][p],points[1][p]])+np.nanstd(Data[:,points[0][p],points[1][p]]) 
+            inside = np.nanmedian(Data[Eventtime[i,0]:Eventtime[i,1],points[0][p],points[1][p]])
+            condition.append(inside>outside)
+        condition = np.array(condition)
+        if np.nansum(condition==0):
+            Sourcetype[i] = 'Isolated'
+    return SourceType
+
 
 def Save_space(Save):
     try:
@@ -1099,6 +1114,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
 
 
                 Source, SourceType = Probable_host(eventtime,eventmask,Source,SourceType,Objmasks,ObjName,ObjType,Maskdata)
+                SourceType = Isolation(eventtime,eventmask,Maskdata,SourceType)
                 # Print figures
                 K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType,Maskobj)
                 K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
