@@ -242,7 +242,7 @@ def ThrusterElim(Events,Times,Masks,Firings,Quality,qual,Data):
 
     events = np.array(temp)
     eventtime = np.array(temp2)
-    eventmask = np.array(temp3)
+    eventmask = temp3 #np.array(temp3)
     return events, eventtime, eventmask, asteroid, asttime, astmask
 
 def Asteroid_identifier(Events,Times,Masks,Firings,Quality,qual,Data):
@@ -540,7 +540,7 @@ def Database_event_check(Data,Eventtime,Eventmask,WCS):
             Coord = pix2coord(Mid[1],Mid[0],WCS)
         elif len(Mid[0]) > 1:
             Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
-        print(Coord)
+        #print(Coord)
         c = coordinates.SkyCoord(ra=Coord[0], dec=Coord[1],unit=(u.deg, u.deg), frame='icrs')
 
         Ob = 'Unknown'
@@ -983,7 +983,10 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
                     temp.append(i)
             eventtime = eventtime[temp]
             events = events[temp]
-            eventmask = eventmask[temp]
+            temp2=[]
+            for i in temp:
+                temp2.append(eventmask[i])
+            eventmask = temp2
             
             # Save asteroids
             #astsave = Save + '/Asteroid/' + pixelfile.split('ktwo')[-1].split('-')[0]+'_Asteroid'
@@ -1038,7 +1041,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             if len(events) > 0:
                 Source, SourceType = Database_event_check(Maskdata,eventtime,eventmask,mywcs)
                 ObjName, ObjType = Database_check_mask(datacube,thrusters,Objmasks,mywcs)
-                Near = Near_which_mask(eventmask,Objmasks)
+                Near = Near_which_mask(eventmask,Objmasks,datacube)
                 Maskobj = np.zeros((len(events),Maskdata.shape[1],Maskdata.shape[2])) # for plotting masked object reference
                 if len(Objmasks) > 0:
                     if len(np.where(Objmasks[:,int(Maskdata.shape[1]/2),int(Maskdata.shape[2]/2)] == 1)[0]) > 0:
