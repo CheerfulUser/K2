@@ -76,7 +76,7 @@ def ThrustObjectMask(data,thrust):
     Mask[Mask==2] = np.nan
     return Mask
 
-def Event_ID(Eventmask,Mask):
+def Event_ID(Eventmask,Mask,Minlength):
     tarr = np.copy(Eventmask)
     leng = 10
     X = np.where(Mask)[0]
@@ -98,15 +98,15 @@ def Event_ID(Eventmask,Mask):
         testf[testf == 1] = 0
         testf = np.append(testf,0)
 
-        if len(indf[testf>3]+1) == 1:
-            events.append(indf[testf>3][0]+1)
-            eventtime.append([indf[testf>3][0]+1, (indf[testf>3][0]+1 + testf[testf>3][0]-1)])
+        if len(indf[testf>Minlength]+1) == 1:
+            events.append(indf[testf>Minlength][0]+1)
+            eventtime.append([indf[testf>Minlength][0]+1, (indf[testf>Minlength][0]+1 + testf[testf>Minlength][0]-1)])
             masky = [np.array(X[i]), np.array(Y[i])]
             eventmask.append(masky)
         elif len(indf[testf>3]+1) > 1:
-            for j in range(len(indf[testf>3])):
-                events.append(indf[testf>3][j]+1)
-                eventtime.append([indf[testf>3][j]+1, (indf[testf>3][j]+1 + testf[testf>3][j]-1)])
+            for j in range(len(indf[testf>Minlength])):
+                events.append(indf[testf>Minlength][j]+1)
+                eventtime.append([indf[testf>Minlength][j]+1, (indf[testf>Minlength][j]+1 + testf[testf>Minlength][j]-1)])
                 masky = [np.array(X[i]), np.array(Y[i])]
                 eventmask.append(masky)
 
@@ -666,7 +666,7 @@ def Save_space(Save):
 
 def Save_environment(Eventtime,maxcolor,Source,SourceType,Save):
     if Eventtime[-1] - Eventtime[0] >= 48:
-        if maxcolor <= 10:
+        if maxcolor <= 24:
             if 'Near: ' in Source:
                 directory = Save+'/Figures/Long/Faint/Near/' + SourceType.split('Near: ')[-1] + '/'
             elif 'Prob:' in Source:
@@ -683,7 +683,7 @@ def Save_environment(Eventtime,maxcolor,Source,SourceType,Save):
                 directory = Save+'/Figures/Long/Bright/' + SourceType + '/'
 
     else:
-        if maxcolor <= 10:
+        if maxcolor <= 24:
             if 'Near: ' in Source:
                 directory = Save+'/Figures/Short/Faint/Near/' + SourceType.split('Near: ')[-1] + '/'
             elif 'Prob:' in Source:
@@ -972,7 +972,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             Eventmask[Qual!=0,:,:] = False
 
 
-            events, eventtime, eventmask = Event_ID(Eventmask,Mask)
+            events, eventtime, eventmask = Event_ID(Eventmask,Mask,8)
 
             # Eliminate events that do not meet thruster firing conditions
             events, eventtime, eventmask, asteroid, asttime, astmask = ThrusterElim(events,eventtime,eventmask,thrusters,quality,Qual,Maskdata)
