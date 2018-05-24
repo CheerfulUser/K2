@@ -425,29 +425,22 @@ def Motion_correction(Data,Mask,Thrusters,Dist):
     Y = np.where(Mask == 1)[1]
     for j in range(len(X)):
         temp = np.copy(Data[:,X[j],Y[j]])
-        #temp[temp==0] = np.nan
         zz = np.arange(0,len(Data))
-        goodthrust = Thrusters[np.where(Dist[Thrusters+1] < 0.2)[0]]
-        AvSplinepoints = np.zeros(len(goodthrust))
-        AvSplineind = np.zeros(len(goodthrust))
-        for i in range(len(goodthrust)-1):
-            ErrorCheck = np.copy(Data[goodthrust[i]+1:goodthrust[i]+3,X[j],Y[j]])
-            ErrorCheck[ErrorCheck >= np.nanmedian(Data[goodthrust[i]+3:goodthrust[i+1],X[j],Y[j]])+2*np.nanstd(Data[goodthrust[i]+3:goodthrust[i+1],X[j],Y[j]])] = np.nan
-            AvSplinepoints[i] = np.nanmin(ErrorCheck)
-            
-            if (i < len(goodthrust)-1): 
-                if ((goodthrust[i+1] - goodthrust[i]) < 15):
-                    AvSplinepoints[i] = np.nan
-            if ~np.isnan(AvSplinepoints[i]):
-                if len(np.where(AvSplinepoints[i] == Data[goodthrust[i]+1:goodthrust[i]+3,X[j],Y[j]])[0]+goodthrust[i]+1) > 1:
-                    AvSplineind[i] = np.where(AvSplinepoints[i] == Data[goodthrust[i]+1:goodthrust[i]+3,X[j],Y[j]])[0][0]+goodthrust[i]+1
-                else:
-                    AvSplineind[i] = np.where(AvSplinepoints[i] == Data[goodthrust[i]+1:goodthrust[i]+3,X[j],Y[j]])[0]+goodthrust[i]+1 
-            else:
-                AvSplineind[i] = np.nan
-        ind = np.where(~np.isnan(AvSplineind))
-        if len(ind[0]) > 1:
-            Splinef = interp1d(AvSplineind[ind],AvSplinepoints[ind], kind='linear',fill_value='extrapolate' )
+        AvSplineind = []
+        for i in range(len(Thrusters)-1):
+            beep = []
+            beep = Dist[Thrusters[i]+1:Thrusters[i+1]-1]
+            if (beep < 0.2).any():
+                AvSplineind.append(np.where(beep == np.nanmin(beep))[0][0]+Thrusters[i]+1)
+        AvSplineind = np.array(AvSplineind)
+        AvSplinepoints = np.copy(Data[AvSplineind,X[j],Y[j]])
+
+        clipind = ~sigma_clip(AvSplinepoints,sigma=5.).mask
+        AvSplineind = AvSplineind[clipind]
+        AvSplinepoints = AvSplinepoints[clipind]
+
+        if len(AvSplineind) > 1:
+            Splinef = interp1d(AvSplineind,AvSplinepoints, kind='linear',fill_value='extrapolate' )
             Spline = Splinef(zz)
             Spline[np.isnan(Spline)] = 0
             for i in range(len(Thrusters)-1):
@@ -474,18 +467,18 @@ def Motion_correction(Data,Mask,Thrusters,Dist):
                         if len(yo) == 1:
                             temp2[yo] = np.nan
                         ind = np.where(~np.isnan(temp2))[0]
-                        
+
                         if (len(x[ind]) > 3) & (len(x[ind])/len(x) > 0.6):
                             polyfit, resid, _, _, _  = np.polyfit(x[ind], Section[ind], 3, full = True)
                             p3 = np.poly1d(polyfit)
-                            
+
                             if resid/len(x) < 10:
                                 temp[x+Thrusters[i]+2] = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) 
                                 fit[x+Thrusters[i]+2] = p3(x)
 
                     except RuntimeError:
                         pass
-        
+
         Corrected[:,X[j],Y[j]] = temp
         
                     
@@ -653,7 +646,7 @@ def Isolation(Eventtime,Eventmask,Data,SourceType):
             condition.append(inside>outside)
         condition = np.array(condition)
         if np.nansum(condition==0):
-            Sourcetype[i] = 'Isolated'
+            Sourcetype[i] = 'Pixel'
     return SourceType
 
 
@@ -968,7 +961,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             # Identify if there is a sequence of consecutive or near consecutive frames that meet condtition 
 
             Eventmask = np.copy(framemask)
-            Eventmask[~np.where((convolve(framemask,np.ones((5,1,1)),mode='constant', cval=0.0) >= 4))[0]] = 0
+            Eventmask[~np.where((convolve(framemask,np.ones((5,1,1)), mode='constant', cval=0.0) >= 4))[0]] = 0
             Eventmask[Qual!=0,:,:] = False
 
 
