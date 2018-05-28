@@ -271,24 +271,26 @@ def Asteroid_identifier(Events,Times,Masks,Firings,Quality,qual,Data):
 
 
 def Match_events(Events,Eventtime,Eventmask):
-    if len(Events) > 1:
-        i = 0
-        coincident = np.isclose(Eventtime[i,0],Eventtime[i:,0],atol=9) & np.isclose(Eventtime[i,1],Eventtime[i:,1],atol=9)
+    i = 0
+    eventmask2 = []
+    while len(Events) > i:
+        
+        coincident = (np.isclose(Eventtime[i,0],Eventtime[i:,0],atol=5) + np.isclose(Eventtime[i,1],Eventtime[i:,1],atol=5))
         if sum(coincident*1) > 1:
             newmask = Eventmask[i]
+            
             for j in np.where(coincident)[0][1:]:
                 newmask[0] = np.append(newmask[0],Eventmask[j][0])
                 newmask[1] = np.append(newmask[1],Eventmask[j][1])
-            Eventmask[i] = newmask
-
+            eventmask2.append(newmask)
             Events = np.delete(Events,np.where(coincident)[0][1:])
             Eventtime = np.delete(Eventtime,np.where(coincident)[0][1:], axis = (0))
-            Eventmask = np.delete(Eventmask,np.where(coincident)[0][1:], axis = (0))
+        else:
+            eventmask2.append(Eventmask[i])
             
-
         i +=1
-        
-    return Events, Eventtime,Eventmask
+    
+    return Events, Eventtime,eventmask2
 
 def Match_asteroids(Events,Eventtime,Eventmask):
     i = 0
@@ -430,7 +432,7 @@ def Motion_correction(Data,Mask,Thrusters,Dist):
         for i in range(len(Thrusters)-1):
             beep = []
             beep = Dist[Thrusters[i]+1:Thrusters[i+1]-1]
-            if (beep < 0.2).any():
+            if (beep < 0.3).any():
                 AvSplineind.append(np.where(beep == np.nanmin(beep))[0][0]+Thrusters[i]+1)
         AvSplineind = np.array(AvSplineind)
         AvSplinepoints = np.copy(Data[AvSplineind,X[j],Y[j]])
@@ -735,7 +737,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         BG[BG <= 0] = np.nan
         BGLC = level
         # Generate a light curve from the transient masks
-        LC = np.nansum(Data*mask, axis = (1,2)) - level
+        LC = np.nansum(Data*mask, axis = (1,2)) #- level
         
 
         Obj = ObjMask[i]
@@ -1060,6 +1062,16 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
 
                 Source, SourceType = Probable_host(eventtime,eventmask,Source,SourceType,Objmasks,ObjName,ObjType,Maskdata)
                 SourceType = Isolation(eventtime,eventmask,Maskdata,SourceType)
+                i = 0
+                while i < len(events):
+                    if SourceType[i] == 'Near: Star':
+                        events = np.delete(events,i)
+                        eventtime = np.delete(eventtime,i)
+                        del eventmask[i]
+                        
+                        Source = np.delete(Source,i)
+                        SourceType = np.delete(SourceType,i)
+                    i += 1
                 # Print figures
                 K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType,Maskobj)
                 K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
