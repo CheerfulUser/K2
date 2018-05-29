@@ -433,15 +433,14 @@ def Motion_correction(Data,Mask,Thrusters,Dist):
             beep = []
             beep = Dist[Thrusters[i]+1:Thrusters[i+1]-1]
             if (beep < 0.3).any():
-                AvSplineind.append(np.where(beep == np.nanmin(beep))[0][0]+Thrusters[i]+1)
+                datrange = Data[Thrusters[i]+1:Thrusters[i+1]-1,X[j],Y[j]]
+                val = Data[np.where(beep == np.nanmin(beep))[0][0]+Thrusters[i]+1,X[j],Y[j]]
+                if val < np.nanmedian(datrange) + 2*np.nanstd(datrange):
+                    AvSplineind.append(np.where(beep == np.nanmin(beep))[0][0]+Thrusters[i]+1)
         AvSplineind = np.array(AvSplineind)
-        AvSplinepoints = np.copy(Data[AvSplineind,X[j],Y[j]])
-
-        clipind = ~sigma_clip(AvSplinepoints,sigma=5.).mask
-        AvSplineind = AvSplineind[clipind]
-        AvSplinepoints = AvSplinepoints[clipind]
 
         if len(AvSplineind) > 1:
+            AvSplinepoints = np.copy(Data[AvSplineind,X[j],Y[j]])
             Splinef = interp1d(AvSplineind,AvSplinepoints, kind='linear',fill_value='extrapolate' )
             Spline = Splinef(zz)
             Spline[np.isnan(Spline)] = 0
@@ -928,6 +927,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
             Qual = hdu[1].data.field('QUALITY')
             thrusters = np.where((Qual == 1048576) | (Qual == 1089568) | (Qual == 1056768) | (Qual == 1064960) | (Qual == 1081376) | (Qual == 10240) | (Qual == 32768) | (Qual == 1097760) | (Qual == 1048580) | (Qual == 1081348))[0]
             thrusters = np.insert(thrusters,0,-1)
+            thrusters = np.append(thrusters,len(datacube)-2)
             quality = np.where(Qual != 0)[0]
             
             xdrif = dat['pos_corr1']
@@ -1066,7 +1066,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
                 while i < len(events):
                     if SourceType[i] == 'Near: Star':
                         events = np.delete(events,i)
-                        eventtime = np.delete(eventtime,i)
+                        eventtime = np.delete(eventtime,i,axis=0)
                         del eventmask[i]
                         
                         Source = np.delete(Source,i)
