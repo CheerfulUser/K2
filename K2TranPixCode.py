@@ -878,7 +878,7 @@ def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Data, WCS, 
         else:
             Coord = [-1,-1]
         size = np.nansum(Eventmask[i])
-        CVSstring = [str(feild), str(ID), str(i), Sourcetype[i], str(start), str(duratin), str(maxlc), str(size), str(Coord[0]), str(Coord[1]), Source[i], str(hdu[0].header['CHANNEL']), str(hdu[0].header['MODULE']), str(hdu[0].header['OUTPUT']) ]                
+        CVSstring = [str(feild), str(ID), str(i), Sourcetype[i], str(start), str(duration), str(maxlc), str(size), str(Coord[0]), str(Coord[1]), Source[i], str(hdu[0].header['CHANNEL']), str(hdu[0].header['MODULE']), str(hdu[0].header['OUTPUT']) ]                
         if os.path.isfile(Path + 'Events.csv'):
             with open(Path + 'Events.csv', 'a') as csvfile:
                 spamwriter = csv.writer(csvfile, delimiter=',')
