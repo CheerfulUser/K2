@@ -836,9 +836,9 @@ def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType
 
         maxcolor = 0
         for j in range(len(position[0])):
-            temp = Data[Eventtime[i][0]:Eventtime[i][-1],position[0][j],position[1][j]].flatten().sort()[-3]
-            if temp > maxcolor:
-                maxcolor = temp
+            temp = sorted(Data[Eventtime[i][0]:Eventtime[i][-1],position[0][j],position[1][j]].flatten())
+            if temp[-3] > maxcolor:
+                maxcolor = temp[-3]
 
         xmin = Eventtime[i][0] - 2*(Eventtime[i][1]-Eventtime[i][0])
         xmax = Eventtime[i][1] + 2*(Eventtime[i][1]-Eventtime[i][0])
