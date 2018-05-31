@@ -719,8 +719,15 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         mask[Eventmask[i][0],Eventmask[i][1]] = 1
         #Find Coords of transient
         position = np.where(mask)
-        maxcolor = np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1]]*(mask==1))
-        Mid = np.where(Data[Eventtime[i][0]:Eventtime[i][-1]]*(mask==1) == maxcolor)
+        
+        maxcolor = 0
+        for j in range(len(position[0])):
+            temp = sorted(Data[Eventtime[i][0]:Eventtime[i][-1],position[0][j],position[1][j]].flatten())
+            temp  = temp[-3]
+            if temp > maxcolor:
+                maxcolor = temp
+                Mid = ([position[0][j]],[position[1][j]])
+
         if len(Mid[0]) == 1:
             Coord = pix2coord(Mid[1],Mid[0],wcs)
         elif len(Mid[0]) > 1:
@@ -736,7 +743,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         BG[BG <= 0] = np.nan
         BGLC = level
         # Generate a light curve from the transient masks
-        LC = np.nansum(Data*mask, axis = (1,2)) #- level
+        LC = np.nansum(Data*mask, axis = (1,2))# - level
         
 
         Obj = ObjMask[i]
@@ -788,7 +795,9 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         if np.isfinite(xmin) & np.isfinite(xmax):
             plt.xlim(xmin,xmax) 
         ymin = np.nanmedian(LC)-np.nanstd(LC[Eventtime[i][0]:Eventtime[i][-1]])
-        ymax = np.nanmax(LC[Eventtime[i][0]:Eventtime[i][-1]])+0.1*np.nanmax(LC[Eventtime[i][0]:Eventtime[i][-1]])
+        tempy = sorted(LC[Eventtime[i][0]:Eventtime[i][-1]].flatten())
+        ymax = tempy[-3] +0.2*tempy[-3]
+
         plt.ylim(ymin,ymax)
         plt.legend(loc = 1)
         plt.minorticks_on()
@@ -815,8 +824,8 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
 
         plt.savefig(directory+File.split('/')[-1].split('-')[0]+'_'+str(i)+'.pdf', bbox_inches = 'tight')
         
-        plt.close()
-        Thumbnail(LC,BGLC,Eventtime[i],Time,[xmin,xmax],[ymin,ymax],i,File,Save);
+        #plt.close()
+        #Thumbnail(LC,BGLC,Eventtime[i],Time,[xmin,xmax],[ymin,ymax],i,File,Save);
 
 def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType):
     # Save the frames to be combined into a gif with ffmpeg with another set of code.
@@ -825,10 +834,14 @@ def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType
         mask[Eventmask[i][0],Eventmask[i][1]] = 1
         position = np.where(mask)
 
-        maxcolor = np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1],(mask == 1)])
+        maxcolor = 0
+        for j in range(len(position[0])):
+            temp = Data[Eventtime[i][0]:Eventtime[i][-1],position[0][j],position[1][j]].flatten().sort()[-3]
+            if temp > maxcolor:
+                maxcolor = temp
 
-        xmin = Eventtime[i][0]-(Eventtime[i][1]-Eventtime[i][0])
-        xmax = Eventtime[i][1]+(Eventtime[i][1]-Eventtime[i][0])
+        xmin = Eventtime[i][0] - 2*(Eventtime[i][1]-Eventtime[i][0])
+        xmax = Eventtime[i][1] + 2*(Eventtime[i][1]-Eventtime[i][0])
         if xmin < 0:
             xmin = 0
         if xmax > len(Data):
@@ -844,7 +857,7 @@ def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType
             fig = plt.figure()
             fig.set_size_inches(6,6)
             im = plt.imshow(Section[j], origin='lower',vmin = 0, vmax = maxcolor, animated=True)
-            plt.suptitle('Source: '+ Source[i] + ' (' + SourceType[i] + ')')
+            plt.suptitle('Source: ' + Source[i] + ' (' + SourceType[i] + ')')
             plt.title(File.split('/')[-1].split('-')[0]+' Event # '+str(i))
             c = plt.colorbar(fraction=0.046, pad=0.04)
             c.set_label('Counts')
