@@ -720,7 +720,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         #Find Coords of transient
         position = np.where(mask)
         
-        maxcolor = 0
+        maxcolor = -1000
         for j in range(len(position[0])):
             temp = sorted(Data[Eventtime[i][0]:Eventtime[i][-1],position[0][j],position[1][j]].flatten())
             temp  = temp[-3]
