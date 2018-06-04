@@ -719,6 +719,8 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         mask[Eventmask[i][0],Eventmask[i][1]] = 1
         #Find Coords of transient
         position = np.where(mask)
+        if len(position[0]) == 0:
+            print(Broken)
         Mid = ([position[0][0]],[position[1][0]])
         maxcolor = -1000
         for j in range(len(position[0])):
