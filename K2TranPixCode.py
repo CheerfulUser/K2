@@ -719,113 +719,113 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         mask[Eventmask[i][0],Eventmask[i][1]] = 1
         #Find Coords of transient
         position = np.where(mask)
-        
-        maxcolor = -1000
-        for j in range(len(position[0])):
-            temp = sorted(Data[Eventtime[i][0]:Eventtime[i][-1],position[0][j],position[1][j]].flatten())
-            temp  = temp[-3]
-            if temp > maxcolor:
-                maxcolor = temp
-                Mid = ([position[0][j]],[position[1][j]])
+        if len(position[0]) > 0:
+            maxcolor = -1000
+            for j in range(len(position[0])):
+                temp = sorted(Data[Eventtime[i][0]:Eventtime[i][-1],position[0][j],position[1][j]].flatten())
+                temp  = temp[-3]
+                if temp > maxcolor:
+                    maxcolor = temp
+                    Mid = ([position[0][j]],[position[1][j]])
 
-        if len(Mid[0]) == 1:
-            Coord = pix2coord(Mid[1],Mid[0],wcs)
-        elif len(Mid[0]) > 1:
-            Coord = pix2coord(Mid[1][0],Mid[0][0],wcs)
+            if len(Mid[0]) == 1:
+                Coord = pix2coord(Mid[1],Mid[0],wcs)
+            elif len(Mid[0]) > 1:
+                Coord = pix2coord(Mid[1][0],Mid[0][0],wcs)
 
-        test = np.ma.masked_invalid(Data).mask*1
-        wide = convolve(test,np.ones((1,3,3))) > 0
-        bgmask = -(wide+mask) + 1
-        bgmask[bgmask==0] = np.nan
-        background = Data*bgmask
-        level = np.nanmedian(background,axis=(1,2))
-        BG = Data*~Frames[Events[i]]
-        BG[BG <= 0] = np.nan
-        BGLC = level
-        # Generate a light curve from the transient masks
-        LC = np.nansum(Data*mask, axis = (1,2))# - level
-        
-
-        Obj = ObjMask[i]
-        ObjLC = np.nansum(Datacube*Obj,axis = (1,2))
-        ObjLC = ObjLC/np.nanmedian(ObjLC)*np.nanmedian(LC)
-
-        OrigLC = np.nansum(Datacube*mask, axis = (1,2))
-
-
-        fig = plt.figure(figsize=(10,6))
-        # set up subplot grid
-        gridspec.GridSpec(2,3)
-        plt.suptitle('EPIC ID: ' + File.split('ktwo')[-1].split('_')[0] + '\nSource: '+ Source[i] + ' (' + SourceType[i] + ')')
-        # large subplot
-        plt.subplot2grid((2,3), (0,0), colspan=2, rowspan=2)
-        plt.title('Event light curve (RA '+str(round(Coord[0],3))+', DEC '+str(round(Coord[1],3))+')')
-        plt.xlabel('Time (+'+str(np.floor(Time[0]))+' BJD)')
-        plt.ylabel('Counts')
-        if Eventtime[i][-1] < len(Time):
-            plt.axvspan(Time[Eventtime[i][0]]-np.floor(Time[0]),Time[Eventtime[i][-1]]-np.floor(Time[0]), color = 'orange', label = 'Event duration')
-        else:
-            plt.axvspan(Time[Eventtime[i][0]]-np.floor(Time[0]),Time[-1]-np.floor(Time[0]), color = 'orange', label = 'Event duration')
-        plt.axvline(Time[Quality[0]]-np.floor(Time[0]),color = 'red', linestyle='dashed',label = 'Quality', alpha = 0.5)
-        for j in range(Quality.shape[0]-1):
-            j = j+1 
-            plt.axvline(Time[Quality[j]]-np.floor(Time[0]), linestyle='dashed', color = 'red', alpha = 0.5)
-        # plot Thurster firings 
-        plt.axvline(Time[Thrusters[0]]-np.floor(Time[0]),color = 'red',label = 'Thruster', alpha = 0.5)
-        for j in range(Thrusters.shape[0]-1):
-            j = j+1 
-            plt.axvline(Time[Thrusters[j]]-np.floor(Time[0]),color = 'red', alpha = 0.5)
-            
-        
-
-        plt.plot(Time - np.floor(Time[0]), BGLC,'k.', label = 'Background LC')
-        plt.plot(Time - np.floor(Time[0]), ObjLC,'kx', label = 'Scaled object LC')
-        plt.plot(Time - np.floor(Time[0]), OrigLC,'m+',alpha=0.9, label = 'Original data')
-        plt.plot(Time - np.floor(Time[0]), LC,'.', label = 'Event LC',alpha=0.5)
-        
-        xmin = Time[Eventtime[i][0]]-np.floor(Time[0])-(Eventtime[i][-1]-Eventtime[i][0])/10
-        if Eventtime[i][-1] < len(Time):
-            xmax = Time[Eventtime[i][-1]]-np.floor(Time[0])+(Eventtime[i][-1]-Eventtime[i][0])/10
-        else:
-            xmax = Time[-1]-np.floor(Time[0])+(Eventtime[i][-1]-Eventtime[i][0])/10
-        if xmin < 0:
-            xmin = 0
-        if xmax > Time[-1] - np.floor(Time[0]):
-            xmax = Time[-1] - np.floor(Time[0])
-        if np.isfinite(xmin) & np.isfinite(xmax):
-            plt.xlim(xmin,xmax) 
-        ymin = np.nanmedian(LC)-np.nanstd(LC[Eventtime[i][0]:Eventtime[i][-1]])
-        tempy = sorted(LC[Eventtime[i][0]:Eventtime[i][-1]].flatten())
-        ymax = tempy[-3] +0.2*tempy[-3]
-
-        plt.ylim(ymin,ymax)
-        plt.legend(loc = 1)
-        plt.minorticks_on()
-        # small subplot 1 Reference image plot
-        plt.subplot2grid((2,3), (0,2))
-        plt.title('Reference')
-        plt.imshow(Data[Framemin,:,:], origin='lower',vmin=0,vmax = maxcolor)
-        current_cmap = plt.cm.get_cmap()
-        current_cmap.set_bad(color='black')
-        plt.colorbar(fraction=0.046, pad=0.04)
-        plt.plot(position[1],position[0],'r.',ms = 15)
-        # small subplot 2 Image of event
-        plt.subplot2grid((2,3), (1,2))
-        plt.title('Event')
-        plt.imshow(Data[np.where(Data*mask==np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1]]*mask))[0][0],:,:], origin='lower',vmin=0,vmax = maxcolor)
-        current_cmap = plt.cm.get_cmap()
-        current_cmap.set_bad(color='black')
-        plt.colorbar(fraction=0.046, pad=0.04)
-        plt.plot(position[1],position[0],'r.',ms = 15)
-        
-
-        directory = Save_environment(Eventtime[i],maxcolor,Source[i],SourceType[i],Save)
+            test = np.ma.masked_invalid(Data).mask*1
+            wide = convolve(test,np.ones((1,3,3))) > 0
+            bgmask = -(wide+mask) + 1
+            bgmask[bgmask==0] = np.nan
+            background = Data*bgmask
+            level = np.nanmedian(background,axis=(1,2))
+            BG = Data*~Frames[Events[i]]
+            BG[BG <= 0] = np.nan
+            BGLC = level
+            # Generate a light curve from the transient masks
+            LC = np.nansum(Data*mask, axis = (1,2))# - level
             
 
-        plt.savefig(directory+File.split('/')[-1].split('-')[0]+'_'+str(i)+'.pdf', bbox_inches = 'tight')
-        
-        #plt.close()
-        #Thumbnail(LC,BGLC,Eventtime[i],Time,[xmin,xmax],[ymin,ymax],i,File,Save);
+            Obj = ObjMask[i]
+            ObjLC = np.nansum(Datacube*Obj,axis = (1,2))
+            ObjLC = ObjLC/np.nanmedian(ObjLC)*np.nanmedian(LC)
+
+            OrigLC = np.nansum(Datacube*mask, axis = (1,2))
+
+
+            fig = plt.figure(figsize=(10,6))
+            # set up subplot grid
+            gridspec.GridSpec(2,3)
+            plt.suptitle('EPIC ID: ' + File.split('ktwo')[-1].split('_')[0] + '\nSource: '+ Source[i] + ' (' + SourceType[i] + ')')
+            # large subplot
+            plt.subplot2grid((2,3), (0,0), colspan=2, rowspan=2)
+            plt.title('Event light curve (RA '+str(round(Coord[0],3))+', DEC '+str(round(Coord[1],3))+')')
+            plt.xlabel('Time (+'+str(np.floor(Time[0]))+' BJD)')
+            plt.ylabel('Counts')
+            if Eventtime[i][-1] < len(Time):
+                plt.axvspan(Time[Eventtime[i][0]]-np.floor(Time[0]),Time[Eventtime[i][-1]]-np.floor(Time[0]), color = 'orange', label = 'Event duration')
+            else:
+                plt.axvspan(Time[Eventtime[i][0]]-np.floor(Time[0]),Time[-1]-np.floor(Time[0]), color = 'orange', label = 'Event duration')
+            plt.axvline(Time[Quality[0]]-np.floor(Time[0]),color = 'red', linestyle='dashed',label = 'Quality', alpha = 0.5)
+            for j in range(Quality.shape[0]-1):
+                j = j+1 
+                plt.axvline(Time[Quality[j]]-np.floor(Time[0]), linestyle='dashed', color = 'red', alpha = 0.5)
+            # plot Thurster firings 
+            plt.axvline(Time[Thrusters[0]]-np.floor(Time[0]),color = 'red',label = 'Thruster', alpha = 0.5)
+            for j in range(Thrusters.shape[0]-1):
+                j = j+1 
+                plt.axvline(Time[Thrusters[j]]-np.floor(Time[0]),color = 'red', alpha = 0.5)
+                
+            
+
+            plt.plot(Time - np.floor(Time[0]), BGLC,'k.', label = 'Background LC')
+            plt.plot(Time - np.floor(Time[0]), ObjLC,'kx', label = 'Scaled object LC')
+            plt.plot(Time - np.floor(Time[0]), OrigLC,'m+',alpha=0.9, label = 'Original data')
+            plt.plot(Time - np.floor(Time[0]), LC,'.', label = 'Event LC',alpha=0.5)
+            
+            xmin = Time[Eventtime[i][0]]-np.floor(Time[0])-(Eventtime[i][-1]-Eventtime[i][0])/10
+            if Eventtime[i][-1] < len(Time):
+                xmax = Time[Eventtime[i][-1]]-np.floor(Time[0])+(Eventtime[i][-1]-Eventtime[i][0])/10
+            else:
+                xmax = Time[-1]-np.floor(Time[0])+(Eventtime[i][-1]-Eventtime[i][0])/10
+            if xmin < 0:
+                xmin = 0
+            if xmax > Time[-1] - np.floor(Time[0]):
+                xmax = Time[-1] - np.floor(Time[0])
+            if np.isfinite(xmin) & np.isfinite(xmax):
+                plt.xlim(xmin,xmax) 
+            ymin = np.nanmedian(LC)-np.nanstd(LC[Eventtime[i][0]:Eventtime[i][-1]])
+            tempy = sorted(LC[Eventtime[i][0]:Eventtime[i][-1]].flatten())
+            ymax = tempy[-3] +0.2*tempy[-3]
+
+            plt.ylim(ymin,ymax)
+            plt.legend(loc = 1)
+            plt.minorticks_on()
+            # small subplot 1 Reference image plot
+            plt.subplot2grid((2,3), (0,2))
+            plt.title('Reference')
+            plt.imshow(Data[Framemin,:,:], origin='lower',vmin=0,vmax = maxcolor)
+            current_cmap = plt.cm.get_cmap()
+            current_cmap.set_bad(color='black')
+            plt.colorbar(fraction=0.046, pad=0.04)
+            plt.plot(position[1],position[0],'r.',ms = 15)
+            # small subplot 2 Image of event
+            plt.subplot2grid((2,3), (1,2))
+            plt.title('Event')
+            plt.imshow(Data[np.where(Data*mask==np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1]]*mask))[0][0],:,:], origin='lower',vmin=0,vmax = maxcolor)
+            current_cmap = plt.cm.get_cmap()
+            current_cmap.set_bad(color='black')
+            plt.colorbar(fraction=0.046, pad=0.04)
+            plt.plot(position[1],position[0],'r.',ms = 15)
+            
+
+            directory = Save_environment(Eventtime[i],maxcolor,Source[i],SourceType[i],Save)
+                
+
+            plt.savefig(directory+File.split('/')[-1].split('-')[0]+'_'+str(i)+'.pdf', bbox_inches = 'tight')
+            
+            plt.close()
+            #Thumbnail(LC,BGLC,Eventtime[i],Time,[xmin,xmax],[ymin,ymax],i,File,Save);
 
 def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType):
     # Save the frames to be combined into a gif with ffmpeg with another set of code.
@@ -834,44 +834,45 @@ def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType
         mask[Eventmask[i][0],Eventmask[i][1]] = 1
         position = np.where(mask)
 
-        maxcolor = 0
-        for j in range(len(position[0])):
-            temp = sorted(Data[Eventtime[i][0]:Eventtime[i][-1],position[0][j],position[1][j]].flatten())
-            if temp[-3] > maxcolor:
-                maxcolor = temp[-3]
+        if len(position[0]) > 0:
+            maxcolor = 0
+            for j in range(len(position[0])):
+                temp = sorted(Data[Eventtime[i][0]:Eventtime[i][-1],position[0][j],position[1][j]].flatten())
+                if temp[-3] > maxcolor:
+                    maxcolor = temp[-3]
 
-        xmin = Eventtime[i][0] - 2*(Eventtime[i][1]-Eventtime[i][0])
-        xmax = Eventtime[i][1] + 2*(Eventtime[i][1]-Eventtime[i][0])
-        if xmin < 0:
-            xmin = 0
-        if xmax > len(Data):
-            xmax = len(Data)-1
-        Section = Data[int(xmin):int(xmax),:,:]
+            xmin = Eventtime[i][0] - 2*(Eventtime[i][1]-Eventtime[i][0])
+            xmax = Eventtime[i][1] + 2*(Eventtime[i][1]-Eventtime[i][0])
+            if xmin < 0:
+                xmin = 0
+            if xmax > len(Data):
+                xmax = len(Data)-1
+            Section = Data[int(xmin):int(xmax),:,:]
 
-        FrameSave = Save + '/Figures/Frames/' + File.split('/')[-1].split('-')[0] + '/Event_' + str(int(i)) + '/'
+            FrameSave = Save + '/Figures/Frames/' + File.split('/')[-1].split('-')[0] + '/Event_' + str(int(i)) + '/'
 
-        Save_space(FrameSave)
+            Save_space(FrameSave)
 
-        for j in range(Section.shape[0]):
-            filename = FrameSave + 'Frame_' + str(int(j)).zfill(4)+".png"
-            fig = plt.figure()
-            fig.set_size_inches(6,6)
-            im = plt.imshow(Section[j], origin='lower',vmin = 0, vmax = maxcolor, animated=True)
-            plt.suptitle('Source: ' + Source[i] + ' (' + SourceType[i] + ')')
-            plt.title(File.split('/')[-1].split('-')[0]+' Event # '+str(i))
-            c = plt.colorbar(fraction=0.046, pad=0.04)
-            c.set_label('Counts')
-            plt.plot(position[1],position[0],'r.',ms = 15)
+            for j in range(Section.shape[0]):
+                filename = FrameSave + 'Frame_' + str(int(j)).zfill(4)+".png"
+                fig = plt.figure()
+                fig.set_size_inches(6,6)
+                im = plt.imshow(Section[j], origin='lower',vmin = 0, vmax = maxcolor, animated=True)
+                plt.suptitle('Source: ' + Source[i] + ' (' + SourceType[i] + ')')
+                plt.title(File.split('/')[-1].split('-')[0]+' Event # '+str(i))
+                c = plt.colorbar(fraction=0.046, pad=0.04)
+                c.set_label('Counts')
+                plt.plot(position[1],position[0],'r.',ms = 15)
 
-            plt.savefig(filename)
-            plt.close();
+                plt.savefig(filename)
+                plt.close();
 
-        directory = Save_environment(Eventtime[i],maxcolor,Source[i],SourceType[i],Save)
+            directory = Save_environment(Eventtime[i],maxcolor,Source[i],SourceType[i],Save)
 
-        framerate = (xmax-xmin)/5
-        ffmpegcall = 'ffmpeg -y -nostats -loglevel 0 -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4'
+            framerate = (xmax-xmin)/5
+            ffmpegcall = 'ffmpeg -y -nostats -loglevel 0 -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4'
 
-        os.system(ffmpegcall);
+            os.system(ffmpegcall);
 
 def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Data, WCS, hdu, Path):
     feild = Pixelfile.split('-')[1].split('_')[0]
