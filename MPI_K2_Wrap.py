@@ -39,7 +39,7 @@ try:
         if len(beep) > 0:
             files[i] = files[i].split('[')[0]
                    
-        Files = np.delete(Files,np.where(files[j] == Files))
+        Files = np.delete(Files,np.where(files[i] == Files))
         
 except (FileNotFoundError):
     print('No file')
