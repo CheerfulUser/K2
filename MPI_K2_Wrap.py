@@ -44,6 +44,8 @@ try:
 except (FileNotFoundError):
     print('No file')
 
+print_mpi('Files ',len(Files))
+
 dims = int(len(Files)) # set to be length of your task
 start = sys_time.time()
 
