@@ -76,7 +76,7 @@ def ThrustObjectMask(data,thrust):
     Mask[Mask==2] = np.nan
     return Mask
 
-def Event_ID(Eventmask,Mask,Minlength):
+def Event_ID(Eventmask,Mask):
     tarr = np.copy(Eventmask)
     leng = 10
     X = np.where(Mask)[0]
@@ -93,20 +93,21 @@ def Event_ID(Eventmask,Mask,Minlength):
     eventmask = []
 
     for i in range(len(X)):
-        testf = np.diff(np.where(~tarr[:,X[i],Y[i]])[0])
-        indf = np.where(~tarr[:,X[i],Y[i]])[0]
+        temp = np.insert(tarr[:,X[i],Y[i]],0,False)
+        testf = np.diff(np.where(~temp)[0])
+        indf = np.where(~temp)[0]
         testf[testf == 1] = 0
         testf = np.append(testf,0)
 
-        if len(indf[testf>Minlength]+1) == 1:
-            events.append(indf[testf>Minlength][0]+1)
-            eventtime.append([indf[testf>Minlength][0]+1, (indf[testf>Minlength][0]+1 + testf[testf>Minlength][0]-1)])
+        if len(indf[testf>3]+1) == 1:
+            events.append(indf[testf>3][0])
+            eventtime.append([indf[testf>3][0], (indf[testf>3][0] + testf[testf>3][0]-1)])
             masky = [np.array(X[i]), np.array(Y[i])]
             eventmask.append(masky)
-        elif len(indf[testf>3]+1) > 1:
-            for j in range(len(indf[testf>Minlength])):
-                events.append(indf[testf>Minlength][j]+1)
-                eventtime.append([indf[testf>Minlength][j]+1, (indf[testf>Minlength][j]+1 + testf[testf>Minlength][j]-1)])
+        elif len(indf[testf>3]) > 1:
+            for j in range(len(indf[testf>3])):
+                events.append(indf[testf>3][j])
+                eventtime.append([indf[testf>3][j], (indf[testf>3][j] + testf[testf>3][j]-1)])
                 masky = [np.array(X[i]), np.array(Y[i])]
                 eventmask.append(masky)
 
@@ -189,7 +190,7 @@ def ThrusterElim(Events,Times,Masks,Firings,Quality,qual,Data):
         mask = np.zeros((Data.shape[1],Data.shape[2]))
         mask[Masks[i][0],Masks[i][1]] = 1
         Range = Times[i][-1] - Times[i][0]
-        if (Range > 0) & (Range/Data.shape[0] < 0.8) & (Times[i][0] > 5): 
+        if (Range > 0) & (Range/Data.shape[0] < 0.8): 
             begining = Firings[(Firings >= Times[i][0]-2) & (Firings <= Times[i][0]+1)]
             if len(begining) == 0:
                 begining = Quality[(Quality == Times[i][0])] #& (Quality <= Times[i][0]+1)]
@@ -242,7 +243,7 @@ def ThrusterElim(Events,Times,Masks,Firings,Quality,qual,Data):
 
     events = np.array(temp)
     eventtime = np.array(temp2)
-    eventmask = temp3 #np.array(temp3)
+    eventmask = temp3#np.array(temp3)
     return events, eventtime, eventmask, asteroid, asttime, astmask
 
 def Asteroid_identifier(Events,Times,Masks,Firings,Quality,qual,Data):
@@ -256,7 +257,7 @@ def Asteroid_identifier(Events,Times,Masks,Firings,Quality,qual,Data):
             #if len(begining) == 0:
              #   begining = Quality[(Quality == Times[i][0])] #& (Quality <= Times[i][0]+1)]
             end = Firings[(Firings >= Times[i][-1]-1) & (Firings <= Times[i][-1]+2)]
-            #if len(end) == 0:
+            #if len(end) == 0:1
              #   end = Quality[(Quality == Times[i][-1])] #& (Quality <= Times[i][-1]+1)]
             eventthrust = Firings[(Firings >= Times[i][0]) & (Firings <= Times[i][-1])]
 
@@ -279,12 +280,13 @@ def Match_events(Events,Eventtime,Eventmask):
         if sum(coincident*1) > 1:
             newmask = Eventmask[i]
             
-            for j in np.where(coincident)[0][1:]:
+            for j in (np.where(coincident)[0][1:] + i):
                 newmask[0] = np.append(newmask[0],Eventmask[j][0])
                 newmask[1] = np.append(newmask[1],Eventmask[j][1])
             eventmask2.append(newmask)
-            Events = np.delete(Events,np.where(coincident)[0][1:])
-            Eventtime = np.delete(Eventtime,np.where(coincident)[0][1:], axis = (0))
+            Events = np.delete(Events,np.where(coincident)[0][1:]+i)
+            Eventtime = np.delete(Eventtime,np.where(coincident)[0][1:]+i, axis = (0))
+            del Eventmask[i]
         else:
             eventmask2.append(Eventmask[i])
             
