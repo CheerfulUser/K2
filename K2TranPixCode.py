@@ -76,7 +76,7 @@ def ThrustObjectMask(data,thrust):
     Mask[Mask==2] = np.nan
     return Mask
 
-def Event_ID(Eventmask,Mask):
+def Event_ID(Eventmask,Mask,Minlength):
     tarr = np.copy(Eventmask)
     leng = 10
     X = np.where(Mask)[0]
@@ -99,15 +99,15 @@ def Event_ID(Eventmask,Mask):
         testf[testf == 1] = 0
         testf = np.append(testf,0)
 
-        if len(indf[testf>3]+1) == 1:
-            events.append(indf[testf>3][0])
-            eventtime.append([indf[testf>3][0], (indf[testf>3][0] + testf[testf>3][0]-1)])
+        if len(indf[testf>Minlength]+1) == 1:
+            events.append(indf[testf>Minlength][0])
+            eventtime.append([indf[testf>Minlength][0], (indf[testf>Minlength][0] + testf[testf>Minlength][0]-1)])
             masky = [np.array(X[i]), np.array(Y[i])]
             eventmask.append(masky)
-        elif len(indf[testf>3]) > 1:
-            for j in range(len(indf[testf>3])):
-                events.append(indf[testf>3][j])
-                eventtime.append([indf[testf>3][j], (indf[testf>3][j] + testf[testf>3][j]-1)])
+        elif len(indf[testf>Minlength]) > 1:
+            for j in range(len(indf[testf>Minlength])):
+                events.append(indf[testf>Minlength][j])
+                eventtime.append([indf[testf>Minlength][j], (indf[testf>Minlength][j] + testf[testf>Minlength][j]-1)])
                 masky = [np.array(X[i]), np.array(Y[i])]
                 eventmask.append(masky)
 
