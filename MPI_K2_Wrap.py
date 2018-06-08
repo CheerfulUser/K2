@@ -55,7 +55,7 @@ if comm.Get_rank() == 0:
 
     print_mpi('Filesbloop ' + str(len(Files)))
 
-Files = comm.Bcast(Files, root = 0)
+comm.Bcast(Files, root = 0)
 print("On Task "+str(myPE)+" Files was recvd "+str(len(Files)))
 
 if comm.Get_rank() == 0:
@@ -79,7 +79,7 @@ if comm.Get_rank() == 0:
                 j += 1
             starts[i] = starts[i-1] + (j - 1)
     print('starts computed')
-starts = comm.Bcast(starts, root = 0)
+comm.Bcast(starts, root = 0)
 
 dims = int(len(Files)) # set to be length of your task
 start = sys_time.time()
