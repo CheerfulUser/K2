@@ -55,10 +55,12 @@ if comm.Get_rank() == 0:
 
     print_mpi('Filesbloop ' + str(len(Files)))
 
-Files = comm.bcast(Files, root = 0)
+Files = comm.Bcast(Files, root = 0)
+print("On Task "+str(myPE)+" Files was recvd "+str(len(Files)))
 
 if comm.Get_rank() == 0:
-    size = [] 
+    print('Blamo')
+    size = []
     for i in range(len(Files)):
         size.append(os.path.getsize(Files[i]))
     size = np.array(size)
@@ -72,13 +74,12 @@ if comm.Get_rank() == 0:
         else:
             sumsize = 0
             j = 1
-            while (sumsize <= interval_size) & (starts[i-1] + 1 < len(sumsize)):
+            while (sumsize <= interval_size) & (starts[i-1] + 1 < len(size)):
                 sumsize = np.nansum(size[starts[i-1]:starts[i-1]+j])
                 j += 1
             starts[i] = starts[i-1] + (j - 1)
-
-starts = comm.bcast(starts, root = 0)
-
+    print('starts computed')
+starts = comm.Bcast(starts, root = 0)
 
 dims = int(len(Files)) # set to be length of your task
 start = sys_time.time()
