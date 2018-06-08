@@ -72,7 +72,7 @@ if comm.Get_rank() == 0:
         else:
             sumsize = 0
             j = 1
-            while sumsize <= interval_size:
+            while (sumsize <= interval_size) & (starts[i-1] + 1 < len(sumsize)):
                 sumsize = np.nansum(size[starts[i-1]:starts[i-1]+j])
                 j += 1
             starts[i] = starts[i-1] + (j - 1)
