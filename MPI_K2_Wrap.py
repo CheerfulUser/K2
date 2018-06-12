@@ -32,11 +32,12 @@ save = '/avatar/ryanr/Results/'
 
 Files = np.asarray(glob(path+'*.gz'))
 # Code to remove files from the list that have already been calculated
+'''
 if comm.Get_rank() == 0:
     try:
         Log = open('/avatar/ryanr/Code/shell' + field + '.out')
         log = Log.read()
-        lines  = log.split('\n')
+        lines  = log.split('n')
         files = []
         for line in lines:
             if '/avatar/ryanr/Data/' in line:
@@ -56,30 +57,31 @@ if comm.Get_rank() == 0:
     print_mpi('Filesbloop ' + str(len(Files)))
 
 comm.Bcast(Files, root = 0)
+'''
 print("On Task "+str(myPE)+" Files was recvd "+str(len(Files)))
 
-if comm.Get_rank() == 0:
-    print('Blamo')
-    size = []
-    for i in range(len(Files)):
-        size.append(os.path.getsize(Files[i]))
-    size = np.array(size)
-    totalsize = np.nansum(size)
-    interval_size = totalsize / nPE
+#if comm.Get_rank() == 0:
+print_mpi('Blamo')
+size = []
+for i in range(len(Files)):
+    size.append(os.path.getsize(Files[i]))
+size = np.array(size)
+totalsize = np.nansum(size)
+interval_size = totalsize / nPE
 
-    starts = np.zeros(nPE,dtype=int)
-    for i in range(nPE):
-        if i == 0:
-            starts[i] = 0
-        else:
-            sumsize = 0
-            j = 1
-            while (sumsize <= interval_size) & (starts[i-1] + 1 < len(size)):
-                sumsize = np.nansum(size[starts[i-1]:starts[i-1]+j])
-                j += 1
-            starts[i] = starts[i-1] + (j - 1)
-    print('starts computed')
-comm.Bcast(starts, root = 0)
+starts = np.zeros(nPE,dtype=int)
+for i in range(nPE):
+    if i == 0:
+        starts[i] = 0
+    else:
+        sumsize = 0
+        j = 1
+        while (sumsize <= interval_size) & (starts[i-1] + 1 < len(size)):
+            sumsize = np.nansum(size[starts[i-1]:starts[i-1]+j])
+            j += 1
+        starts[i] = starts[i-1] + (j - 1)
+print_master('starts computed')
+#comm.Bcast(starts, root = 0)
 
 dims = int(len(Files)) # set to be length of your task
 start = sys_time.time()
