@@ -58,7 +58,7 @@ if comm.Get_rank() == 0:
 
 comm.Bcast(Files, root = 0)
 '''
-print("On Task "+str(myPE)+" Files was recvd "+str(len(Files)))
+#print("On Task "+str(myPE)+" Files was recvd "+str(len(Files)))
 
 #if comm.Get_rank() == 0:
 print_mpi('Blamo')
@@ -80,11 +80,10 @@ for i in range(nPE):
             sumsize = np.nansum(size[starts[i-1]:starts[i-1]+j])
             j += 1
         starts[i] = starts[i-1] + (j - 1)
-print_master('starts computed')
+#print_master('starts computed')
 starts = np.append(starts, -1)
-print(starts)
-if comm.Get_rank() == 0:
-    print(starts)
+#print(starts)
+
 #comm.Bcast(starts, root = 0)
 
 dims = int(len(Files)) # set to be length of your task
