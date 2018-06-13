@@ -81,6 +81,7 @@ for i in range(nPE):
             j += 1
         starts[i] = starts[i-1] + (j - 1)
 print_master('starts computed')
+starts = np.append(starts, -1)
 if comm.Get_rank() == 0:
     print(starts)
 #comm.Bcast(starts, root = 0)
