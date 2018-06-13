@@ -24,7 +24,7 @@ print_master("Total number of MPI ranks = "+str(nPE))
 comm.Barrier()
 
 
-field = 'c01'
+field = 'c13'
 path = '/avatar/ryanr/Data/'+field+'/'
 Files = np.asarray(glob(path+'*.gz'))
 
@@ -62,6 +62,7 @@ comm.Bcast(Files, root = 0)
 
 #if comm.Get_rank() == 0:
 print_mpi('Blamo')
+
 size = []
 for i in range(len(Files)):
     size.append(os.path.getsize(Files[i]))
@@ -94,6 +95,7 @@ my_start = starts[myPE]#int(myPE * (dims / nPE));
 my_end   = starts[myPE + 1] - 1 #int((myPE+1) * (dims / nPE) - 1);
 # last PE gets the rest
 if (myPE == nPE-1): my_end = dims-1;
+
 print_mpi("my_start = "+str(my_start)+", my_end = "+str(my_end))
 
 # parallel loop
