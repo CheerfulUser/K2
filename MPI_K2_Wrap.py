@@ -81,6 +81,8 @@ for i in range(nPE):
             j += 1
         starts[i] = starts[i-1] + (j - 1)
 print_master('starts computed')
+if comm.Get_rank() == 0:
+    print(starts)
 #comm.Bcast(starts, root = 0)
 
 dims = int(len(Files)) # set to be length of your task
