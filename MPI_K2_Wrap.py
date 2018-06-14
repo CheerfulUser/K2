@@ -59,7 +59,7 @@ except (FileNotFoundError):
 
 print_mpi('Filesbloop ' + str(len(Files)))
 
-'''
+
 #print("On Task "+str(myPE)+" Files was recvd "+str(len(Files)))
 
 #if comm.Get_rank() == 0:
