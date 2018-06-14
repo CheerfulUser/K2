@@ -24,7 +24,7 @@ print_master("Total number of MPI ranks = "+str(nPE))
 comm.Barrier()
 
 
-field = 'c13'
+field = 'c01'
 path = '/avatar/ryanr/Data/'+field+'/'
 Files = np.asarray(glob(path+'*.gz'))
 
@@ -32,31 +32,33 @@ save = '/avatar/ryanr/Results/'
 
 Files = np.asarray(glob(path+'*.gz'))
 # Code to remove files from the list that have already been calculated
-'''
-if comm.Get_rank() == 0:
-    try:
-        Log = open('/avatar/ryanr/Code/shell' + field + '.out')
-        log = Log.read()
-        lines  = log.split('n')
-        files = []
-        for line in lines:
-            if '/avatar/ryanr/Data/' in line:
-                print_mpi(line)
-                files.append(line)
-        for i in range(len(files)):
-            files[i] = files[i].split(' ')[1]
-            beep = set.intersection(set(files[i]), set('['))
-            if len(beep) > 0:
-                files[i] = files[i].split('[')[0]
-                       
-            Files = np.delete(Files,np.where(files[i] == Files))
-            
-    except (FileNotFoundError):
-        print('No file')
 
-    print_mpi('Filesbloop ' + str(len(Files)))
 
-comm.Bcast(Files, root = 0)
+try:
+    Log = open('/avatar/ryanr/Code/shell' + field + '.out')
+    log = Log.read()
+    lines  = log.split('n')
+    files = []
+    for line in lines:
+        if '/avatar/ryanr/Data/' in line:
+            print_mpi(line)
+            files.append(line)
+    for i in range(len(files)):
+        files[i] = files[i].split(' ')[1]
+        beep = set.intersection(set(files[i]), set('['))
+        if len(beep) > 0:
+            files[i] = files[i].split('[')[0]
+        beep = set.intersection(set(files[i]), set('On'))
+        if len(beep) > 0:
+            files[i] = files[i].split('On')[0]
+                   
+        Files = np.delete(Files,np.where(files[i] == Files))
+        
+except (FileNotFoundError):
+    print('No file')
+
+print_mpi('Filesbloop ' + str(len(Files)))
+
 '''
 #print("On Task "+str(myPE)+" Files was recvd "+str(len(Files)))
 
