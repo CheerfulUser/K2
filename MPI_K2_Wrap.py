@@ -15,7 +15,7 @@ def print_master(string):
     comm = MPI.COMM_WORLD
     if comm.Get_rank() == 0:
         print("["+str(comm.Get_rank())+"] "+string)
-
+print_mpi('Imported')
 # init MPI
 comm = MPI.COMM_WORLD
 nPE = comm.Get_size()
