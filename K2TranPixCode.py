@@ -715,6 +715,50 @@ def Thumbnail(LC,BGLC,Eventtime,Time,Xlim,Ylim,Eventnum,File,Save):
     plt.savefig(Save + '/Figures/Thumb/'+ File.split('/')[-1].split('-')[0]+'_'+str(Eventnum)+'.png', bbox_inches = 'tight')
     plt.close();
 
+def Im_lims(dim,ev):
+    if (ev - 9) < 0:
+        xmin = 0
+        xmax = ev + (20 - ev)
+
+    elif (ev + 9) > dim:
+        xmin = ev - (20 - (20 - ev))
+        xmax = dim
+
+    else:
+        xmin = ev - 8
+        xmax = ev + 8
+
+    xlims = [xmin - 0.5, xmax - 0.5]
+    return xlims
+
+
+def Fig_cut(Datacube,Eventmask):
+    x = Datacube.shape[1] - 0.5
+    y = Datacube.shape[2] - 0.5
+
+    if len(Eventmask[0]) == 1:
+        if (x > 20) | (y > 20):
+
+            if (x > 20) & (y <= 20):
+
+                xlims  = Im_lims(x,Eventmask[0][0])
+
+                ylims = [-0.5,y]
+            elif (x <= 20) & (y > 20):
+                ylims  = Im_lims(y,Eventmask[1][0])
+                xlims = [-0.5,x]       
+
+            elif (x > 20) & (y > 20):
+                xlims  = Im_lims(x,Eventmask[0][0])
+                ylims  = Im_lims(y,Eventmask[1][0])
+        else:
+            xlims = [-0.5,x]
+            ylims = [-0.5,y]
+    else:
+        xlims = [-0.5,x]
+        ylims = [-0.5,y]
+    return xlims, ylims
+
 def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quality,Thrusters,Framemin,Datacube,Source,SourceType,ObjMask):
     for i in range(len(Events)):
         mask = np.zeros((Data.shape[1],Data.shape[2]))
@@ -803,24 +847,36 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         ymax = tempy[-3] +0.2*tempy[-3]
 
         plt.ylim(ymin,ymax)
-        plt.legend(loc = 1)
+        plt.legend(loc = 2)
         plt.minorticks_on()
+        ylims, xlims = Fig_cut(Datacube,Mid)
+
         # small subplot 1 Reference image plot
-        plt.subplot2grid((2,3), (0,2))
+        ax = plt.subplot2grid((2,3), (0,2))
         plt.title('Reference')
         plt.imshow(Data[Framemin,:,:], origin='lower',vmin=0,vmax = maxcolor)
+        plt.xlim(xlims[0],xlims[1])
+        plt.ylim(ylims[0],ylims[1])
         current_cmap = plt.cm.get_cmap()
         current_cmap.set_bad(color='black')
         plt.colorbar(fraction=0.046, pad=0.04)
         plt.plot(position[1],position[0],'r.',ms = 15)
+        plt.minorticks_on()
+        ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
+        ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
         # small subplot 2 Image of event
-        plt.subplot2grid((2,3), (1,2))
+        ax = plt.subplot2grid((2,3), (1,2))
         plt.title('Event')
         plt.imshow(Data[np.where(Data*mask==np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1]]*mask))[0][0],:,:], origin='lower',vmin=0,vmax = maxcolor)
+        plt.xlim(xlims[0],xlims[1])
+        plt.ylim(ylims[0],ylims[1])
         current_cmap = plt.cm.get_cmap()
         current_cmap.set_bad(color='black')
         plt.colorbar(fraction=0.046, pad=0.04)
         plt.plot(position[1],position[0],'r.',ms = 15)
+        plt.minorticks_on()
+        ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
+        ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
         
 
         directory = Save_environment(Eventtime[i],maxcolor,Source[i],SourceType[i],Save)
@@ -856,16 +912,24 @@ def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType
 
         Save_space(FrameSave)
 
+        ylims, xlims = Fig_cut(Data,Mid)
+
         for j in range(Section.shape[0]):
             filename = FrameSave + 'Frame_' + str(int(j)).zfill(4)+".png"
             fig = plt.figure()
             fig.set_size_inches(6,6)
             im = plt.imshow(Section[j], origin='lower',vmin = 0, vmax = maxcolor, animated=True)
+            plt.xlim(xlims[0],xlims[1])
+            plt.ylim(ylims[0],ylims[1])
             plt.suptitle('Source: ' + Source[i] + ' (' + SourceType[i] + ')')
             plt.title(File.split('/')[-1].split('-')[0]+' Event # '+str(i))
             c = plt.colorbar(fraction=0.046, pad=0.04)
             c.set_label('Counts')
             plt.plot(position[1],position[0],'r.',ms = 15)
+            plt.minorticks_on()
+            ax = fig.gca()
+            ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
+            ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
 
             plt.savefig(filename)
             plt.close();
@@ -1095,7 +1159,8 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
                 K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType,Maskobj)
                 K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
                 Write_event(pixelfile,eventtime,eventmask,Source,SourceType,Maskdata,mywcs,hdu,Save)
-            
+        else:
+            prin
     except (OSError):
         pass
     
