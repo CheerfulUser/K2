@@ -100,16 +100,34 @@ def Event_ID(Eventmask,Mask,Minlength):
         testf = np.append(testf,0)
 
         if len(indf[testf>Minlength]+1) == 1:
-            events.append(indf[testf>Minlength][0])
-            eventtime.append([indf[testf>Minlength][0], (indf[testf>Minlength][0] + testf[testf>Minlength][0]-1)])
-            masky = [np.array(X[i]), np.array(Y[i])]
-            eventmask.append(masky)
-        elif len(indf[testf>Minlength]) > 1:
-            for j in range(len(indf[testf>Minlength])):
-                events.append(indf[testf>Minlength][j])
-                eventtime.append([indf[testf>Minlength][j], (indf[testf>Minlength][j] + testf[testf>Minlength][j]-1)])
+            if abs((indf[testf>Minlength][0] + testf[testf>Minlength][0]-1) - indf[testf>Minlength][0]) < 48: # Condition on events shorter than a day 
+                start = indf[testf>Minlength][0]
+                end = (indf[testf>Minlength][0] + testf[testf>Minlength][0]-1)
+                if np.nansum(Eventmask[start:end]) / abs(end-start) < 0.8:
+                    events.append(indf[testf>Minlength][0])
+                    eventtime.append([indf[testf>Minlength][0], (indf[testf>Minlength][0] + testf[testf>Minlength][0]-1)])
+                    masky = [np.array(X[i]), np.array(Y[i])]
+                    eventmask.append(masky)    
+            else:
+                events.append(indf[testf>Minlength][0])
+                eventtime.append([indf[testf>Minlength][0], (indf[testf>Minlength][0] + testf[testf>Minlength][0]-1)])
                 masky = [np.array(X[i]), np.array(Y[i])]
                 eventmask.append(masky)
+        elif len(indf[testf>Minlength]) > 1:
+            for j in range(len(indf[testf>Minlength])):
+                if abs((indf[testf>Minlength][j] + testf[testf>Minlength][j]-1) - indf[testf>Minlength][j]) < 48: # Condition on events shorter than a day 
+                    start = indf[testf>Minlength][j]
+                    end = (indf[testf>Minlength][j] + testf[testf>Minlength][j]-1)
+                    if np.nansum(Eventmask[start:end]) / abs(end-start) < 0.8:
+                        events.append(indf[testf>Minlength][j])
+                        eventtime.append([indf[testf>Minlength][j], (indf[testf>Minlength][j] + testf[testf>Minlength][j]-1)])
+                        masky = [np.array(X[i]), np.array(Y[i])]
+                        eventmask.append(masky)    
+                else:
+                    events.append(indf[testf>Minlength][j])
+                    eventtime.append([indf[testf>Minlength][j], (indf[testf>Minlength][j] + testf[testf>Minlength][j]-1)])
+                    masky = [np.array(X[i]), np.array(Y[i])]
+                    eventmask.append(masky)
 
     events = np.array(events)
     eventtime = np.array(eventtime)
