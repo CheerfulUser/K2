@@ -35,11 +35,13 @@ warnings.filterwarnings("ignore",category = UserWarning)
 
 
 def FindMinFrame(data,thrusters):
+    # This function isnt used anymore 
     # Finding the reference frame
     Framemin = data[thrusters[3]+1]
     return Framemin
 
 def ObjectMask(datacube,Framemin):
+    # This function isnt used anymore
     # Make a mask of the target object, using the reference frame 
     Mask = datacube[Framemin,:,:]/(np.nanmedian(datacube[Framemin,:,:])+np.nanstd(datacube[Framemin,:,:]))
     Mask[Mask>=1] = np.nan
@@ -51,6 +53,10 @@ def ObjectMask(datacube,Framemin):
     return Maskv2
 
 def ThrustObjectMask(data,thrust):
+    # Creates a sceince target mask through standard deviation cuts on an average of stable frames. 
+    # To avoid masking out an event, a comparison of two masks, at the begining and end of the campaign are used.
+    # Points that appear in both masks are used in the final mask.
+    # This method has issues when the pointing completely breaks down during the campaign, such as in C10.
     StartMask = np.ones((data.shape[1],data.shape[2]))
     for i in range(2):
         Start = data[thrust[:3]+1]*StartMask/(np.nanmedian(data[thrust[:3]+1]*StartMask, axis = (1,2))+np.nanstd(data[thrust[:3]+1]*StartMask, axis = (1,2)))[:,None,None]
@@ -77,6 +83,9 @@ def ThrustObjectMask(data,thrust):
     return Mask
 
 def Event_ID(Eventmask,Mask,Minlength):
+    # Identifies events in a datacube, with a primary input of a boolean array for where pixels are 3std above background.
+    # Event duration is calculated by differencing the positions of False values in the boolean array.
+    # The event mask is saved as a tuple.
     tarr = np.copy(Eventmask)
     leng = 10
     X = np.where(Mask)[0]
@@ -136,6 +145,10 @@ def Event_ID(Eventmask,Mask,Minlength):
 
 
 def Asteroid_fitter(Mask,Time,Data, plot = False):
+    # Simple method to remove asteroids. This opperates under the assumption that asteroids travel through the field, 
+    # and pixel, at a uniform velocity, thus creating a parabolic light curve. If the event fits a parabola, then it 
+    # is assumed to be an asteroid.
+    # This method doesn't work for asteroids that change their direction of motion.
     lc = np.nansum(Data*Mask,axis=(1,2))
     middle = np.where(np.nanmax(lc[Time[0]-1:Time[-1]+1]) == lc)[0][0]
     if abs(Time[0] - Time[1]) < 4:
@@ -172,6 +185,7 @@ def Asteroid_fitter(Mask,Time,Data, plot = False):
     return asteroid
 
 def Smoothmax(interval,Lightcurve,qual):
+    # Calculates the time for the maximum value of a light curve, after smoothing the data.
     x = np.arange(interval[0],interval[1],1.)
     x[qual[interval[0]:interval[-1]]!=0] = np.nan 
     nbins = int(len(x)/5)
@@ -198,6 +212,9 @@ def Smoothmax(interval,Lightcurve,qual):
     return maxpos
 
 def ThrusterElim(Events,Times,Masks,Firings,Quality,qual,Data):
+    # Eliminates events that are likely to be produced by telescope motion.
+    # There are two time regimes, short and long, which are concidered with different criteria.
+    # This seems to do a reasonable job for long events, but short events could use improvement.
     temp = []
     temp2 = []
     temp3 = []
@@ -265,6 +282,8 @@ def ThrusterElim(Events,Times,Masks,Firings,Quality,qual,Data):
     return events, eventtime, eventmask, asteroid, asttime, astmask
 
 def Asteroid_identifier(Events,Times,Masks,Firings,Quality,qual,Data):
+    # Identifies where there is a coincidence of events in time that could be taken as an asteroid.
+    # Currently not in use.
     asteroid = []
     asttime = []
     astmask = []
@@ -441,6 +460,15 @@ def First_pass(Datacube,Qual,Quality,Thrusters,Pixelfile):
     return Cleandata, ast
 
 def Motion_correction(Data,Mask,Thrusters,Dist):
+    # Atempts to correct for telescope motion between individual thruster firings.
+    # A spline is first fitted to the stable points, and subtracted from the data.
+    # Next a cubic is fitted into a thruster firing interval and subtracted from the
+    # original data. 
+    # There is a check on the second derivative to ientify points that appear to not
+    # follow the general trend and so should not be used in fitting the cubic.
+    #
+    # This method still has some issues, for instance it doesn't seem to work on 
+    # C03 or C10.
     Corrected = np.zeros((Data.shape[0],Data.shape[1],Data.shape[2]))
     fit = np.zeros(len(Data))
     X = np.where(Mask == 1)[0]
@@ -506,10 +534,12 @@ def Motion_correction(Data,Mask,Thrusters,Dist):
     return Corrected
 
 def pix2coord(x,y,mywcs):
+    # Calculates RA and DEC from the pixel coordinates
     wx, wy = mywcs.wcs_pix2world(x, y, 0)
     return np.array([float(wx), float(wy)])
 
 def Get_gal_lat(mywcs,datacube):
+    # Calculates galactic latitude, which is used as a flag for event rates.
     ra, dec = mywcs.wcs_pix2world(int(datacube.shape[1]/2), int(datacube.shape[2]/2), 0)
     b = SkyCoord(ra=float(ra)*u.degree, dec=float(dec)*u.degree, frame='icrs').galactic.b.degree
     return b
@@ -672,6 +702,7 @@ def Isolation(Eventtime,Eventmask,Data,SourceType):
 
 
 def Save_space(Save):
+    # Creates a pathm if it doesn't already exist.
     try:
         if not os.path.exists(Save):
             os.makedirs(Save)
@@ -679,6 +710,7 @@ def Save_space(Save):
         pass
 
 def Save_environment(Eventtime,maxcolor,Source,SourceType,Save):
+    # Creates paths to save event data, based on brightness and duration.
     if Eventtime[-1] - Eventtime[0] >= 48:
         if maxcolor <= 24:
             if 'Near: ' in Source:
@@ -716,6 +748,7 @@ def Save_environment(Eventtime,maxcolor,Source,SourceType,Save):
     return directory
 
 def Thumbnail(LC,BGLC,Eventtime,Time,Xlim,Ylim,Eventnum,File,Save):
+    # Creates a simplified figure.
     plt.figure()
     if Eventtime[-1] < len(Time):
         plt.axvspan(Time[Eventtime[0]]-Time[0],Time[Eventtime[-1]]-Time[0], color = 'orange')
@@ -734,6 +767,7 @@ def Thumbnail(LC,BGLC,Eventtime,Time,Xlim,Ylim,Eventnum,File,Save):
     plt.close();
 
 def Im_lims(dim,ev):
+    # Calculates the axis range for frames that have axis >20 pixels.
     if (ev - 9) < 0:
         xmin = 0
         xmax = ev + (20 - ev)
@@ -751,6 +785,7 @@ def Im_lims(dim,ev):
 
 
 def Fig_cut(Datacube,Eventmask):
+    # Returns the figure limits for large frames that have an axis >20 pixels.
     x = Datacube.shape[1] - 0.5
     y = Datacube.shape[2] - 0.5
 
@@ -778,6 +813,7 @@ def Fig_cut(Datacube,Eventmask):
     return xlims, ylims
 
 def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quality,Thrusters,Framemin,Datacube,Source,SourceType,ObjMask):
+    # Saves a figure of the event with helpful info displayed on the light curve as well as reference frames.
     for i in range(len(Events)):
         mask = np.zeros((Data.shape[1],Data.shape[2]))
         mask[Eventmask[i][0],Eventmask[i][1]] = 1
@@ -960,6 +996,7 @@ def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType
         os.system(ffmpegcall);
 
 def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Data, WCS, hdu, Path):
+    # Saves the event and field properties to a csv file.
     feild = Pixelfile.split('-')[1].split('_')[0]
     ID = Pixelfile.split('ktwo')[1].split('-')[0]
     for i in range(len(Eventtime)):
@@ -989,6 +1026,8 @@ def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Data, WCS, 
                 spamwriter.writerow(CVSstring)
             
 def Probable_host(Eventtime,Eventmask,Source,SourceType,Objmasks,ObjName,ObjType,Data):
+    # Identifies if the event is likely associated with a bright science target. 
+    # This is calculated based on if neighbouring pixels feature the same or greater brightness.
     for i in range(len(Eventtime)):
         if 'Near' not in SourceType[i]:
             mask = np.zeros((Data.shape[1],Data.shape[2]))
@@ -1012,7 +1051,8 @@ def Probable_host(Eventtime,Eventmask,Source,SourceType,Objmasks,ObjName,ObjType
 
 
 
-def K2TranPix(pixelfile,save): # More efficient in checking frames
+def K2TranPix(pixelfile,save): 
+    # Runs an assortment of functions to detect events in Kepler TPFs.
     Save = save + pixelfile.split('-')[1].split('_')[0]
     try:
         hdu = fits.open(pixelfile)
@@ -1178,7 +1218,7 @@ def K2TranPix(pixelfile,save): # More efficient in checking frames
                 K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
                 Write_event(pixelfile,eventtime,eventmask,Source,SourceType,Maskdata,mywcs,hdu,Save)
         else:
-            prin
+            print('Nope' ,pixelfile)
     except (OSError):
         pass
     
