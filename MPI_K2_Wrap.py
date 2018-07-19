@@ -5,7 +5,7 @@ from glob import glob
 import time as sys_time
 # Import all the functions
 from K2TranPixCode import *
-
+print('Imported')
 
 def print_mpi(string):
     comm = MPI.COMM_WORLD
@@ -24,7 +24,7 @@ print_master("Total number of MPI ranks = "+str(nPE))
 comm.Barrier()
 
 
-field = 'c01'
+field = 'c16'
 path = '/avatar/ryanr/Data/'+field+'/'
 Files = np.asarray(glob(path+'*.gz'))
 
