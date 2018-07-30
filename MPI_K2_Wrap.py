@@ -1,3 +1,4 @@
+print('started')
 from mpi4py import MPI
 
 from glob import glob
