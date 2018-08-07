@@ -3,6 +3,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import matplotlib.gridspec as gridspec
+import imageio
 import numpy as np
 
 from scipy.ndimage.filters import convolve
@@ -500,7 +501,8 @@ def Motion_correction(Data,Mask,Thrusters,Dist):
                         temp2 = np.copy(Section)
                         x = np.arange(0,len(Section))
                         limit =np.nanmedian(np.diff(np.diff(Section)))+2.5*np.nanstd(np.diff(np.diff(Section)))
-                        yo = np.where(np.diff(np.diff(Section))>limit)[0]+1
+                        yo = np.where(np.diff(np.diff(Section))>limit)[0]+
+                        '''
                         if len(yo)/2 == int(len(yo)/2):
                             z = 0
                             while z + 1 < len(yo):
@@ -515,6 +517,7 @@ def Motion_correction(Data,Mask,Thrusters,Dist):
                                 yo = np.delete(yo,[0,1])
                         if len(yo) == 1:
                             temp2[yo] = np.nan
+                        '''
                         ind = np.where(~np.isnan(temp2))[0]
 
                         if (len(x[ind]) > 3) & (len(x[ind])/len(x) > 0.6):
@@ -748,7 +751,7 @@ def Save_environment(Eventtime,maxcolor,Source,SourceType,Save):
     return directory
 
 def Thumbnail(LC,BGLC,Eventtime,Time,Xlim,Ylim,Eventnum,File,Save):
-    # Creates a simplified figure.
+    # Create a simple figure for thumbnail
     plt.figure()
     if Eventtime[-1] < len(Time):
         plt.axvspan(Time[Eventtime[0]]-Time[0],Time[Eventtime[-1]]-Time[0], color = 'orange')
@@ -762,8 +765,13 @@ def Thumbnail(LC,BGLC,Eventtime,Time,Xlim,Ylim,Eventnum,File,Save):
     plt.title(File.split('ktwo')[1].split('_')[0] + ' Event ' + str(Eventnum))
     plt.ylabel('Counts')
     plt.xlabel('Time (days)')
-    Save_space(Save + '/Figures/Thumb/')
-    plt.savefig(Save + '/Figures/Thumb/'+ File.split('/')[-1].split('-')[0]+'_'+str(Eventnum)+'.png', bbox_inches = 'tight')
+    xfigsizeTN=1.5
+    yfigsizeTN=1.5
+    plt.set_size_inches(xfigsizeTN,yfigsizeTN)
+    #Save_space(Save + '/Figures/Thumb/')
+    #plt.savefig(Save + '/Figures/Thumb/'+ File.split('/')[-1].split('-')[0]+'_'+str(Eventnum)+'.png', bbox_inches = 'tight')
+    directory = Save_environment(Eventtime[i],maxcolor,Source[i],SourceType[i],Save)
+    plt.savefig(directory+File.split('/')[-1].split('-')[0]+'_'+str(i)+'TN.png', bbox_inches = 'tight')
     plt.close();
 
 def Im_lims(dim,ev):
@@ -941,6 +949,28 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         plt.close()
         #Thumbnail(LC,BGLC,Eventtime[i],Time,[xmin,xmax],[ymin,ymax],i,File,Save);
 
+def create_gifv(input_glob, output_base_name, fps):
+    output_extensions = ["gif"]
+    input_filenames = glob(input_glob)
+
+    video_writers = [
+        imageio.get_writer("{}.{}".format(output_base_name, ext), mode='I', fps=fps)
+        for ext in output_extensions]
+
+    is_first = True
+    for filename in input_filenames:
+        img = imageio.imread(filename)
+
+        # ... processing to crop, rescale, etc. goes here
+
+        for writer in video_writers:
+            writer.append_data(img)
+
+
+    for writer in video_writers:
+        writer.close()
+
+
 def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType):
     # Save the frames to be combined into a gif with ffmpeg with another set of code.
     for i in range(len(Events)):
@@ -948,7 +978,7 @@ def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType
         mask[Eventmask[i][0],Eventmask[i][1]] = 1
         position = np.where(mask)
         Mid = ([position[0][0]],[position[1][0]])
-        maxcolor = 0
+        maxcolor = 40
         for j in range(len(position[0])):
             temp = sorted(Data[Eventtime[i][0]:Eventtime[i][-1],position[0][j],position[1][j]].flatten())
             if temp[-3] > maxcolor:
@@ -991,8 +1021,10 @@ def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType
         directory = Save_environment(Eventtime[i],maxcolor,Source[i],SourceType[i],Save)
 
         framerate = (xmax-xmin)/5
+        if framerate > 60: 
+            framerate = 60
+        create_gifv(FrameSave, directory + File.split('/')[-1].split('-')[0] + '_' + str(i),framerate)
         ffmpegcall = 'ffmpeg -y -nostats -loglevel 0 -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4'
-
         os.system(ffmpegcall);
 
 def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Data, WCS, hdu, Path):
@@ -1097,7 +1129,7 @@ def K2TranPix(pixelfile,save):
             framemask = np.zeros(Maskdata.shape)
 
             limit = abs(np.nanmedian(Maskdata[Qual == 0], axis = (0))+3*(np.nanstd(Maskdata[Qual == 0], axis = (0))))
-            limit[limit<20] = 20
+            limit[limit>22] = 22
             framemask = ((Maskdata/limit) >= 1)
             framemask[:,np.where(Maskdata > 100000)[1],np.where(Maskdata > 100000)[2]] = 0
 
