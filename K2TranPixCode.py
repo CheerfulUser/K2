@@ -1010,7 +1010,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         plt.savefig(directory+File.split('/')[-1].split('-')[0]+'_'+str(i)+'.pdf', bbox_inches = 'tight')
         
         plt.close()
-        Thumbnail(LC,BGLC,Eventtime[i],Time,[xmin,xmax],[ymin,ymax],i,File,directory);;
+        Thumbnail(LC,BGLC,Eventtime[i],Time,[xmin,xmax],[ymin,ymax],i,File,directory);
 
 def create_gifv(input_glob, output_base_name, fps):
     output_extensions = ["gif"]
@@ -1315,7 +1315,7 @@ def K2TranPix(pixelfile,save):
                         SourceType = np.delete(SourceType,i)
                     i += 1
                 Gal_pixel_check(Mask,ObjName,Objmasks,Maskdata[Framemin],limit,mywcs,pixelfile,Save)
-                
+
                 # Print figures
                 K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType,Maskobj)
                 K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
