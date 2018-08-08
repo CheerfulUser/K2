@@ -490,9 +490,9 @@ def Motion_correction(Data,Mask,Thrusters,Dist):
 
         if len(AvSplineind) > 1:
             AvSplinepoints = np.copy(Data[AvSplineind,X[j],Y[j]])
-            Splinef = interp1d(AvSplineind,AvSplinepoints, kind='linear',fill_value='extrapolate' )
+            Splinef = interp1d(AvSplineind, AvSplinepoints, kind='linear', fill_value=np.nan, bounds_error = False)
             Spline = Splinef(zz)
-            Spline[np.isnan(Spline)] = 0
+
             for i in range(len(Thrusters)-1):
 
                 if abs(Thrusters[i]-Thrusters[i+1]) > 5:
@@ -500,8 +500,8 @@ def Motion_correction(Data,Mask,Thrusters,Dist):
                         Section = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - Spline[Thrusters[i]+2:Thrusters[i+1]]
                         temp2 = np.copy(Section)
                         x = np.arange(0,len(Section))
-                        limit =np.nanmedian(np.diff(np.diff(Section)))+2.5*np.nanstd(np.diff(np.diff(Section)))
-                        yo = np.where(np.diff(np.diff(Section))>limit)[0]+
+                        #limit =np.nanmedian(np.diff(np.diff(Section)))+2.5*np.nanstd(np.diff(np.diff(Section)))
+                        #yo = np.where(np.diff(np.diff(Section))>limit)[0]
                         '''
                         if len(yo)/2 == int(len(yo)/2):
                             z = 0
@@ -524,16 +524,12 @@ def Motion_correction(Data,Mask,Thrusters,Dist):
                             polyfit, resid, _, _, _  = np.polyfit(x[ind], Section[ind], 3, full = True)
                             p3 = np.poly1d(polyfit)
 
-                            if resid/len(x) < 10:
+                            if np.abs(resid/len(x[ind])) < 10:
                                 temp[x+Thrusters[i]+2] = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) 
-                                fit[x+Thrusters[i]+2] = p3(x)
-
                     except RuntimeError:
                         pass
 
-        Corrected[:,X[j],Y[j]] = temp
-        
-                    
+        Corrected[:,X[j],Y[j]] = temp                    
     return Corrected
 
 def pix2coord(x,y,mywcs):
@@ -671,7 +667,60 @@ def Database_check_mask(Datacube,Thrusters,Masks,WCS):
 
     return Objects, Objtype
 
+def Gal_pixel_check(Mask,Obj,Objmasks,Frame,Limit,WCS,File,Save):
+    Y, X = np.where(Mask)
+    for i in range(len(X)):
+        coord = pix2coord(X[i],Y[i],WCS)
 
+        c = coordinates.SkyCoord(ra=coord[0], dec=coord[1],unit=(u.deg, u.deg), frame='icrs')
+        try:
+            result_table = Ned.query_region(c, radius = 10*u.arcsec, equinox='J2000')
+            obtype = np.asarray(result_table['Type'])[0].decode("utf-8") 
+            if (obtype == 'G') | (obtype == 'QSO') | (obtype == 'QGroup') | (obtype == 'Q_Lens'):
+
+                Ob = np.asarray(result_table['Object Name'])[0].decode("utf-8") 
+                redshift = np.asarray(result_table['Redshift'])[0]
+                magfilt = np.asarray(result_table['Magnitude and Filter'])[0].decode("utf-8") 
+                CVSstring =[Ob, obtype, str(redshift), magfilt, str(coord[0]), str(coord[1]), str(Limit[Y[i],X[i]])]
+                
+                Path = Save + '/Gals/' + File.split('/')[-1].split('-')[0] + '_Gs.csv'
+                
+                if os.path.isfile(Path):
+                    with open(Path, 'a') as csvfile:
+                        spamwriter = csv.writer(csvfile, delimiter=',')
+                        spamwriter.writerow(CVSstring)
+                else:
+                    with open(Path, 'w') as csvfile:
+                        spamwriter = csv.writer(csvfile, delimiter=',')
+                        spamwriter.writerow(['Name', 'Type', 'Redshift', 'Mag', 'RA', 'DEC', 'Maglim'])
+                        spamwriter.writerow(CVSstring)
+        except (RemoteServiceError,ExpatError,TableParseError,ValueError,EOFError) as e:
+            pass
+    
+    for i in range(len(Obj)):
+        if Obj[i] not in 'Unknown':
+            result_table = Ned.query_object(Obj[i])
+            
+            obtype = np.asarray(result_table['Type'])[0].decode("utf-8") 
+            if (obtype == 'G') | (obtype == 'QSO') | (obtype == 'QGroup') | (obtype == 'Q_Lens'):
+
+                Ob = np.asarray(result_table['Object Name'])[0].decode("utf-8") 
+                redshift = np.asarray(result_table['Redshift'])[0]
+                magfilt = np.asarray(result_table['Magnitude and Filter'])[0].decode("utf-8") 
+                limit = np.nanmean(Limit[Objmasks[i]==1])
+                CVSstring =[Ob, obtype, str(redshift), magfilt, str(coord[0]), str(coord[1]), str(limit)]
+                
+                Path = Save + '/Gals/' + File.split('/')[-1].split('-')[0] + '_Gs.csv'
+                
+                if os.path.isfile(Path):
+                    with open(Path, 'a') as csvfile:
+                        spamwriter = csv.writer(csvfile, delimiter=',')
+                        spamwriter.writerow(CVSstring)
+                else:
+                    with open(Path, 'w') as csvfile:
+                        spamwriter = csv.writer(csvfile, delimiter=',')
+                        spamwriter.writerow(['Name', 'Type', 'Redshift', 'Mag', 'RA', 'DEC', 'Maglim'])
+                        spamwriter.writerow(CVSstring)
 
 def Near_which_mask(Eventmask,Objmasks,Data):
     # Finds which mask in the object mask an event is near. The value assigned to Near_mask 
@@ -1265,6 +1314,8 @@ def K2TranPix(pixelfile,save):
                         Source = np.delete(Source,i)
                         SourceType = np.delete(SourceType,i)
                     i += 1
+                Gal_pixel_check(Mask,ObjName,Objmasks,Maskdata[Framemin],limit,mywcs,pixelfile,Save)
+                
                 # Print figures
                 K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType,Maskobj)
                 K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
