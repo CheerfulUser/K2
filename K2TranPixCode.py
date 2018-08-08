@@ -524,7 +524,7 @@ def Motion_correction(Data,Mask,Thrusters,Dist):
                             polyfit, resid, _, _, _  = np.polyfit(x[ind], Section[ind], 3, full = True)
                             p3 = np.poly1d(polyfit)
 
-                            if np.abs(resid/len(x[ind])) < 10:
+                            if (resid/np.nanmean(Section[ind])) < 10:
                                 temp[x+Thrusters[i]+2] = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) 
                     except RuntimeError:
                         pass
