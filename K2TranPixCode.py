@@ -587,6 +587,7 @@ def Database_event_check(Data,Eventtime,Eventmask,WCS):
             Coord = pix2coord(Mid[1],Mid[0],WCS)
         elif len(Mid[0]) > 1:
             Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
+        #print(Mid[1][0],Mid[0][0])
         #print(Coord)
         c = coordinates.SkyCoord(ra=Coord[0], dec=Coord[1],unit=(u.deg, u.deg), frame='icrs')
 
@@ -600,7 +601,7 @@ def Database_event_check(Data,Eventtime,Eventmask,WCS):
             if '*' in objtype:
                 objtype = objtype.replace('*','Star')
             if '!' in objtype:
-                objtype = objtype.replace('!','G') # Galactic sources
+                objtype = objtype.replace('!','Gal') # Galactic sources
             if objtype == 'G':
                 try:
                     result_table = Simbad.query_region(c,radius = 6*u.arcsec)
@@ -648,7 +649,7 @@ def Database_check_mask(Datacube,Thrusters,Masks,WCS):
             if '*' in objtype:
                 objtype = objtype.replace('*','Star')
             if '!' in objtype:
-                objtype = objtype.replace('!','G') # Galactic sources
+                objtype = objtype.replace('!','Gal') # Galactic sources
             if objtype == 'G':
                 try:
                     result_table = Simbad.query_region(c,radius = 6*u.arcsec)
@@ -686,6 +687,20 @@ def Near_which_mask(Eventmask,Objmasks,Data):
         Near_mask[np.where(isnear==1)[0]] = int(i)
     return Near_mask
 
+def In_which_mask(Eventmask,Objmasks,Data):
+    # Finds which mask in the object mask an event is in. The value assigned to In_mask 
+    # is the index of Objmask that corresponds to the event. If not mask is near, value is -1.
+    In_mask = np.ones(len(Eventmask),dtype=int)*-1
+    mask = np.zeros((len(Eventmask),Data.shape[1],Data.shape[2]))
+    for i in range(len(Eventmask)):
+        mask[i,Eventmask[i][0],Eventmask[i][1]] = 1
+
+    for i in range(len(Objmasks)):
+        in_mask = (mask*Objmasks[i]).any()
+        isin = in_mask*mask
+        In_mask[np.where(isin==1)[0]] = int(i)
+    return In_mask
+
 def Isolation(Eventtime,Eventmask,Data,SourceType):
     Sourcetype = np.copy(SourceType)
     for i in range(len(Eventtime)):
@@ -716,62 +731,56 @@ def Save_environment(Eventtime,maxcolor,Source,SourceType,Save):
     # Creates paths to save event data, based on brightness and duration.
     if Eventtime[-1] - Eventtime[0] >= 48:
         if maxcolor <= 24:
-            if 'Near: ' in Source:
-                directory = Save+'/Figures/Long/Faint/Near/' + SourceType.split('Near: ')[-1] + '/'
-            elif 'Prob:' in Source:
-                directory = Save+'/Figures/Long/Faint/Prob/' + SourceType.split('Prob: ')[-1] + '/'
+            if ':' in Source:
+                Cat = Source.split(':')[0]
+                directory = Save+'/Figures/Long/Faint/' + Cat + '/' + SourceType.split(Cat + ': ')[-1] + '/'
             else:
                 directory = Save+'/Figures/Long/Faint/' + SourceType + '/'
 
         else:
-            if 'Near: ' in Source:
-                directory = Save+'/Figures/Long/Bright/Near/' + SourceType.split('Near: ')[-1] + '/'
-            elif 'Prob:' in Source:
-                directory = Save+'/Figures/Long/Faint/Prob/' + SourceType.split('Prob: ')[-1] + '/'
+            if ':' in Source:
+                Cat = Source.split(':')[0]
+                directory = Save+'/Figures/Long/Faint/' + Cat + '/' + SourceType.split(Cat + ': ')[-1] + '/'
             else:
                 directory = Save+'/Figures/Long/Bright/' + SourceType + '/'
 
     else:
         if maxcolor <= 24:
-            if 'Near: ' in Source:
-                directory = Save+'/Figures/Short/Faint/Near/' + SourceType.split('Near: ')[-1] + '/'
-            elif 'Prob:' in Source:
-                directory = Save+'/Figures/Short/Faint/Prob/' + SourceType.split('Prob: ')[-1] + '/'
+            if ':' in Source:
+                Cat = Source.split(':')[0]
+                directory = Save+'/Figures/Long/Faint/' + Cat + '/' + SourceType.split(Cat + ': ')[-1] + '/'
             else:
                 directory = Save+'/Figures/Short/Faint/' + SourceType + '/'
 
         else:
-            if 'Near: ' in Source:
-                directory = Save+'/Figures/Short/Bright/Near/' + SourceType.split('Near: ')[-1] + '/'
-            elif 'Prob:' in Source:
-                directory = Save+'/Figures/Short/Faint/Prob/' + SourceType.split('Prob: ')[-1] + '/'
+            if ':' in Source:
+                Cat = Source.split(':')[0]
+                directory = Save+'/Figures/Long/Faint/' + Cat + '/' + SourceType.split(Cat + ': ')[-1] + '/'
             else:
                 directory = Save+'/Figures/Short/Bright/' + SourceType + '/'
     Save_space(directory)
     return directory
 
-def Thumbnail(LC,BGLC,Eventtime,Time,Xlim,Ylim,Eventnum,File,Save):
-    # Create a simple figure for thumbnail
-    plt.figure()
+def Thumbnail(LC,BGLC,Eventtime,Time,Xlim,Ylim,Eventnum,File,Direct):
+    fig = plt.figure()
     if Eventtime[-1] < len(Time):
         plt.axvspan(Time[Eventtime[0]]-Time[0],Time[Eventtime[-1]]-Time[0], color = 'orange')
     else:
         plt.axvspan(Time[Eventtime[0]]-Time[0],Time[-1]-Time[0], color = 'orange')
     plt.plot(Time - Time[0], LC,'.', label = 'Event LC')
     plt.plot(Time - Time[0], BGLC,'k.', label = 'Background LC')
-    plt.title
     plt.xlim(Xlim[0],Xlim[1])
     plt.ylim(Ylim[0],Ylim[1])
-    plt.title(File.split('ktwo')[1].split('_')[0] + ' Event ' + str(Eventnum))
-    plt.ylabel('Counts')
-    plt.xlabel('Time (days)')
+    plt.tick_params(axis='x',which='both', labelbottom=False)    
+    plt.tick_params(axis='y',which='both', labelleft=False)
+    
     xfigsizeTN=1.5
     yfigsizeTN=1.5
-    plt.set_size_inches(xfigsizeTN,yfigsizeTN)
+    fig.set_size_inches(xfigsizeTN,yfigsizeTN)
     #Save_space(Save + '/Figures/Thumb/')
     #plt.savefig(Save + '/Figures/Thumb/'+ File.split('/')[-1].split('-')[0]+'_'+str(Eventnum)+'.png', bbox_inches = 'tight')
-    directory = Save_environment(Eventtime[i],maxcolor,Source[i],SourceType[i],Save)
-    plt.savefig(directory+File.split('/')[-1].split('-')[0]+'_'+str(i)+'TN.png', bbox_inches = 'tight')
+    
+    plt.savefig(Direct+File.split('/')[-1].split('-')[0]+'_'+str(Eventnum)+'TN.png', bbox_inches = 'tight')
     plt.close();
 
 def Im_lims(dim,ev):
@@ -821,19 +830,24 @@ def Fig_cut(Datacube,Eventmask):
     return xlims, ylims
 
 def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quality,Thrusters,Framemin,Datacube,Source,SourceType,ObjMask):
-    # Saves a figure of the event with helpful info displayed on the light curve as well as reference frames.
     for i in range(len(Events)):
         mask = np.zeros((Data.shape[1],Data.shape[2]))
         mask[Eventmask[i][0],Eventmask[i][1]] = 1
+        
+        if np.isnan(Time[Eventtime[i][1]]):
+            Eventtime[i][1] = Eventtime[i][1] -1
+        
         #Find Coords of transient
         position = np.where(mask)
         if len(position[0]) == 0:
             print(Broken)
         Mid = ([position[0][0]],[position[1][0]])
-        maxcolor = -1000
+        maxcolor = -1000 # Set a bad value for error identification
         for j in range(len(position[0])):
             temp = sorted(Data[Eventtime[i][0]:Eventtime[i][-1],position[0][j],position[1][j]].flatten())
-            temp  = temp[-3]
+            temp = np.array(temp)
+            temp = temp[np.isfinite(temp)]
+            temp  = temp[-3] # get 3rd brightest point
             if temp > maxcolor:
                 maxcolor = temp
                 Mid = ([position[0][j]],[position[1][j]])
@@ -909,7 +923,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         ymax = tempy[-3] +0.2*tempy[-3]
 
         plt.ylim(ymin,ymax)
-        plt.legend(loc = 2)
+        plt.legend(loc = 1)
         plt.minorticks_on()
         ylims, xlims = Fig_cut(Datacube,Mid)
 
@@ -947,7 +961,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         plt.savefig(directory+File.split('/')[-1].split('-')[0]+'_'+str(i)+'.pdf', bbox_inches = 'tight')
         
         plt.close()
-        #Thumbnail(LC,BGLC,Eventtime[i],Time,[xmin,xmax],[ymin,ymax],i,File,Save);
+        Thumbnail(LC,BGLC,Eventtime[i],Time,[xmin,xmax],[ymin,ymax],i,File,directory);;
 
 def create_gifv(input_glob, output_base_name, fps):
     output_extensions = ["gif"]
@@ -1129,7 +1143,7 @@ def K2TranPix(pixelfile,save):
             framemask = np.zeros(Maskdata.shape)
 
             limit = abs(np.nanmedian(Maskdata[Qual == 0], axis = (0))+3*(np.nanstd(Maskdata[Qual == 0], axis = (0))))
-            limit[limit>22] = 22
+            limit[limit<22] = 22
             framemask = ((Maskdata/limit) >= 1)
             framemask[:,np.where(Maskdata > 100000)[1],np.where(Maskdata > 100000)[2]] = 0
 
@@ -1212,6 +1226,7 @@ def K2TranPix(pixelfile,save):
                 Source, SourceType = Database_event_check(Maskdata,eventtime,eventmask,mywcs)
                 ObjName, ObjType = Database_check_mask(datacube,thrusters,Objmasks,mywcs)
                 Near = Near_which_mask(eventmask,Objmasks,datacube)
+                In = In_which_mask(eventmask,Objmasks,datacube)
                 Maskobj = np.zeros((len(events),Maskdata.shape[1],Maskdata.shape[2])) # for plotting masked object reference
                 if len(Objmasks) > 0:
                     if len(np.where(Objmasks[:,int(Maskdata.shape[1]/2),int(Maskdata.shape[2]/2)] == 1)[0]) > 0:
@@ -1229,12 +1244,17 @@ def K2TranPix(pixelfile,save):
                         Source[ind] = 'Near: ' + ObjName[Near[ind]]
                         SourceType[ind] = 'Near: ' + ObjType[Near[ind]]
                         Maskobj[ind] = Objmasks[Near[ind]]
+                    for ind in np.where(In != -1)[0]:
+                        Source[ind] = 'In: ' + ObjName[In[ind]]
+                        SourceType[ind] = 'in: ' + ObjType[In[ind]]
+                        Maskobj[ind] = Objmasks[In[ind]]
                 else:
                     Maskobj[:] = Mask
 
 
                 Source, SourceType = Probable_host(eventtime,eventmask,Source,SourceType,Objmasks,ObjName,ObjType,Maskdata)
                 SourceType = Isolation(eventtime,eventmask,Maskdata,SourceType)
+                # Remove all the stars! 
                 i = 0
                 while i < len(events):
                     if SourceType[i] == 'Near: Star':
@@ -1250,7 +1270,7 @@ def K2TranPix(pixelfile,save):
                 K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
                 Write_event(pixelfile,eventtime,eventmask,Source,SourceType,Maskdata,mywcs,hdu,Save)
         else:
-            print('Nope' ,pixelfile)
+            print('Nope', pixelfile)
     except (OSError):
         pass
     
