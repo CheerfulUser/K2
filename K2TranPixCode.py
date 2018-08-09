@@ -593,7 +593,7 @@ def Database_event_check(Data,Eventtime,Eventmask,WCS):
         Ob = 'Unknown'
         objtype = 'Unknown'
         try:
-            result_table = Ned.query_region(c, radius = 6*u.arcsec, equinox='J2000')
+            result_table = Ned.query_region(c, radius = 2*u.arcsec, equinox='J2000')
             Ob = np.asarray(result_table['Object Name'])[0].decode("utf-8") 
             objtype = result_table['Type'][0].decode("utf-8") 
 
