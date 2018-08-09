@@ -671,6 +671,7 @@ def Database_check_mask(Datacube,Thrusters,Masks,WCS):
     return Objects, Objtype
 
 def Gal_pixel_check(Mask,Obj,Objmasks,Frame,Limit,WCS,File,Save):
+    print('Gal Start')
     Y, X = np.where(Mask)
     for i in range(len(X)):
         coord = pix2coord(X[i],Y[i],WCS)
@@ -699,7 +700,7 @@ def Gal_pixel_check(Mask,Obj,Objmasks,Frame,Limit,WCS,File,Save):
                         spamwriter.writerow(CVSstring)
         except (RemoteServiceError,ExpatError,TableParseError,ValueError,EOFError) as e:
             pass
-    
+    print('Gal pixels')
     for i in range(len(Obj)):
         if Obj[i] not in 'Unknown':
             result_table = Ned.query_object(Obj[i])
@@ -724,7 +725,9 @@ def Gal_pixel_check(Mask,Obj,Objmasks,Frame,Limit,WCS,File,Save):
                         spamwriter = csv.writer(csvfile, delimiter=',')
                         spamwriter.writerow(['Name', 'Type', 'Redshift', 'Mag', 'RA', 'DEC', 'Maglim'])
                         spamwriter.writerow(CVSstring)
+    print('Gal objs')
 
+    
 def Near_which_mask(Eventmask,Objmasks,Data):
     # Finds which mask in the object mask an event is near. The value assigned to Near_mask 
     # is the index of Objmask that corresponds to the event. If not mask is near, value is nan.
