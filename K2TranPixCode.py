@@ -1113,12 +1113,12 @@ def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Data, WCS, 
             Coord = [-1,-1]
         size = np.nansum(Eventmask[i])
         CVSstring = [str(feild), str(ID), str(i), Sourcetype[i], str(start), str(duration), str(maxlc), str(size), str(Coord[0]), str(Coord[1]), Source[i], str(hdu[0].header['CHANNEL']), str(hdu[0].header['MODULE']), str(hdu[0].header['OUTPUT']) ]                
-        if os.path.isfile(Path + 'Events.csv'):
-            with open(Path + 'Events.csv', 'a') as csvfile:
+        if os.path.isfile(Path + '/Events.csv'):
+            with open(Path + '/Events.csv', 'a') as csvfile:
                 spamwriter = csv.writer(csvfile, delimiter=',')
                 spamwriter.writerow(CVSstring)
         else:
-            with open(Path + 'Events.csv', 'w') as csvfile:
+            with open(Path + '/Events.csv', 'w') as csvfile:
                 spamwriter = csv.writer(csvfile, delimiter=',')
                 spamwriter.writerow(['Field', 'EPIC', 'Event #', 'Host type', 'Start', 'Duration', 'Counts', 'Size','RA','DEC','Host', 'Channel', 'Module', 'Output'])
                 spamwriter.writerow(CVSstring)
