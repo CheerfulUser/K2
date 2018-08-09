@@ -802,16 +802,16 @@ def Save_environment(Eventtime,maxcolor,Source,SourceType,Save):
         if maxcolor <= 24:
             if ':' in Source:
                 Cat = Source.split(':')[0]
-                directory = Save+'/Figures/Long/Faint/' + Cat + '/' + SourceType.split(Cat + ': ')[-1] + '/'
+                directory = Save+'/Figures/Short/Faint/' + Cat + '/' + SourceType.split(Cat + ': ')[-1] + '/'
             else:
-                directory = Save+'/Figures/Long/Faint/' + SourceType + '/'
+                directory = Save+'/Figures/Short/Faint/' + SourceType + '/'
 
         else:
             if ':' in Source:
                 Cat = Source.split(':')[0]
-                directory = Save+'/Figures/Long/Bright/' + Cat + '/' + SourceType.split(Cat + ': ')[-1] + '/'
+                directory = Save+'/Figures/Short/Bright/' + Cat + '/' + SourceType.split(Cat + ': ')[-1] + '/'
             else:
-                directory = Save+'/Figures/Long/Bright/' + SourceType + '/'
+                directory = Save+'/Figures/Short/Bright/' + SourceType + '/'
     Save_space(directory)
     return directory
 
