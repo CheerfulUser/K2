@@ -727,7 +727,7 @@ def Gal_pixel_check(Mask,Obj,Objmasks,Frame,Limit,WCS,File,Save):
                         spamwriter.writerow(CVSstring)
     print('Gal objs')
 
-    
+
 def Near_which_mask(Eventmask,Objmasks,Data):
     # Finds which mask in the object mask an event is near. The value assigned to Near_mask 
     # is the index of Objmask that corresponds to the event. If not mask is near, value is nan.
@@ -1321,7 +1321,7 @@ def K2TranPix(pixelfile,save):
                         Source = np.delete(Source,i)
                         SourceType = np.delete(SourceType,i)
                     i += 1
-                Gal_pixel_check(Mask,ObjName,Objmasks,Maskdata[Framemin],limit,mywcs,pixelfile,Save)
+                #Gal_pixel_check(Mask,ObjName,Objmasks,Maskdata[Framemin],limit,mywcs,pixelfile,Save)
                 Save_space(Save + '/test/')
                 np.savez(Save + '/test/', Fieldprop)
                 # Print figures
