@@ -15,8 +15,6 @@ parser.add_argument("Camp", metavar="Campaign", nargs=1,
 
 args = parser.parse_args()
 
-
-print 'Reading files...'
 # Read in HEALPIX file
 camp = args.Camp[0]
 
