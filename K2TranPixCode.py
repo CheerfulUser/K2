@@ -313,10 +313,13 @@ def Match_events(Events,Eventtime,Eventmask):
     i = 0
     eventmask2 = []
     while len(Events) > i:
-        
         coincident = (np.isclose(Eventtime[i,0],Eventtime[i:,0],atol=5) + np.isclose(Eventtime[i,1],Eventtime[i:,1],atol=5))
+        dist = np.sqrt((np.array(Eventmask)[i,0]-np.array(Eventmask)[i:,0])**2 + (np.array(Eventmask)[i,1]-np.array(Eventmask)[i:,1])**2 )
+        dist = dist < 5
+
+        coincident = coincident * dist
         if sum(coincident*1) > 1:
-            newmask = Eventmask[i]
+            newmask = Eventmask[i].copy()
             
             for j in (np.where(coincident)[0][1:] + i):
                 newmask[0] = np.append(newmask[0],Eventmask[j][0])
@@ -324,12 +327,12 @@ def Match_events(Events,Eventtime,Eventmask):
             eventmask2.append(newmask)
             Events = np.delete(Events,np.where(coincident)[0][1:]+i)
             Eventtime = np.delete(Eventtime,np.where(coincident)[0][1:]+i, axis = (0))
-            del Eventmask[i]
+            killer = sorted((np.where(coincident)[0][1:]+i), key=int, reverse=True)
+            for kill in killer:
+                del Eventmask[kill]
         else:
             eventmask2.append(Eventmask[i])
-            
         i +=1
-    
     return Events, Eventtime,eventmask2
 
 def Match_asteroids(Events,Eventtime,Eventmask):
@@ -524,7 +527,7 @@ def Motion_correction(Data,Mask,Thrusters,Dist):
                             polyfit, resid, _, _, _  = np.polyfit(x[ind], Section[ind], 3, full = True)
                             p3 = np.poly1d(polyfit)
 
-                            if (resid/np.nanmean(Section[ind])) < 10:
+                            if np.abs(resid/len(x[ind])) < 10:
                                 temp[x+Thrusters[i]+2] = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) 
                     except RuntimeError:
                         pass
@@ -1158,7 +1161,7 @@ def K2TranPix(pixelfile,save):
             for i in range(len(ind)):
                 lc = datacube[:,ind[0][i],ind[1][i]]
                 datacube[sigma_clip(lc,sigma=5.).mask,ind[0][i],ind[1][i]] = np.nan
-            #print(pixelfile)
+
             time = dat["TIME"] + 2454833.0
             Qual = hdu[1].data.field('QUALITY')
             thrusters = np.where((Qual == 1048576) | (Qual == 1089568) | (Qual == 1056768) | (Qual == 1064960) | (Qual == 1081376) | (Qual == 10240) | (Qual == 32768) | (Qual == 1097760) | (Qual == 1048580) | (Qual == 1081348))[0]
@@ -1181,8 +1184,9 @@ def K2TranPix(pixelfile,save):
             Mask = ThrustObjectMask(datacube,goodthrust)
 
             #Maskdata, ast = First_pass(np.copy(datacube),Qual,quality,thrusters,pixelfile)
-            Maskdata = datacube*Mask
-            Maskdata = Motion_correction(Maskdata,Mask,thrusters,distdrif)*Mask
+            Maskdata = np.copy(datacube)
+            allMask = np.ones((datacube.shape[1],datacube.shape[2]))
+            Maskdata = Motion_correction(Maskdata,allMask,thrusters,distdrif)
 
             # Make a mask for the object to use as a test to eliminate very bad pointings
             obj = np.ma.masked_invalid(Mask).mask
@@ -1318,7 +1322,7 @@ def K2TranPix(pixelfile,save):
 
                 # Print figures
                 K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType,Maskobj)
-                K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
+                #K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
                 Write_event(pixelfile,eventtime,eventmask,Source,SourceType,Maskdata,mywcs,hdu,Save)
         else:
             print('Nope', pixelfile)
