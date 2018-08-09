@@ -1277,6 +1277,7 @@ def K2TranPix(pixelfile,save):
             # Find all spatially seperate objects in the event mask.
             Objmasks = Identify_masks(obj)
             Objmasks = np.array(Objmasks)
+            print('# events ',len(events))
             
             if len(events) > 0:
                 Source, SourceType = Database_event_check(Maskdata,eventtime,eventmask,mywcs)
@@ -1321,12 +1322,12 @@ def K2TranPix(pixelfile,save):
                         Source = np.delete(Source,i)
                         SourceType = np.delete(SourceType,i)
                     i += 1
-                #Gal_pixel_check(Mask,ObjName,Objmasks,Maskdata[Framemin],limit,mywcs,pixelfile,Save)
+                Gal_pixel_check(Mask,ObjName,Objmasks,Maskdata[Framemin],limit,mywcs,pixelfile,Save)
                 Save_space(Save + '/test/')
                 np.savez(Save + '/test/', Fieldprop)
                 # Print figures
-                K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType,Maskobj)
-                K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
+                #K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType,Maskobj)
+                #K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
                 Write_event(pixelfile,eventtime,eventmask,Source,SourceType,Maskdata,mywcs,hdu,Save)
         else:
             print('Nope', pixelfile)
