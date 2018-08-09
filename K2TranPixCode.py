@@ -675,7 +675,7 @@ def Gal_pixel_check(Mask,Obj,Objmasks,Frame,Limit,WCS,File,Save):
 
         c = coordinates.SkyCoord(ra=coord[0], dec=coord[1],unit=(u.deg, u.deg), frame='icrs')
         try:
-            result_table = Ned.query_region(c, radius = 10*u.arcsec, equinox='J2000')
+            result_table = Ned.query_region(c, radius = 2*u.arcsec, equinox='J2000')
             obtype = np.asarray(result_table['Type'])[0].decode("utf-8") 
             if (obtype == 'G') | (obtype == 'QSO') | (obtype == 'QGroup') | (obtype == 'Q_Lens'):
 
@@ -683,7 +683,7 @@ def Gal_pixel_check(Mask,Obj,Objmasks,Frame,Limit,WCS,File,Save):
                 redshift = np.asarray(result_table['Redshift'])[0]
                 magfilt = np.asarray(result_table['Magnitude and Filter'])[0].decode("utf-8") 
                 CVSstring =[Ob, obtype, str(redshift), magfilt, str(coord[0]), str(coord[1]), str(Limit[Y[i],X[i]])]
-                
+                Save_space(Save+'/Gals/')
                 Path = Save + '/Gals/' + File.split('/')[-1].split('-')[0] + '_Gs.csv'
                 
                 if os.path.isfile(Path):
@@ -697,7 +697,7 @@ def Gal_pixel_check(Mask,Obj,Objmasks,Frame,Limit,WCS,File,Save):
                         spamwriter.writerow(CVSstring)
         except (RemoteServiceError,ExpatError,TableParseError,ValueError,EOFError) as e:
             pass
-
+    
     for i in range(len(Obj)):
         if Obj[i] not in 'Unknown':
             result_table = Ned.query_object(Obj[i])
@@ -710,9 +710,9 @@ def Gal_pixel_check(Mask,Obj,Objmasks,Frame,Limit,WCS,File,Save):
                 magfilt = np.asarray(result_table['Magnitude and Filter'])[0].decode("utf-8") 
                 limit = np.nanmean(Limit[Objmasks[i]==1])
                 CVSstring =[Ob, obtype, str(redshift), magfilt, str(coord[0]), str(coord[1]), str(limit)]
-                
+                Save_space(Save+'/Gals/')
                 Path = Save + '/Gals/' + File.split('/')[-1].split('-')[0] + '_Gs.csv'
-                
+
                 if os.path.isfile(Path):
                     with open(Path, 'a') as csvfile:
                         spamwriter = csv.writer(csvfile, delimiter=',')
