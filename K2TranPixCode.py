@@ -1310,7 +1310,7 @@ def K2TranPix(pixelfile,save):
                 # Remove all the stars! 
                 i = 0
                 while i < len(events):
-                    if SourceType[i] == 'Near: Star':
+                    if (SourceType[i] == 'Near: Star') | (SourceType[i] == 'In: Star') | (SourceType[i] == 'Prob: Star'):
                         events = np.delete(events,i)
                         eventtime = np.delete(eventtime,i,axis=0)
                         del eventmask[i]
@@ -1319,7 +1319,8 @@ def K2TranPix(pixelfile,save):
                         SourceType = np.delete(SourceType,i)
                     i += 1
                 Gal_pixel_check(Mask,ObjName,Objmasks,Maskdata[Framemin],limit,mywcs,pixelfile,Save)
-
+                Save_space(Save + '/test/')
+                np.savez(Save + '/test/', Fieldprop)
                 # Print figures
                 K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType,Maskobj)
                 K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
