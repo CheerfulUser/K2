@@ -794,7 +794,7 @@ def Save_environment(Eventtime,maxcolor,Source,SourceType,Save):
         else:
             if ':' in Source:
                 Cat = Source.split(':')[0]
-                directory = Save+'/Figures/Long/Faint/' + Cat + '/' + SourceType.split(Cat + ': ')[-1] + '/'
+                directory = Save+'/Figures/Long/Bright/' + Cat + '/' + SourceType.split(Cat + ': ')[-1] + '/'
             else:
                 directory = Save+'/Figures/Long/Bright/' + SourceType + '/'
 
@@ -804,14 +804,14 @@ def Save_environment(Eventtime,maxcolor,Source,SourceType,Save):
                 Cat = Source.split(':')[0]
                 directory = Save+'/Figures/Long/Faint/' + Cat + '/' + SourceType.split(Cat + ': ')[-1] + '/'
             else:
-                directory = Save+'/Figures/Short/Faint/' + SourceType + '/'
+                directory = Save+'/Figures/Long/Faint/' + SourceType + '/'
 
         else:
             if ':' in Source:
                 Cat = Source.split(':')[0]
-                directory = Save+'/Figures/Long/Faint/' + Cat + '/' + SourceType.split(Cat + ': ')[-1] + '/'
+                directory = Save+'/Figures/Long/Bright/' + Cat + '/' + SourceType.split(Cat + ': ')[-1] + '/'
             else:
-                directory = Save+'/Figures/Short/Bright/' + SourceType + '/'
+                directory = Save+'/Figures/Long/Bright/' + SourceType + '/'
     Save_space(directory)
     return directory
 
