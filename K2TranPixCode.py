@@ -1299,7 +1299,7 @@ def K2TranPix(pixelfile,save):
                         Maskobj[ind] = Objmasks[Near[ind]]
                     for ind in np.where(In != -1)[0]:
                         Source[ind] = 'In: ' + ObjName[In[ind]]
-                        SourceType[ind] = 'in: ' + ObjType[In[ind]]
+                        SourceType[ind] = 'In: ' + ObjType[In[ind]]
                         Maskobj[ind] = Objmasks[In[ind]]
                 else:
                     Maskobj[:] = Mask
@@ -1322,7 +1322,7 @@ def K2TranPix(pixelfile,save):
 
                 # Print figures
                 K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType,Maskobj)
-                #K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
+                K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
                 Write_event(pixelfile,eventtime,eventmask,Source,SourceType,Maskdata,mywcs,hdu,Save)
         else:
             print('Nope', pixelfile)
