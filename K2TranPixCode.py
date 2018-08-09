@@ -671,7 +671,6 @@ def Database_check_mask(Datacube,Thrusters,Masks,WCS):
     return Objects, Objtype
 
 def Gal_pixel_check(Mask,Obj,Objmasks,Frame,Limit,WCS,File,Save):
-    print('Gal Start')
     Y, X = np.where(Mask)
     for i in range(len(X)):
         coord = pix2coord(X[i],Y[i],WCS)
@@ -700,7 +699,7 @@ def Gal_pixel_check(Mask,Obj,Objmasks,Frame,Limit,WCS,File,Save):
                         spamwriter.writerow(CVSstring)
         except (RemoteServiceError,ExpatError,TableParseError,ValueError,EOFError) as e:
             pass
-    print('Gal pixels')
+
     for i in range(len(Obj)):
         if Obj[i] not in 'Unknown':
             result_table = Ned.query_object(Obj[i])
@@ -725,7 +724,7 @@ def Gal_pixel_check(Mask,Obj,Objmasks,Frame,Limit,WCS,File,Save):
                         spamwriter = csv.writer(csvfile, delimiter=',')
                         spamwriter.writerow(['Name', 'Type', 'Redshift', 'Mag', 'RA', 'DEC', 'Maglim'])
                         spamwriter.writerow(CVSstring)
-    print('Gal objs')
+
 
 
 def Near_which_mask(Eventmask,Objmasks,Data):
@@ -1277,7 +1276,6 @@ def K2TranPix(pixelfile,save):
             # Find all spatially seperate objects in the event mask.
             Objmasks = Identify_masks(obj)
             Objmasks = np.array(Objmasks)
-            print('# events ',len(events))
             
             if len(events) > 0:
                 Source, SourceType = Database_event_check(Maskdata,eventtime,eventmask,mywcs)
@@ -1326,8 +1324,8 @@ def K2TranPix(pixelfile,save):
                 Save_space(Save + '/test/')
                 np.savez(Save + '/test/', Fieldprop)
                 # Print figures
-                #K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType,Maskobj)
-                #K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
+                K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType,Maskobj)
+                K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
                 Write_event(pixelfile,eventtime,eventmask,Source,SourceType,Maskdata,mywcs,hdu,Save)
         else:
             print('Nope', pixelfile)
