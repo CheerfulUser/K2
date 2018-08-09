@@ -586,8 +586,7 @@ def Database_event_check(Data,Eventtime,Eventmask,WCS):
             Coord = pix2coord(Mid[1],Mid[0],WCS)
         elif len(Mid[0]) > 1:
             Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
-        #print(Mid[1][0],Mid[0][0])
-        #print(Coord)
+        
         c = coordinates.SkyCoord(ra=Coord[0], dec=Coord[1],unit=(u.deg, u.deg), frame='icrs')
 
         Ob = 'Unknown'
@@ -603,7 +602,7 @@ def Database_event_check(Data,Eventtime,Eventmask,WCS):
                 objtype = objtype.replace('!','Gal') # Galactic sources
             if objtype == 'G':
                 try:
-                    result_table = Simbad.query_region(c,radius = 6*u.arcsec)
+                    result_table = Simbad.query_region(c,radius = 2*u.arcsec)
                     if len(result_table.colnames) > 0:
                         objtype = objtype + ' Simbad'
                 except (AttributeError,ExpatError,TableParseError,ValueError,EOFError) as e:
@@ -611,7 +610,7 @@ def Database_event_check(Data,Eventtime,Eventmask,WCS):
                 
         except (RemoteServiceError,ExpatError,TableParseError,ValueError,EOFError) as e:
             try:
-                result_table = Simbad.query_region(c,radius = 6*u.arcsec)
+                result_table = Simbad.query_region(c,radius = 2*u.arcsec)
                 if len(result_table.colnames) > 0:
                     Ob = np.asarray(result_table['MAIN_ID'])[0].decode("utf-8") 
                     objtype = 'Simbad'
@@ -619,7 +618,6 @@ def Database_event_check(Data,Eventtime,Eventmask,WCS):
                 pass
         Objects.append(Ob)
         Objtype.append(objtype)
-        #print(objtype)
         
     return Objects, Objtype
 
