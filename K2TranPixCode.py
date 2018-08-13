@@ -668,7 +668,7 @@ def Database_check_mask(Datacube,Thrusters,Masks,WCS):
 
     return Objects, Objtype
 
-def Gal_pixel_check(Mask,Obj,Objmasks,Frame,Limit,WCS,File,Save):
+def Gal_pixel_check(Mask,Obj,Objmasks,Objtype,Frame,Limit,WCS,File,Save):
     Y, X = np.where(Mask)
     for i in range(len(X)):
         coord = pix2coord(X[i],Y[i],WCS)
@@ -699,29 +699,28 @@ def Gal_pixel_check(Mask,Obj,Objmasks,Frame,Limit,WCS,File,Save):
             pass
     
     for i in range(len(Obj)):
-        if Obj[i] not in 'Unknown':
+        if (Obtype[i] == 'G') | (Obtype[i] == 'QSO') | (Obtype[i] == 'QGroup') | (Obtype[i] == 'Q_Lens'):
             result_table = Ned.query_object(Obj[i])
             
-            obtype = np.asarray(result_table['Type'])[0].decode("utf-8") 
-            if (obtype == 'G') | (obtype == 'QSO') | (obtype == 'QGroup') | (obtype == 'Q_Lens'):
+            obtype = np.asarray(result_table['Type'])[0].decode("utf-8")             
 
-                Ob = np.asarray(result_table['Object Name'])[0].decode("utf-8") 
-                redshift = np.asarray(result_table['Redshift'])[0]
-                magfilt = np.asarray(result_table['Magnitude and Filter'])[0].decode("utf-8") 
-                limit = np.nanmean(Limit[Objmasks[i]==1])
-                CVSstring =[Ob, obtype, str(redshift), magfilt, str(coord[0]), str(coord[1]), str(limit)]
-                Save_space(Save+'/Gals/')
-                Path = Save + '/Gals/' + File.split('/')[-1].split('-')[0] + '_Gs.csv'
+            Ob = np.asarray(result_table['Object Name'])[0].decode("utf-8") 
+            redshift = np.asarray(result_table['Redshift'])[0]
+            magfilt = np.asarray(result_table['Magnitude and Filter'])[0].decode("utf-8") 
+            limit = np.nanmean(Limit[Objmasks[i]==1])
+            CVSstring =[Ob, obtype, str(redshift), magfilt, str(coord[0]), str(coord[1]), str(limit)]
+            Save_space(Save+'/Gals/')
+            Path = Save + '/Gals/' + File.split('/')[-1].split('-')[0] + '_Gs.csv'
 
-                if os.path.isfile(Path):
-                    with open(Path, 'a') as csvfile:
-                        spamwriter = csv.writer(csvfile, delimiter=',')
-                        spamwriter.writerow(CVSstring)
-                else:
-                    with open(Path, 'w') as csvfile:
-                        spamwriter = csv.writer(csvfile, delimiter=',')
-                        spamwriter.writerow(['Name', 'Type', 'Redshift', 'Mag', 'RA', 'DEC', 'Maglim'])
-                        spamwriter.writerow(CVSstring)
+            if os.path.isfile(Path):
+                with open(Path, 'a') as csvfile:
+                    spamwriter = csv.writer(csvfile, delimiter=',')
+                    spamwriter.writerow(CVSstring)
+            else:
+                with open(Path, 'w') as csvfile:
+                    spamwriter = csv.writer(csvfile, delimiter=',')
+                    spamwriter.writerow(['Name', 'Type', 'Redshift', 'Mag', 'RA', 'DEC', 'Maglim'])
+                    spamwriter.writerow(CVSstring)
 
 
 
