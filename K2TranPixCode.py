@@ -1093,7 +1093,7 @@ def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType
         ffmpegcall = 'ffmpeg -y -nostats -loglevel 0 -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4'
         os.system(ffmpegcall);
 
-def K2TranPixZoo(Events,Eventtime,Eventmask,SourceType,Data,Time,wcs,Save,File):
+def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save,File):
     # Save the frames to be combined into a gif with ffmpeg with another set of code.
     for i in range(len(Events)):
         mask = np.zeros((Data.shape[1],Data.shape[2]))
@@ -1175,6 +1175,9 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,SourceType,Data,Time,wcs,Save,File):
             current_cmap = plt.cm.get_cmap()
             current_cmap.set_bad(color='black')
             #plt.colorbar()
+            ylims, xlims = Fig_cut(Data,Mid)
+            plt.xlim(xlims[0],xlims[1])
+            plt.ylim(ylims[0],ylims[1])
             plt.ylabel('Row')
             plt.xlabel('Column')
             plt.plot(position[1],position[0],'r.',ms = 15)
@@ -1184,7 +1187,7 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,SourceType,Data,Time,wcs,Save,File):
             ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
             ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
 
-            plt.savefig(filename,dpi=1000)
+            plt.savefig(filename,dpi=100)
             plt.close();
 
         directory = Save_environment(Eventtime[i],maxcolor,Source[i],SourceType[i],Save)
@@ -1424,7 +1427,7 @@ def K2TranPix(pixelfile,save):
                 # Print figures
                 K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType,Maskobj)
                 #K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
-                K2TranPixZoo(events,eventtime,eventmask,SourceType,Maskdata,time,mywcs,Save,pixelfile)
+                K2TranPixZoo(events,eventtime,eventmask,Source,SourceType,Maskdata,time,mywcs,Save,pixelfile)
                 Write_event(pixelfile,eventtime,eventmask,Source,SourceType,Maskdata,mywcs,hdu,Save)
         else:
             print('Small ', pixelfile)
