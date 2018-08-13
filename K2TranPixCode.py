@@ -699,9 +699,9 @@ def Gal_pixel_check(Mask,Obj,Objmasks,Objtype,Limit,WCS,File,Save):
             pass
     
     for i in range(len(Obj)):
-        if (Obtype[i] == 'G') | (Obtype[i] == 'QSO') | (Obtype[i] == 'QGroup') | (Obtype[i] == 'Q_Lens'):
+        if (Objtype[i] == 'G') | (Objtype[i] == 'QSO') | (Objtype[i] == 'QGroup') | (Objtype[i] == 'Q_Lens'):
             result_table = Ned.query_object(Obj[i])
-            
+            print('working')
             obtype = np.asarray(result_table['Type'])[0].decode("utf-8")             
 
             Ob = np.asarray(result_table['Object Name'])[0].decode("utf-8") 
