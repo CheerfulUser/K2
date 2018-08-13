@@ -1089,8 +1089,108 @@ def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType
         framerate = (xmax-xmin)/5
         if framerate > 60: 
             framerate = 60
-        create_gifv(FrameSave + '*', directory + File.split('/')[-1].split('-')[0] + '_' + str(i),framerate)
+        #create_gifv(FrameSave + '*', directory + File.split('/')[-1].split('-')[0] + '_' + str(i),framerate)
         ffmpegcall = 'ffmpeg -y -nostats -loglevel 0 -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4'
+        os.system(ffmpegcall);
+
+def K2TranPixZoo(Events,Eventtime,Eventmask,SourceType,Data,Time,wcs,Save,File):
+    # Save the frames to be combined into a gif with ffmpeg with another set of code.
+    for i in range(len(Events)):
+        mask = np.zeros((Data.shape[1],Data.shape[2]))
+        mask[Eventmask[i][0],Eventmask[i][1]] = 1
+        position = np.where(mask)
+        Mid = ([position[0][0]],[position[1][0]])
+        maxcolor = -1000 # Set a bad value for error identification
+        for j in range(len(position[0])):
+            temp = sorted(Data[Eventtime[i][0]:Eventtime[i][-1],position[0][j],position[1][j]].flatten())
+            temp = np.array(temp)
+            temp = temp[np.isfinite(temp)]
+            temp  = temp[-3] # get 3rd brightest point
+            if temp > maxcolor:
+                maxcolor = temp
+                Mid = ([position[0][j]],[position[1][j]])
+
+        xmin = Eventtime[i][0] - 2*(Eventtime[i][1]-Eventtime[i][0])
+        xmax = Eventtime[i][1] + 2*(Eventtime[i][1]-Eventtime[i][0])
+        if xmin < 0:
+            xmin = 0
+        if xmax > len(Data):
+            xmax = len(Data)-1
+        
+        step = int((xmax - xmin)*.05) # Make a step so that only 5% of the frames are produced 
+        Section = np.arange(int(xmin),int(xmax),step)
+        #print('step ', step)
+        #print('Section len ', len(Section))
+
+        FrameSave = Save + '/Figures/Frames/' + File.split('/')[-1].split('-')[0] + '/Event_' + str(int(i)) + '/'
+
+        Save_space(FrameSave)
+
+        ylims, xlims = Fig_cut(Data,Mid)
+
+        for j in range(len(Section)):
+            filename = FrameSave + 'Frame_' + str(int(j)).zfill(4)+".png"
+            height = 1100/2
+            width = 2200/2
+            my_dpi = 100
+            
+            LC = np.nansum(Data*mask,axis=(1,2))
+            
+            fig = plt.figure(figsize=(width/my_dpi,height/my_dpi),dpi=my_dpi)
+            plt.subplot(1, 2, 1)
+            plt.title('Event light curve')
+            plt.axvspan(Time[Eventtime[i,0]]-Time[0],Time[Eventtime[i,1]]-Time[0],color='orange',alpha = 0.5)
+            plt.plot(Time - Time[0], LC,'k.')
+            ymin = np.nanmedian(LC) - 0.5*np.nanstd(LC)
+            
+            temp = sorted(LC.flatten())
+            temp = np.array(temp)
+            temp = temp[np.isfinite(temp)]
+            temp  = temp[-3] # get 3rd brightest point
+            if temp > maxcolor:
+                ymax = temp + 0.2*temp
+            
+            plt.ylim(ymin,ymax)
+                                                  
+            xmin = Time[Eventtime[i][0]]-np.floor(Time[0])-(Eventtime[i][-1]-Eventtime[i][0])/10
+            if Eventtime[i][-1] < len(Time):
+                xmax = Time[Eventtime[i][-1]]-Time[0]+(Eventtime[i][-1]-Eventtime[i][0])/10
+            else:
+                xmax = Time[-1]-Time[0]+(Eventtime[i][-1]-Eventtime[i][0])/10
+            if xmin < 0:
+                xmin = 0
+            if xmax > Time[-1] - Time[0]:
+                xmax = Time[-1] - Time[0]
+            if np.isfinite(xmin) & np.isfinite(xmax):
+                plt.xlim(xmin,xmax)
+
+            plt.ylabel('Counts')
+            plt.xlabel('Time (days)')
+            plt.axvline(time[Section[j]]-time[0],color='red',lw=2)
+
+            plt.subplot(1,2,2)
+            plt.title('Kepler image')
+            Data[np.isnan(Data)] = 0
+            plt.imshow(Data[Section[j]],origin='lower',cmap='gray',vmin=0,vmax=maxcolor)
+            current_cmap = plt.cm.get_cmap()
+            current_cmap.set_bad(color='black')
+            #plt.colorbar()
+            plt.ylabel('Row')
+            plt.xlabel('Column')
+            plt.plot(position[1],position[0],'r.',ms = 15)
+            fig.tight_layout()
+            
+            ax = fig.gca()
+            ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
+            ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
+
+            plt.savefig(filename,dpi=1000)
+            plt.close();
+
+        directory = Save_environment(Eventtime[i],maxcolor,Source[i],SourceType[i],Save)
+
+        framerate = (xmax-xmin)/5
+        ffmpegcall = 'ffmpeg -y -nostats -loglevel 0 -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + 'Zoo_' + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4'
         os.system(ffmpegcall);
 
 def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Data, WCS, hdu, Path):
@@ -1112,7 +1212,8 @@ def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Data, WCS, 
         else:
             Coord = [-1,-1]
         size = np.nansum(Eventmask[i])
-        CVSstring = [str(feild), str(ID), str(i), Sourcetype[i], str(start), str(duration), str(maxlc), str(size), str(Coord[0]), str(Coord[1]), Source[i], str(hdu[0].header['CHANNEL']), str(hdu[0].header['MODULE']), str(hdu[0].header['OUTPUT']) ]                
+        Zoo_fig = 'Zoo_' + File.split('/')[-1].split('-')[0]+'_'+str(i)+'.mp4'
+        CVSstring = [str(feild), str(ID), str(i), Sourcetype[i], str(start), str(duration), str(maxlc), str(size), str(Coord[0]), str(Coord[1]), Source[i], str(hdu[0].header['CHANNEL']), str(hdu[0].header['MODULE']), str(hdu[0].header['OUTPUT']), Zoo_fig]                
         if os.path.isfile(Path + '/Events.csv'):
             with open(Path + '/Events.csv', 'a') as csvfile:
                 spamwriter = csv.writer(csvfile, delimiter=',')
@@ -1120,7 +1221,7 @@ def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Data, WCS, 
         else:
             with open(Path + '/Events.csv', 'w') as csvfile:
                 spamwriter = csv.writer(csvfile, delimiter=',')
-                spamwriter.writerow(['Field', 'EPIC', 'Event #', 'Host type', 'Start', 'Duration', 'Counts', 'Size','RA','DEC','Host', 'Channel', 'Module', 'Output'])
+                spamwriter.writerow(['Field', '#EPIC', '#Event number', '!Host type', '#Start', 'Duration', 'Counts', '#Size','#RA','#DEC','#Host', '#Channel', '#Module', '#Output', '#Zoofig'])
                 spamwriter.writerow(CVSstring)
             
 def Probable_host(Eventtime,Eventmask,Source,SourceType,Objmasks,ObjName,ObjType,Data):
@@ -1322,7 +1423,8 @@ def K2TranPix(pixelfile,save):
                 
                 # Print figures
                 K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType,Maskobj)
-                K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
+                #K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
+                K2TranPixZoo(events,eventtime,eventmask,Maskdata,time,mywcs,Save,pixelfile)
                 Write_event(pixelfile,eventtime,eventmask,Source,SourceType,Maskdata,mywcs,hdu,Save)
         else:
             print('Nope', pixelfile)
