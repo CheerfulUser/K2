@@ -1215,7 +1215,7 @@ def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Data, WCS, 
         else:
             Coord = [-1,-1]
         size = np.nansum(Eventmask[i])
-        Zoo_fig = 'Zoo_' + File.split('/')[-1].split('-')[0]+'_'+str(i)+'.mp4'
+        Zoo_fig = 'Zoo_' + Pixelfile.split('/')[-1].split('-')[0]+'_'+str(i)+'.mp4'
         CVSstring = [str(feild), str(ID), str(i), Sourcetype[i], str(start), str(duration), str(maxlc), str(size), str(Coord[0]), str(Coord[1]), Source[i], str(hdu[0].header['CHANNEL']), str(hdu[0].header['MODULE']), str(hdu[0].header['OUTPUT']), Zoo_fig]                
         if os.path.isfile(Path + '/Events.csv'):
             with open(Path + '/Events.csv', 'a') as csvfile:
