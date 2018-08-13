@@ -668,7 +668,7 @@ def Database_check_mask(Datacube,Thrusters,Masks,WCS):
 
     return Objects, Objtype
 
-def Gal_pixel_check(Mask,Obj,Objmasks,Objtype,Frame,Limit,WCS,File,Save):
+def Gal_pixel_check(Mask,Obj,Objmasks,Objtype,Limit,WCS,File,Save):
     Y, X = np.where(Mask)
     for i in range(len(X)):
         coord = pix2coord(X[i],Y[i],WCS)
@@ -1420,7 +1420,7 @@ def K2TranPix(pixelfile,save):
                         Source = np.delete(Source,i)
                         SourceType = np.delete(SourceType,i)
                     i += 1
-                Gal_pixel_check(Mask,ObjName,Objmasks,Maskdata[Framemin],limit,mywcs,pixelfile,Save)
+                Gal_pixel_check(Mask,ObjName,Objmasks,ObjType,limit,mywcs,pixelfile,Save)
                 
                 # Print figures
                 K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType,Maskobj)
