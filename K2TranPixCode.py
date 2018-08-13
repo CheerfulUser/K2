@@ -1166,7 +1166,7 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,SourceType,Data,Time,wcs,Save,File):
 
             plt.ylabel('Counts')
             plt.xlabel('Time (days)')
-            plt.axvline(time[Section[j]]-time[0],color='red',lw=2)
+            plt.axvline(Time[Section[j]]-Time[0],color='red',lw=2)
 
             plt.subplot(1,2,2)
             plt.title('Kepler image')
