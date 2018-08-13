@@ -1189,7 +1189,7 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,SourceType,Data,Time,wcs,Save,File):
 
         directory = Save_environment(Eventtime[i],maxcolor,Source[i],SourceType[i],Save)
 
-        framerate = (xmax-xmin)/5
+        framerate = (len(Section))/5
         ffmpegcall = 'ffmpeg -y -nostats -loglevel 0 -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + 'Zoo_' + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4'
         os.system(ffmpegcall);
 
