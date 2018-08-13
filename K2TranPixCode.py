@@ -1427,7 +1427,8 @@ def K2TranPix(pixelfile,save):
                 K2TranPixZoo(events,eventtime,eventmask,SourceType,Maskdata,time,mywcs,Save,pixelfile)
                 Write_event(pixelfile,eventtime,eventmask,Source,SourceType,Maskdata,mywcs,hdu,Save)
         else:
-            print('Nope', pixelfile)
+            print('Small ', pixelfile)
     except (OSError):
+        print('OSError ',pixelfile)
         pass
     
