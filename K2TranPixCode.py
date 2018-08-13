@@ -1100,7 +1100,7 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save
         mask[Eventmask[i][0],Eventmask[i][1]] = 1
         position = np.where(mask)
         Mid = ([position[0][0]],[position[1][0]])
-        maxcolor = -1000 # Set a bad value for error identification
+        maxcolor = 0 # Set a bad value for error identification
         for j in range(len(position[0])):
             temp = sorted(Data[Eventtime[i][0]:Eventtime[i][-1],position[0][j],position[1][j]].flatten())
             temp = np.array(temp)
@@ -1146,9 +1146,8 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save
             temp = sorted(LC.flatten())
             temp = np.array(temp)
             temp = temp[np.isfinite(temp)]
-            temp  = temp[-3] # get 3rd brightest point
-            if temp > maxcolor:
-                ymax = temp + 0.2*temp
+            temp = temp[-3] # get 3rd brightest point
+            ymax = temp + 0.2*temp
             
             plt.ylim(ymin,ymax)
                                                   
