@@ -1424,7 +1424,7 @@ def K2TranPix(pixelfile,save):
                 # Print figures
                 K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType,Maskobj)
                 #K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
-                K2TranPixZoo(events,eventtime,eventmask,Maskdata,time,mywcs,Save,pixelfile)
+                K2TranPixZoo(events,eventtime,eventmask,SourceType,Maskdata,time,mywcs,Save,pixelfile)
                 Write_event(pixelfile,eventtime,eventmask,Source,SourceType,Maskdata,mywcs,hdu,Save)
         else:
             print('Nope', pixelfile)
