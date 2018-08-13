@@ -4,7 +4,7 @@ import argparse
 
 # Help string to be shown using the -h option
 descStr = """
-boop
+Wrapper for the K2TranPix code which is used to find transients in K2 data for the Background Survey. 
 """
 
 # Parse the command line options
@@ -46,7 +46,7 @@ comm.Barrier()
 
 
 field = camp
-print_mpi('Campaign' + camp)
+print_mpi('Campaign ' + camp)
 
 path = '/avatar/ryanr/Data/'+field+'/'
 Files = np.asarray(glob(path+'*.gz'))
