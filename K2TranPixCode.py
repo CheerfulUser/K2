@@ -835,7 +835,7 @@ def Thumbnail(LC,BGLC,Eventtime,Time,Xlim,Ylim,Eventnum,File,Direct):
     #Save_space(Save + '/Figures/Thumb/')
     #plt.savefig(Save + '/Figures/Thumb/'+ File.split('/')[-1].split('-')[0]+'_'+str(Eventnum)+'.png', bbox_inches = 'tight')
     
-    plt.savefig(Direct+File.split('/')[-1].split('-')[0]+'_'+str(Eventnum)+'TN.png', bbox_inches = 'tight')
+    plt.savefig(Direct+ 'TN_' + File.split('/')[-1].split('-')[0]+'_'+str(Eventnum)+'.png', bbox_inches = 'tight')
     plt.close();
 
 def Im_lims(dim,ev):
