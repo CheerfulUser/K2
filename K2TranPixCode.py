@@ -884,7 +884,7 @@ def Thumbnail(LC,BGLC,Eventtime,Time,Xlim,Ylim,Eventnum,File,Direct):
     #Save_space(Save + '/Figures/Thumb/')
     #plt.savefig(Save + '/Figures/Thumb/'+ File.split('/')[-1].split('-')[0]+'_'+str(Eventnum)+'.png', bbox_inches = 'tight')
     
-    plt.savefig(Direct+ 'TN_' + File.split('/')[-1].split('-')[0]+'_'+str(Eventnum)+'.png', bbox_inches = 'tight')
+    plt.savefig(Direct+ 'TN-' + File.split('/')[-1].split('-')[0]+'_'+str(Eventnum)+'.png', bbox_inches = 'tight')
     plt.close();
 
 def Im_lims(dim,ev):
@@ -1253,10 +1253,11 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save
             plt.close();
 
         directory = Save_environment(Eventtime[i],maxcolor,Source[i],SourceType[i],Save)
-
+        filetype = ['.mp4','.mpeg']
         framerate = (len(Section))/5
-        ffmpegcall = 'ffmpeg -y -nostats -loglevel 0 -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + 'Zoo_' + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mpeg'
-        os.system(ffmpegcall);
+        for extension in filetype:
+            ffmpegcall = 'ffmpeg -y -nostats -loglevel 0 -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + 'Zoo-' + File.split('/')[-1].split('-')[0] + '_' + str(i) + extension
+            os.system(ffmpegcall);
 
 def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Data, WCS, hdu, Path):
     """
@@ -1279,7 +1280,7 @@ def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Data, WCS, 
         else:
             Coord = [-1,-1]
         size = np.nansum(Eventmask[i])
-        Zoo_fig = 'Zoo_' + Pixelfile.split('/')[-1].split('-')[0]+'_'+str(i)+'.mpeg'
+        Zoo_fig = 'Zoo-' + Pixelfile.split('/')[-1].split('-')[0]+'_'+str(i)+'.mpeg'
         CVSstring = [str(feild), str(ID), str(i), Sourcetype[i], str(start), str(duration), str(maxlc), str(size), str(Coord[0]), str(Coord[1]), Source[i], str(hdu[0].header['CHANNEL']), str(hdu[0].header['MODULE']), str(hdu[0].header['OUTPUT']), Zoo_fig]                
         if os.path.isfile(Path + '/Events.csv'):
             with open(Path + '/Events.csv', 'a') as csvfile:
