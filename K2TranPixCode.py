@@ -1321,9 +1321,9 @@ def Probable_host(Eventtime,Eventmask,Source,SourceType,Objmasks,ObjName,ObjType
 
 
 def K2TranPix(pixelfile,save): 
-     """
-     Runs an assortment of functions to detect events in Kepler TPFs.
-     """
+    """
+    Runs an assortment of functions to detect events in Kepler TPFs.
+    """
     Save = save + pixelfile.split('-')[1].split('_')[0]
     try:
         hdu = fits.open(pixelfile)
