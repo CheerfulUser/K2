@@ -1436,7 +1436,7 @@ def K2TranPix(pixelfile,save):
             Fieldprop['File'] = pixelfile
             Fieldprop['Thruster'] = thrusters
             Fieldprop['Quality'] = quality
-            Fieldprop['Duration'] = len(time[~np.isnan()])
+            Fieldprop['Duration'] = len(time)
             Fieldprop['Gal_lat'] = Get_gal_lat(mywcs,datacube)
             
             Fieldsave = Save + '/Field/' + pixelfile.split('ktwo')[-1].split('-')[0]+'_Field'
