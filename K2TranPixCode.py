@@ -493,7 +493,7 @@ def Motion_correction(Data,Mask,Thrusters,Dist):
 
         if len(AvSplineind) > 1:
             AvSplinepoints = np.copy(Data[AvSplineind,X[j],Y[j]])
-            Splinef = interp1d(AvSplineind, AvSplinepoints, kind='linear', fill_value=-1e10, bounds_error = False)
+            Splinef = interp1d(AvSplineind, AvSplinepoints, kind='linear', fill_value=np.nan, bounds_error = False)
             Spline = Splinef(zz)
 
             for i in range(len(Thrusters)-1):
@@ -502,7 +502,7 @@ def Motion_correction(Data,Mask,Thrusters,Dist):
                     try:
                         Section = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - Spline[Thrusters[i]+2:Thrusters[i+1]]
                         temp2 = np.copy(Section)
-                        temp2[Spline[Thrusters[i]+2:Thrusters[i+1]] == -1e10] = np.nan
+                        #temp2[Spline[Thrusters[i]+2:Thrusters[i+1]] == -1e10] = np.nan
                         x = np.arange(0,len(Section))
                         #limit =np.nanmedian(np.diff(np.diff(Section)))+2.5*np.nanstd(np.diff(np.diff(Section)))
                         #yo = np.where(np.diff(np.diff(Section))>limit)[0]
@@ -530,8 +530,8 @@ def Motion_correction(Data,Mask,Thrusters,Dist):
 
                             if np.abs(resid/len(x[ind])) < 10:
                                 temp[x+Thrusters[i]+2] = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) 
-                        # This should kill all points where the pointing goes bad
-                        if (Spline[Thrusters[i]+2:Thrusters[i+1]] == -1e10).all():
+                        # This should kill all instances of uncorrected data due to drift systematically being > 0.3 pix
+                        if (np.isnan(Spline[Thrusters[i]+2:Thrusters[i+1]])).all():
                             temp[x+Thrusters[i]+2] = np.nan
                     except RuntimeError:
                         pass
