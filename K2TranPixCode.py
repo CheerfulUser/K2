@@ -1327,7 +1327,11 @@ def K2TranPix(pixelfile,save):
     Save = save + pixelfile.split('-')[1].split('_')[0]
     try:
         hdu = fits.open(pixelfile)
-        dat = hdu[1].data
+        if len(hdu) > 1:
+            dat = hdu[1].data
+        else:
+            print('Broken file ', pixelfile)
+            return
         datacube = fits.ImageHDU(hdu[1].data.field('FLUX')[:]).data#np.copy(testdata)#
         if datacube.shape[1] > 1 and datacube.shape[2] > 1:
             ind = np.where(np.isfinite(datacube[0]))
