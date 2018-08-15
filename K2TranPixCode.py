@@ -315,7 +315,7 @@ def Match_events(Events,Eventtime,Eventmask):
     while len(Events) > i:
         coincident = (np.isclose(Eventtime[i,0],Eventtime[i:,0],atol=5) + np.isclose(Eventtime[i,1],Eventtime[i:,1],atol=5))
         dist = np.sqrt((np.array(Eventmask)[i,0]-np.array(Eventmask)[i:,0])**2 + (np.array(Eventmask)[i,1]-np.array(Eventmask)[i:,1])**2 )
-        dist = dist < 5
+        dist = dist < 4
 
         coincident = coincident * dist
         if sum(coincident*1) > 1:
