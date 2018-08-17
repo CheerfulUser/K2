@@ -994,7 +994,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         plt.suptitle('EPIC ID: ' + File.split('ktwo')[-1].split('_')[0] + '\nSource: '+ Source[i] + ' (' + SourceType[i] + ')')
         # large subplot
         plt.subplot2grid((2,3), (0,0), colspan=2, rowspan=2)
-        plt.title('Event light curve (RA '+str(round(Coord[0],3))+', DEC '+str(round(Coord[1],3))+')')
+        plt.title('Event light curve ('+str(round(Coord[0],3))+', '+str(round(Coord[1],3))+')')
         plt.xlabel('Time (+'+str(np.floor(Time[0]))+' BJD)')
         plt.ylabel('Counts')
         if Eventtime[i][-1] < len(Time):
@@ -1271,14 +1271,22 @@ def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Data, WCS, 
         start = Eventtime[i][0]
         duration = Eventtime[i][1] - Eventtime[i][0]
         maxlc = np.nanmax(np.nansum(Data[Eventtime[i][0]:Eventtime[i][-1]]*(mask == 1),axis=(1,2)))
-        maxcolor = np.nanmax(Data[Eventtime[i][0]:Eventtime[i][-1]]*(mask == 1))
-        Mid = np.where(Data[Eventtime[i][0]:Eventtime[i][-1]]*(mask == maxcolor))
+        Mid = ([position[0][0]],[position[1][0]])
+        maxcolor = -1000 # Set a bad value for error identification
+        for j in range(len(position[0])):
+            temp = sorted(Data[Eventtime[i][0]:Eventtime[i][-1],position[0][j],position[1][j]].flatten())
+            temp = np.array(temp)
+            temp = temp[np.isfinite(temp)]
+            temp  = temp[-3] # get 3rd brightest point
+            if temp > maxcolor:
+                maxcolor = temp
+                Mid = ([position[0][j]],[position[1][j]])
+
         if len(Mid[0]) == 1:
             Coord = pix2coord(Mid[1],Mid[0],WCS)
         elif len(Mid[0]) > 1:
             Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
-        else:
-            Coord = [-1,-1]
+            
         size = np.nansum(Eventmask[i])
         Zoo_fig = 'Zoo-' + Pixelfile.split('/')[-1].split('-')[0]+'_'+str(i)+'.mpeg'
         CVSstring = [str(feild), str(ID), str(i), Sourcetype[i], str(start), str(duration), str(maxlc), str(size), str(Coord[0]), str(Coord[1]), Source[i], str(hdu[0].header['CHANNEL']), str(hdu[0].header['MODULE']), str(hdu[0].header['OUTPUT']), Zoo_fig]                
