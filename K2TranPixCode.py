@@ -1255,7 +1255,7 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save
         directory = Save_environment(Eventtime[i],maxcolor,Source[i],SourceType[i],Save)
         framerate = (len(Section))/5
 
-        ffmpegcall = 'ffmpeg -y -nostats -loglevel 0 -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + 'Zoo-' + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4'
+        ffmpegcall = 'ffmpeg -y -nostats -loglevel 8 -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + 'Zoo-' + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4'
         os.system(ffmpegcall);
 
 def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Data, WCS, hdu, Path):
