@@ -1809,6 +1809,7 @@ def K2TranPix(pixelfile,save):
 
             if len(Objmasks.shape) == 0:
                 Objmasks = np.zeros((1,datacube.shape[1],datacube.shape[2]))
+            print(Objmasks.shape)
             
             if len(events) > 0:
                 Source, SourceType = Database_event_check(Maskdata,eventtime,eventmask,mywcs)
