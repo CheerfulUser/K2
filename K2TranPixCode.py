@@ -1807,7 +1807,7 @@ def K2TranPix(pixelfile,save):
             Objmasks = Identify_masks(obj)
             Objmasks = np.array(Objmasks)
 
-            if len(Objmasks.shape) == 0:
+            if len(Objmasks.shape) < 3:
                 Objmasks = np.zeros((1,datacube.shape[1],datacube.shape[2]))
             print(Objmasks.shape)
             
