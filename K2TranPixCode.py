@@ -1643,7 +1643,7 @@ def Write_long_event(Pixelfile, Long, Source, Sourcetype, Data, WCS, hdu, Path):
                 spamwriter.writerow(['Field', '#EPIC', '#Event number', '!Host type', '#Start', 'Duration', 'Counts', '#Size','#RA','#DEC','#Host', '#Channel', '#Module', '#Output', '#Zoofig'])
                 spamwriter.writerow(CVSstring)
 
-def Find_Long_Events(Data,Time,Eventmask,Objmasks,Thrusters,Dist,WCS,HDU,File,Save):
+def Find_Long_Events(Data,Time,Eventmask,Objmasks,Mask,Thrusters,Dist,WCS,HDU,File,Save):
 
     long_mask = Long_events(Data,Dist)
     Long_Source, Long_Type = Database_check_mask(Data,Thrusters,long_mask,WCS)
@@ -1862,7 +1862,7 @@ def K2TranPix(pixelfile,save):
                 K2TranPixZoo(events,eventtime,eventmask,Source,SourceType,Maskdata,time,mywcs,Save,pixelfile)
                 Write_event(pixelfile,eventtime,eventmask,Source,SourceType,Maskdata,mywcs,hdu,Save)
 
-            Find_Long_Events(datacube,time,Eventmask,Objmasks,thrusters,distdrif,mywcs,hdu,pixelfile,Save)
+            Find_Long_Events(datacube,time,Eventmask,Objmasks,Mask,thrusters,distdrif,mywcs,hdu,pixelfile,Save)
         else:
             print('Small ', pixelfile)
     except (OSError):
