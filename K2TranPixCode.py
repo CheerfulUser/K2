@@ -1327,6 +1327,16 @@ def Probable_host(Eventtime,Eventmask,Source,SourceType,Objmasks,ObjName,ObjType
                     Source[i] = 'Prob: ' + ObjName[minind]
     return Source, SourceType
 
+def SixMedian(LC):
+    lc6 = []
+    x = []
+    for i in range(int(len(LC)/12)):
+        lc6.append(np.nanmedian(LC[i*12:(i*12)+12]))
+        x.append(i*12+6)
+    lc6 = np.array(lc6)
+    x = np.array(x)
+    return lc6, x
+
 def Long_events(Data,Dist):
     '''
     Simple search for pixels that experience events longer than 2 days.
