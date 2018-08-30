@@ -1327,6 +1327,352 @@ def Probable_host(Eventtime,Eventmask,Source,SourceType,Objmasks,ObjName,ObjType
                     Source[i] = 'Prob: ' + ObjName[minind]
     return Source, SourceType
 
+def Long_events(Data,Dist):
+    '''
+    Simple search for pixels that experience events longer than 2 days.
+    '''
+    
+    sub = np.zeros(Data[0].shape)
+    good_frames = np.where(Dist < 0.5)[0]
+
+    dim1,dim2 = tpf.flux[0].shape
+    for i in range(dim1):
+        for j in range(dim2):
+            lc = Data[good_frames,i,j]
+            sub[i,j] = abs((np.nanmean(lc) - np.nanmedian(lc)))
+
+    cut = np.nanmedian(sub) + np.nanstd(sub)
+
+    
+    long_events = Identify_masks(sub>=cut)
+    
+    long_mask = []
+    
+    for i in range(len(long_events)):
+        lc = np.nansum(datacube*long_events[i],axis=(1,2))
+        lc[lc <= 0] = np.nan
+    
+        if len(lc[lc > np.nanmean(lc)]) > 48*2:
+            long_mask.append(long_events[i])
+    
+    return long_mask
+
+def In_long_mask(Eventmask,Objmasks,Data):
+    '''
+    Finds which mask in the object mask an event is in. The value assigned to In_mask 
+    is the index of Objmask that corresponds to the event. If not mask is near, value is -1.
+    '''
+    In_mask = np.ones(len(Eventmask),dtype=int)*-1
+    for j in range(len(Eventmask)):
+        mask = Eventmask[j]
+        
+        for i in range(len(Objmasks)):
+            in_mask = (mask*Objmasks[i]).any()
+            
+            if in_mask:
+                In_mask[j] = int(i)
+    return In_mask
+
+def Long_save_environment(maxcolor,Source,SourceType,Save):
+    '''
+    Makes a save pathway for the long event search. All events will be saved under a VLong directory.
+    '''
+    if maxcolor <= 24:
+        if ':' in Source:
+            Cat = Source.split(':')[0]
+            directory = Save+'/Figures/VLong/Faint/' + Cat + '/' + SourceType.split(Cat + ': ')[-1] + '/'
+        else:
+            directory = Save+'/Figures/VLong/Faint/' + SourceType + '/'
+
+    else:
+        if ':' in Source:
+            Cat = Source.split(':')[0]
+            directory = Save+'/Figures/VLong/Bright/' + Cat + '/' + SourceType.split(Cat + ': ')[-1] + '/'
+        else:
+            directory = Save+'/Figures/VLong/Bright/' + SourceType + '/'
+
+    Save_space(directory)
+    return directory
+
+def Long_figure(Long,Data,WCS,Time,Save,File,Source,SourceType,ObjMask,Frames):
+    for i in range(len(Long)):
+        mask = Long[i]
+        
+        #Find Coords of transient
+        position = np.where(mask)
+        if len(position[0]) == 0:
+            print(Broken)
+        Mid = ([position[0][0]],[position[1][0]])
+        maxcolor = -1000 # Set a bad value for error identification
+        for j in range(len(position[0])):
+            temp = sorted(Data[:,position[0][j],position[1][j]].flatten())
+            temp = np.array(temp)
+            temp = temp[np.isfinite(temp)]
+            temp  = temp[-3] # get 3rd brightest point
+            if temp > maxcolor:
+                maxcolor = temp
+                Mid = ([position[0][j]],[position[1][j]])
+        
+        if len(Mid[0]) == 1:
+            Coord = pix2coord(Mid[1],Mid[0],WCS)
+        elif len(Mid[0]) > 1:
+            Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
+        
+        test = np.ma.masked_invalid(Data).mask*1
+        wide = convolve(test,np.ones((1,3,3))) > 0
+        bgmask = -(wide*1.0+mask*1.0) + 1.0
+        bgmask[bgmask==0] = np.nan
+        background = Data*bgmask
+        level = np.nanmedian(background,axis=(1,2))
+        BG = Data*~Frames
+        BG[BG <= 0] = np.nan
+        BGLC = level
+        # Generate a light curve from the transient masks
+        LC = np.nansum(Data*mask, axis = (1,2))# - level
+        Six_LC, ind = SixMedian(LC)
+
+        Obj = ObjMask[i]
+        ObjLC = np.nansum(Data*Obj,axis = (1,2))
+        ObjLC = ObjLC/np.nanmedian(ObjLC)*np.nanmedian(LC)
+
+        OrigLC = np.nansum(Data*mask, axis = (1,2))
+        
+        
+        # Generate a light curve from the transient masks
+        temp = sorted(LC.flatten())
+        temp = np.array(temp)
+        temp = temp[np.isfinite(temp)]
+        temp = temp[-5] # get 5th brightest point
+        
+        max_frame = np.where(LC == temp)[0][0]
+        
+        mead = np.nanmedian(LC[np.isfinite(LC)])
+        mead_frame = np.where(np.nanmin(abs(LC-mead)) == abs(LC-mead))[0][0]
+        
+        fig = plt.figure(figsize=(10,6))
+        # set up subplot grid
+        gridspec.GridSpec(2,3)
+        plt.suptitle('EPIC ID: ' + File.split('ktwo')[-1].split('_')[0] + '\nSource: '+ Source[i] + ' (' + SourceType[i] + ')')
+        # large subplot
+        plt.subplot2grid((2,3), (0,0), colspan=2, rowspan=2)
+        plt.title('Event light curve ('+str(round(Coord[0],3))+', '+str(round(Coord[1],3))+')')
+        plt.xlabel('Time (+'+str(int(np.floor(Time[0])))+' BJD)')
+        plt.ylabel('Counts')
+        
+        plt.plot(Time - np.floor(Time[0]), BGLC,'k.', label = 'Background LC')
+        plt.plot(Time - np.floor(Time[0]), ObjLC,'kx', label = 'Scaled object LC')
+        plt.plot(Time - np.floor(Time[0]), LC,'.', label = 'Event LC',alpha=0.5)
+        plt.plot(Time[ind] - np.floor(Time[0]), Six_LC,'.', label = '6hr average',alpha=1)
+        
+        ymin = np.nanmin(Six_LC) - 0.1*np.nanmin(Six_LC)
+        ymax = np.nanmax(Six_LC) + 0.1*np.nanmax(Six_LC)
+        
+        plt.ylim(ymin,ymax)
+        plt.legend(loc = 1)
+        plt.minorticks_on()
+        
+        # Set the axes limits for the imshows
+        ylims, xlims = Fig_cut(Data,Mid)
+        
+        # small subplot 1 Reference image plot
+        ax = plt.subplot2grid((2,3), (0,2))
+        plt.title('Reference')
+        plt.imshow(Data[mead_frame,:,:], origin='lower',vmin=0,vmax = maxcolor)
+        plt.xlim(xlims[0],xlims[1])
+        plt.ylim(ylims[0],ylims[1])
+        current_cmap = plt.cm.get_cmap()
+        current_cmap.set_bad(color='black')
+        plt.colorbar(fraction=0.046, pad=0.04)
+        
+        plt.plot(position[1],position[0],'r.',ms = 12)
+        plt.minorticks_on()
+        ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
+        ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
+        
+        # small subplot 2 Image of event
+        ax = plt.subplot2grid((2,3), (1,2))
+        plt.title('Event')
+        plt.imshow(Data[max_frame,:,:], origin='lower',vmin=0,vmax = maxcolor)
+        plt.xlim(xlims[0],xlims[1])
+        plt.ylim(ylims[0],ylims[1])
+        current_cmap = plt.cm.get_cmap()
+        current_cmap.set_bad(color='black')
+        plt.colorbar(fraction=0.046, pad=0.04)
+        
+        plt.plot(position[1],position[0],'r.',ms = 12)
+        plt.minorticks_on()
+        ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
+        ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
+
+        # Save directory
+        directory = Long_save_environment(maxcolor,Source[i],SourceType[i],Save)
+            
+        plt.savefig(directory + File.split('/')[-1].split('-')[0]+'_L'+str(i)+'.pdf', bbox_inches = 'tight')
+        plt.close()
+        Thumbnail(LC,BGLC,[0,len(Data)],Time,[0,np.floor(Time[-1]-Time[0])],[ymin,ymax],'L'+str(i),File,directory);
+        
+        
+def LongK2TranPixZoo(Long,Source,SourceType,Data,Time,wcs,Save,File):
+    """
+    Iteratively gmakes Zooniverse videos for events. Videos are made from frames which are saved in a corresponding Frame directory.
+    """
+    for i in range(len(Long)):
+        mask = Long[i]
+        position = np.where(mask)
+        Mid = ([position[0][0]],[position[1][0]])
+        maxcolor = 0 # Set a bad value for error identification
+        for j in range(len(position[0])):
+            temp = sorted(Data[:,position[0][j],position[1][j]].flatten())
+            temp = np.array(temp)
+            temp = temp[np.isfinite(temp)]
+            temp  = temp[-3] # get 3rd brightest point
+            if temp > maxcolor:
+                maxcolor = temp
+                Mid = ([position[0][j]],[position[1][j]])
+
+        xmin = 0
+        xmax = len(Data)-1
+        
+        step = int((xmax - xmin)*.005) # Make a step so that only 0.05% of the frames are produced 
+        Section = np.arange(int(xmin),int(xmax),step)
+        #print('step ', step)
+        #print('Section len ', len(Section))
+
+        FrameSave = Save + '/Figures/Frames/' + File.split('/')[-1].split('-')[0] + '/Event_L' + str(int(i)) + '/'
+
+        Save_space(FrameSave)
+
+        ylims, xlims = Fig_cut(Data,Mid)
+
+        for j in range(len(Section)):
+            filename = FrameSave + 'Frame_' + str(int(j)).zfill(4)+".png"
+            height = 1100/2
+            width = 2200/2
+            my_dpi = 100
+            
+            LC = np.nansum(Data*mask,axis=(1,2))
+            
+            fig = plt.figure(figsize=(width/my_dpi,height/my_dpi),dpi=my_dpi)
+            plt.subplot(1, 2, 1)
+            plt.title('Event light curve')
+            plt.plot(Time - Time[0], LC,'k.')
+            Six_LC, ind = SixMedian(LC)
+            
+            ymin = np.nanmin(Six_LC) - 0.1*np.nanmin(Six_LC)
+            ymax = np.nanmax(Six_LC) + 0.1*np.nanmax(Six_LC)
+            
+            plt.ylim(ymin,ymax)
+                                                  
+            xmin = 0
+            xmax = np.floor(Time[-1] - Time[0])
+            plt.xlim(xmin,xmax)
+
+            plt.ylabel('Counts')
+            plt.xlabel('Time (days)')
+            plt.axvline(Time[Section[j]]-Time[0],color='red',lw=2)
+
+            plt.subplot(1,2,2)
+            plt.title('Kepler image')
+            Data[np.isnan(Data)] = 0
+            plt.imshow(Data[Section[j]],origin='lower',cmap='gray',vmin=0,vmax=maxcolor)
+            current_cmap = plt.cm.get_cmap()
+            current_cmap.set_bad(color='black')
+            #plt.colorbar()
+            ylims, xlims = Fig_cut(Data,Mid)
+            plt.xlim(xlims[0],xlims[1])
+            plt.ylim(ylims[0],ylims[1])
+            plt.ylabel('Row')
+            plt.xlabel('Column')
+            plt.plot(position[1],position[0],'r.',ms = 15)
+            fig.tight_layout()
+            
+            ax = fig.gca()
+            ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
+            ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
+
+            plt.savefig(filename,dpi=100)
+            plt.close();
+
+        directory = Long_save_environment(maxcolor,Source[i],SourceType[i],Save)
+        framerate = (len(Section))/5
+
+        ffmpegcall = 'ffmpeg -y -nostats -loglevel 8 -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + 'Zoo-' + File.split('/')[-1].split('-')[0] + '_L' + str(i) + '.mp4'
+        os.system(ffmpegcall);
+
+        
+def Write_long_event(Pixelfile, Long, Source, Sourcetype, Data, WCS, hdu, Path):
+    """
+    Saves the event and field properties to a csv file.
+    """
+    feild = Pixelfile.split('-')[1].split('_')[0]
+    ID = Pixelfile.split('ktwo')[1].split('-')[0]
+    for i in range(len(Long)):
+        mask = Long[i]
+
+        start = 0
+        duration = Data.shape[0]
+        maxlc = np.nanmax(np.nansum(Data*(mask == 1),axis=(1,2)))
+
+        position = np.where(mask)
+        Mid = ([position[0][0]],[position[1][0]])
+        maxcolor = -1000 # Set a bad value for error identification
+        for j in range(len(position[0])):
+            temp = sorted(Data[:,position[0][j],position[1][j]].flatten())
+            temp = np.array(temp)
+            temp = temp[np.isfinite(temp)]
+            temp  = temp[-3] # get 3rd brightest point
+            if temp > maxcolor:
+                maxcolor = temp
+                Mid = ([position[0][j]],[position[1][j]])
+
+        if len(Mid[0]) == 1:
+            Coord = pix2coord(Mid[1],Mid[0],WCS)
+        elif len(Mid[0]) > 1:
+            Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
+
+        size = np.nansum(Eventmask[i])
+        Zoo_fig = 'Zoo-' + Pixelfile.split('/')[-1].split('-')[0]+'_'+str(i)+'.mpeg'
+        CVSstring = [str(feild), str(ID), 'L' + str(i), Sourcetype[i], str(start), str(duration), str(maxlc), str(size), str(Coord[0]), str(Coord[1]), Source[i], str(hdu[0].header['CHANNEL']), str(hdu[0].header['MODULE']), str(hdu[0].header['OUTPUT']), Zoo_fig]                
+        if os.path.isfile(Path + '/Events.csv'):
+            with open(Path + '/Events.csv', 'a') as csvfile:
+                spamwriter = csv.writer(csvfile, delimiter=',')
+                spamwriter.writerow(CVSstring)
+        else:
+            with open(Path + '/Events.csv', 'w') as csvfile:
+                spamwriter = csv.writer(csvfile, delimiter=',')
+                spamwriter.writerow(['Field', '#EPIC', '#Event number', '!Host type', '#Start', 'Duration', 'Counts', '#Size','#RA','#DEC','#Host', '#Channel', '#Module', '#Output', '#Zoofig'])
+                spamwriter.writerow(CVSstring)
+
+def Find_Long_Events(Data,Time,Eventmask,Objmasks,Thrusters,Dist,WCS,HDU,File,Save):
+
+    long_mask = Long_events(Data,Dist)
+    Long_Source, Long_Type = Database_check_mask(Data,Thrusters,long_mask,WCS)
+
+    if len(long_mask) > 0:
+        ObjName, ObjType = Database_check_mask(Data,Thrusters,Objmasks,WCS)
+        In = In_long_mask(long_mask,Objmasks,Data)
+        Long_Maskobj = np.zeros((len(long_mask),Data.shape[1],Data.shape[2])) # for plotting masked object reference
+
+        if len(np.where(Objmasks[:,int(Data.shape[1]/2),int(Data.shape[2]/2)] == 1)[0]) > 0:
+            CentralMask = np.where(Objmasks[:,int(Data.shape[1]/2),int(Data.shape[2]/2)] == 1)[0]
+        elif len(np.where(Objmasks[:,int(Data.shape[1]/2),int(Data.shape[2]/2)] == 1)[0]) > 1:
+            CentralMask = np.where(Objmasks[:,int(Data.shape[1]/2),int(Data.shape[2]/2)] == 1)[0][0]
+        else:
+            CentralMask = -1
+        if CentralMask == -1:
+            Maskobj[:] = Mask
+        else:
+            Maskobj[:] = Objmasks[CentralMask]
+
+        for ind in np.where(In != -1)[0]:
+            Long_Source[ind] = 'In: ' + ObjName[In[ind]]
+            Long_Type[ind] = 'In: ' + ObjType[In[ind]]
+            Long_Maskobj[ind] = Objmasks[In[ind]]
+
+        Long_figure(long_mask, Data, WCS, Time, Save, File, Long_Source, Long_Type, Long_Maskobj, Eventmask)
+        LongK2TranPixZoo(long_mask, Long_Source, Long_Type, Data, Time, WCS, Save, File)
+        Write_long_event(File, long_mask, Long_Source, Long_Type, Data, WCS, HDU, Save)
+
 
 
 def K2TranPix(pixelfile,save): 
@@ -1511,6 +1857,8 @@ def K2TranPix(pixelfile,save):
                 #K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
                 K2TranPixZoo(events,eventtime,eventmask,Source,SourceType,Maskdata,time,mywcs,Save,pixelfile)
                 Write_event(pixelfile,eventtime,eventmask,Source,SourceType,Maskdata,mywcs,hdu,Save)
+
+            Find_Long_Events(datacube,time,Eventmask,Objmasks,thrusters,distdrif,mywcs,hdu,pixelfile,Save)
         else:
             print('Small ', pixelfile)
     except (OSError):
