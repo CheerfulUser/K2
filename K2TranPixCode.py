@@ -1349,7 +1349,7 @@ def Long_events(Data,Dist):
     long_mask = []
     
     for i in range(len(long_events)):
-        lc = np.nansum(datacube*long_events[i],axis=(1,2))
+        lc = np.nansum(Data*long_events[i],axis=(1,2))
         lc[lc <= 0] = np.nan
     
         if len(lc[lc > np.nanmean(lc)]) > 48*2:
