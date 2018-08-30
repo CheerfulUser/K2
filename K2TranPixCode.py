@@ -1652,6 +1652,7 @@ def Find_Long_Events(Data,Time,Eventmask,Objmasks,Mask,Thrusters,Dist,WCS,HDU,Fi
         ObjName, ObjType = Database_check_mask(Data,Thrusters,Objmasks,WCS)
         In = In_long_mask(long_mask,Objmasks,Data)
         Long_Maskobj = np.zeros((len(long_mask),Data.shape[1],Data.shape[2])) # for plotting masked object reference
+        Maskobj = np.zeros((len(long_mask),Data.shape[1],Data.shape[2])) # for plotting masked object reference
 
         if len(np.where(Objmasks[:,int(Data.shape[1]/2),int(Data.shape[2]/2)] == 1)[0]) > 0:
             CentralMask = np.where(Objmasks[:,int(Data.shape[1]/2),int(Data.shape[2]/2)] == 1)[0]
