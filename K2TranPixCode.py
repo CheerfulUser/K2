@@ -1857,7 +1857,9 @@ def K2TranPix(pixelfile,save):
                 #K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
                 K2TranPixZoo(events,eventtime,eventmask,Source,SourceType,Maskdata,time,mywcs,Save,pixelfile)
                 Write_event(pixelfile,eventtime,eventmask,Source,SourceType,Maskdata,mywcs,hdu,Save)
-
+            Objmasks = Identify_masks(obj)
+            Objmasks = np.array(Objmasks)
+            print(Objmasks.shape)
             Find_Long_Events(datacube,time,Eventmask,Objmasks,thrusters,distdrif,mywcs,hdu,pixelfile,Save)
         else:
             print('Small ', pixelfile)
