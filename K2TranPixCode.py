@@ -1335,7 +1335,7 @@ def Long_events(Data,Dist):
     sub = np.zeros(Data[0].shape)
     good_frames = np.where(Dist < 0.5)[0]
 
-    dim1,dim2 = tpf.flux[0].shape
+    dim1,dim2 = Data[0].shape
     for i in range(dim1):
         for j in range(dim2):
             lc = Data[good_frames,i,j]
