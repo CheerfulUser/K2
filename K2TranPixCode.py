@@ -1640,7 +1640,7 @@ def Write_long_event(Pixelfile, Long, Source, Sourcetype, Data, WCS, hdu, Path):
         elif len(Mid[0]) > 1:
             Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
 
-        size = np.nansum(Eventmask[i])
+        size = np.nansum(Long[i])
         Zoo_fig = 'Zoo-' + Pixelfile.split('/')[-1].split('-')[0]+'_'+str(i)+'.mpeg'
         CVSstring = [str(feild), str(ID), 'L' + str(i), Sourcetype[i], str(start), str(duration), str(maxlc), str(size), str(Coord[0]), str(Coord[1]), Source[i], str(hdu[0].header['CHANNEL']), str(hdu[0].header['MODULE']), str(hdu[0].header['OUTPUT']), Zoo_fig]                
         if os.path.isfile(Path + '/Events.csv'):
