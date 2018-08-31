@@ -1679,6 +1679,7 @@ def Find_Long_Events(Data,Time,Eventmask,Objmasks,Mask,Thrusters,Dist,WCS,HDU,Fi
             Long_Source[ind] = 'In: ' + ObjName[In[ind]]
             Long_Type[ind] = 'In: ' + ObjType[In[ind]]
             Long_Maskobj[ind] = Objmasks[In[ind]]
+        i = 0
         while i < len(long_mask):
             if (Long_Type[i] == 'In: Star'):
                 events = np.delete(long_mask,i)
