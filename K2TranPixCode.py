@@ -1679,6 +1679,13 @@ def Find_Long_Events(Data,Time,Eventmask,Objmasks,Mask,Thrusters,Dist,WCS,HDU,Fi
             Long_Source[ind] = 'In: ' + ObjName[In[ind]]
             Long_Type[ind] = 'In: ' + ObjType[In[ind]]
             Long_Maskobj[ind] = Objmasks[In[ind]]
+        while i < len(long_mask):
+            if (Long_Type[i] == 'In: Star'):
+                events = np.delete(long_mask,i)
+                
+                Long_Source = np.delete(Long_Source,i)
+                Long_Type = np.delete(Long_Type,i)
+            i += 1
 
         Long_figure(long_mask, Data, WCS, Time, Save, File, Long_Source, Long_Type, Long_Maskobj, Eventmask)
         LongK2TranPixZoo(long_mask, Long_Source, Long_Type, Data, Time, WCS, Save, File)
@@ -1873,7 +1880,7 @@ def K2TranPix(pixelfile,save):
                 K2TranPixZoo(events,eventtime,eventmask,Source,SourceType,Maskdata,time,mywcs,Save,pixelfile)
                 Write_event(pixelfile,eventtime,eventmask,Source,SourceType,Maskdata,mywcs,hdu,Save)
 
-            Find_Long_Events(datacube,time,Eventmask,Objmasks,Mask,thrusters,distdrif,mywcs,hdu,pixelfile,Save)
+            Find_Long_Events(Maskdata,time,Eventmask,Objmasks,Mask,thrusters,distdrif,mywcs,hdu,pixelfile,Save)
         else:
             print('Small ', pixelfile)
     except (OSError):
