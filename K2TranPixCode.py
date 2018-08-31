@@ -1679,14 +1679,19 @@ def Find_Long_Events(Data,Time,Eventmask,Objmasks,Mask,Thrusters,Dist,WCS,HDU,Fi
             Long_Source[ind] = 'In: ' + ObjName[In[ind]]
             Long_Type[ind] = 'In: ' + ObjType[In[ind]]
             Long_Maskobj[ind] = Objmasks[In[ind]]
+            
         i = 0
+        ind = []
         while i < len(long_mask):
             if (Long_Type[i] == 'In: Star'):
-                events = np.delete(long_mask,i)
-                
-                Long_Source = np.delete(Long_Source,i)
-                Long_Type = np.delete(Long_Type,i)
+                ind.append(i)
             i += 1
+        ind.sort(reverse = True)
+        for i in ind:
+            del long_mask[i]
+            Long_Source = np.delete(Long_Source,i)
+            Long_Type = np.delete(Long_Type,i)
+            
 
         Long_figure(long_mask, Data, WCS, Time, Save, File, Long_Source, Long_Type, Long_Maskobj, Eventmask)
         LongK2TranPixZoo(long_mask, Long_Source, Long_Type, Data, Time, WCS, Save, File)
@@ -1828,7 +1833,7 @@ def K2TranPix(pixelfile,save):
 
             if len(Objmasks.shape) < 3:
                 Objmasks = np.zeros((1,datacube.shape[1],datacube.shape[2]))
-            print(Objmasks.shape)
+            
             
             if len(events) > 0:
                 Source, SourceType = Database_event_check(Maskdata,eventtime,eventmask,mywcs)
