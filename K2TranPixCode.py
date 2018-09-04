@@ -1013,10 +1013,10 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
             
         
 
-        plt.plot(Time - np.floor(Time[0]), BGLC,'k.', label = 'Background LC')
-        plt.plot(Time - np.floor(Time[0]), ObjLC,'kx', label = 'Scaled object LC')
-        plt.plot(Time - np.floor(Time[0]), OrigLC,'m+',alpha=0.9, label = 'Original data')
-        plt.plot(Time - np.floor(Time[0]), LC,'.', label = 'Event LC',alpha=0.5)
+        plt.plot(Time - np.floor(Time[0]), BGLC,'k.', label = 'Background LC',rasterize=True)
+        plt.plot(Time - np.floor(Time[0]), ObjLC,'kx', label = 'Scaled object LC',rasterize=True)
+        plt.plot(Time - np.floor(Time[0]), OrigLC,'m+',alpha=0.9, label = 'Original data',rasterize=True)
+        plt.plot(Time - np.floor(Time[0]), LC,'.', label = 'Event LC',alpha=0.5,rasterize=True)
         
         xmin = Time[Eventtime[i][0]]-np.floor(Time[0])-(Eventtime[i][-1]-Eventtime[i][0])/10
         if Eventtime[i][-1] < len(Time):
@@ -1469,10 +1469,10 @@ def Long_figure(Long,Data,WCS,Time,Save,File,Source,SourceType,ObjMask,Frames):
         plt.xlabel('Time (+'+str(int(np.floor(Time[0])))+' BJD)')
         plt.ylabel('Counts')
         
-        plt.plot(Time - np.floor(Time[0]), BGLC,'k.', label = 'Background LC')
-        plt.plot(Time - np.floor(Time[0]), ObjLC,'kx', label = 'Scaled object LC')
-        plt.plot(Time - np.floor(Time[0]), LC,'.', label = 'Event LC',alpha=0.5)
-        plt.plot(Time[ind] - np.floor(Time[0]), Six_LC,'.', label = '6hr average',alpha=1)
+        plt.plot(Time - np.floor(Time[0]), BGLC,'k.', label = 'Background LC',rasterize=True)
+        plt.plot(Time - np.floor(Time[0]), ObjLC,'kx', label = 'Scaled object LC',rasterize=True)
+        plt.plot(Time - np.floor(Time[0]), LC,'.', label = 'Event LC',alpha=0.5,rasterize=True)
+        plt.plot(Time[ind] - np.floor(Time[0]), Six_LC,'.', label = '6hr average',alpha=1,rasterize=True)
         
         ymin = np.nanmin(Six_LC) - 0.1*np.nanmin(Six_LC)
         ymax = np.nanmax(Six_LC) + 0.1*np.nanmax(Six_LC)
