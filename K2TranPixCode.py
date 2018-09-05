@@ -883,8 +883,10 @@ def Thumbnail(LC,BGLC,Eventtime,Time,Xlim,Ylim,Eventnum,File,Direct):
     fig.set_size_inches(xfigsizeTN,yfigsizeTN)
     #Save_space(Save + '/Figures/Thumb/')
     #plt.savefig(Save + '/Figures/Thumb/'+ File.split('/')[-1].split('-')[0]+'_'+str(Eventnum)+'.png', bbox_inches = 'tight')
-    
-    plt.savefig(Direct+ 'TN-' + File.split('/')[-1].split('-')[0]+'_'+str(Eventnum)+'.png', bbox_inches = 'tight')
+    if 'VLong' in Direct:
+        plt.savefig(Direct+ 'TN-' + File.split('/')[-1].split('-')[0]+'_L'+str(Eventnum)+'.png', bbox_inches = 'tight')
+    else:    
+        plt.savefig(Direct+ 'TN-' + File.split('/')[-1].split('-')[0]+'_'+str(Eventnum)+'.png', bbox_inches = 'tight')
     plt.close();
 
 def Im_lims(dim,ev):
@@ -1013,10 +1015,10 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
             
         
 
-        plt.plot(Time - np.floor(Time[0]), BGLC,'k.', label = 'Background LC',rasterize=True)
-        plt.plot(Time - np.floor(Time[0]), ObjLC,'kx', label = 'Scaled object LC',rasterize=True)
-        plt.plot(Time - np.floor(Time[0]), OrigLC,'m+',alpha=0.9, label = 'Original data',rasterize=True)
-        plt.plot(Time - np.floor(Time[0]), LC,'.', label = 'Event LC',alpha=0.5,rasterize=True)
+        plt.plot(Time - np.floor(Time[0]), BGLC,'k.', label = 'Background LC')
+        plt.plot(Time - np.floor(Time[0]), ObjLC,'kx', label = 'Scaled object LC')
+        plt.plot(Time - np.floor(Time[0]), OrigLC,'m+',alpha=0.9, label = 'Original data')
+        plt.plot(Time - np.floor(Time[0]), LC,'.', label = 'Event LC',alpha=0.5)
         
         xmin = Time[Eventtime[i][0]]-np.floor(Time[0])-(Eventtime[i][-1]-Eventtime[i][0])/10
         if Eventtime[i][-1] < len(Time):
@@ -1470,10 +1472,10 @@ def Long_figure(Long,Data,WCS,Time,Save,File,Source,SourceType,ObjMask,Frames):
         plt.xlabel('Time (+'+str(int(np.floor(Time[0])))+' BJD)')
         plt.ylabel('Counts')
         
-        plt.plot(Time - np.floor(Time[0]), BGLC,'k.', label = 'Background LC',rasterize=True)
-        plt.plot(Time - np.floor(Time[0]), ObjLC,'kx', label = 'Scaled object LC',rasterize=True)
-        plt.plot(Time - np.floor(Time[0]), LC,'.', label = 'Event LC',alpha=0.5,rasterize=True)
-        plt.plot(Time[ind] - np.floor(Time[0]), Six_LC,'.', label = '6hr average',alpha=1,rasterize=True)
+        plt.plot(Time - np.floor(Time[0]), BGLC,'k.', label = 'Background LC')
+        plt.plot(Time - np.floor(Time[0]), ObjLC,'kx', label = 'Scaled object LC')
+        plt.plot(Time - np.floor(Time[0]), LC,'.', label = 'Event LC',alpha=0.5)
+        plt.plot(Time[ind] - np.floor(Time[0]), Six_LC,'.', label = '6hr average',alpha=1)
         
         ymin = np.nanmin(Six_LC) - 0.1*np.nanmin(Six_LC)
         ymax = np.nanmax(Six_LC) + 0.1*np.nanmax(Six_LC)
@@ -1604,7 +1606,7 @@ def LongK2TranPixZoo(Long,Source,SourceType,Data,Time,wcs,Save,File):
             plt.savefig(filename,dpi=100)
             plt.close();
 
-        directory = Long_save_environment(maxcolor,Source[i],SourceType[i],Save)
+        directory = Long_save_environment(ymax,Source[i],SourceType[i],Save)
         framerate = (len(Section))/5
 
         ffmpegcall = 'ffmpeg -y -nostats -loglevel 8 -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + 'Zoo-' + File.split('/')[-1].split('-')[0] + '_L' + str(i) + '.mp4'
