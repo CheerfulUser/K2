@@ -1516,7 +1516,7 @@ def Long_figure(Long,Data,WCS,Time,Save,File,Source,SourceType,ObjMask,Frames):
         ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
 
         # Save directory
-        directory = Long_save_environment(maxcolor,Source[i],SourceType[i],Save)
+        directory = Long_save_environment(ymax,Source[i],SourceType[i],Save)
             
         plt.savefig(directory + File.split('/')[-1].split('-')[0]+'_L'+str(i)+'.pdf', bbox_inches = 'tight')
         plt.close()
