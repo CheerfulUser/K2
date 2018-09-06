@@ -981,7 +981,9 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         BGLC = level
         # Generate a light curve from the transient masks
         LC = np.nansum(Data*mask, axis = (1,2))# - level
-        LC[LC == 0] = np.nan
+        for i in range(LC):
+            if np.isnan(Data*mask).all():
+                LC[i] = np.nan
 
         Obj = ObjMask[i]
         ObjLC = np.nansum(Datacube*Obj,axis = (1,2))
@@ -1031,7 +1033,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
             xmax = Time[-1] - np.floor(Time[0])
         if np.isfinite(xmin) & np.isfinite(xmax):
             plt.xlim(xmin,xmax) 
-        ymin = np.nanmedian(LC)-np.nanstd(LC[Eventtime[i][0]:Eventtime[i][-1]])
+        ymin = np.nanmedian(LC)-np.nanstd(LC[Eventtime[i][0]:Eventtime[i][-1]]`)
         tempy = sorted(LC[Eventtime[i][0]:Eventtime[i][-1]].flatten())
         ymax = tempy[-3] +0.2*tempy[-3]
 
@@ -1441,7 +1443,10 @@ def Long_figure(Long,Data,WCS,Time,Save,File,Source,SourceType,ObjMask,Frames):
         BGLC = level
         # Generate a light curve from the transient masks
         LC = np.nansum(Data*mask, axis = (1,2))# - level
-        LC[LC == 0] = np.nan
+        for i in range(LC):
+            if np.isnan(Data*mask).all():
+                LC[i] = np.nan
+        
         Six_LC, ind = SixMedian(LC)
 
         Obj = ObjMask[i]
