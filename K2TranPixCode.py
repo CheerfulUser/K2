@@ -1033,7 +1033,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
             xmax = Time[-1] - np.floor(Time[0])
         if np.isfinite(xmin) & np.isfinite(xmax):
             plt.xlim(xmin,xmax) 
-        ymin = np.nanmedian(LC)-np.nanstd(LC[Eventtime[i][0]:Eventtime[i][-1]]`)
+        ymin = np.nanmedian(LC)-np.nanstd(LC[Eventtime[i][0]:Eventtime[i][-1]])
         tempy = sorted(LC[Eventtime[i][0]:Eventtime[i][-1]].flatten())
         ymax = tempy[-3] +0.2*tempy[-3]
 
