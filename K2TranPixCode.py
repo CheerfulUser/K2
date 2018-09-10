@@ -1162,6 +1162,7 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save
     """
     Iteratively gmakes Zooniverse videos for events. Videos are made from frames which are saved in a corresponding Frame directory.
     """
+    saves = []
     for i in range(len(Events)):
         mask = np.zeros((Data.shape[1],Data.shape[2]))
         mask[Eventmask[i][0],Eventmask[i][1]] = 1
@@ -1262,7 +1263,11 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save
         ffmpegcall = 'ffmpeg -y -nostats -loglevel 8 -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + 'Zoo-' + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4'
         os.system(ffmpegcall);
 
-def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Data, WCS, hdu, Path):
+        saves.append('./Figures' + directory.split('Figures')[-1])
+
+    return saves
+
+def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Zoo_Save, Data, WCS, hdu, Path):
     """
     Saves the event and field properties to a csv file.
     """
@@ -1293,7 +1298,7 @@ def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Data, WCS, 
             Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
 
         size = np.nansum(Eventmask[i])
-        Zoo_fig = 'Zoo-' + Pixelfile.split('/')[-1].split('-')[0]+'_'+str(i)+'.mpeg'
+        Zoo_fig = Zoo_Save[i]
         CVSstring = [str(feild), str(ID), str(i), Sourcetype[i], str(start), str(duration), str(maxlc), str(size), str(Coord[0]), str(Coord[1]), Source[i], str(hdu[0].header['CHANNEL']), str(hdu[0].header['MODULE']), str(hdu[0].header['OUTPUT']), Zoo_fig]                
         if os.path.isfile(Path + '/Events.csv'):
             with open(Path + '/Events.csv', 'a') as csvfile:
@@ -1534,6 +1539,7 @@ def LongK2TranPixZoo(Long,Source,SourceType,Data,Time,wcs,Save,File):
     """
     Iteratively gmakes Zooniverse videos for events. Videos are made from frames which are saved in a corresponding Frame directory.
     """
+    saves = []
     for i in range(len(Long)):
         mask = Long[i]
         position = np.where(mask)
@@ -1617,8 +1623,12 @@ def LongK2TranPixZoo(Long,Source,SourceType,Data,Time,wcs,Save,File):
         ffmpegcall = 'ffmpeg -y -nostats -loglevel 8 -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + 'Zoo-' + File.split('/')[-1].split('-')[0] + '_L' + str(i) + '.mp4'
         os.system(ffmpegcall);
 
+        saves.append('./Figures' + directory.split('Figures')[-1])
+
+    return saves
+
         
-def Write_long_event(Pixelfile, Long, Source, Sourcetype, Data, WCS, hdu, Path):
+def Write_long_event(Pixelfile, Long, Source, Sourcetype, Long_Save, Data, WCS, hdu, Path):
     """
     Saves the event and field properties to a csv file.
     """
@@ -1649,7 +1659,7 @@ def Write_long_event(Pixelfile, Long, Source, Sourcetype, Data, WCS, hdu, Path):
             Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
 
         size = np.nansum(Long[i])
-        Zoo_fig = 'Zoo-' + Pixelfile.split('/')[-1].split('-')[0]+'_'+str(i)+'.mpeg'
+        Zoo_fig = Long_Save
         CVSstring = [str(feild), str(ID), 'L' + str(i), Sourcetype[i], str(start), str(duration), str(maxlc), str(size), str(Coord[0]), str(Coord[1]), Source[i], str(hdu[0].header['CHANNEL']), str(hdu[0].header['MODULE']), str(hdu[0].header['OUTPUT']), Zoo_fig]                
         if os.path.isfile(Path + '/Events.csv'):
             with open(Path + '/Events.csv', 'a') as csvfile:
@@ -1702,8 +1712,8 @@ def Find_Long_Events(Data,Time,Eventmask,Objmasks,Mask,Thrusters,Dist,WCS,HDU,Fi
             
 
         Long_figure(long_mask, Data, WCS, Time, Save, File, Long_Source, Long_Type, Long_Maskobj, Eventmask)
-        LongK2TranPixZoo(long_mask, Long_Source, Long_Type, Data, Time, WCS, Save, File)
-        Write_long_event(File, long_mask, Long_Source, Long_Type, Data, WCS, HDU, Save)
+        long_saves = LongK2TranPixZoo(long_mask, Long_Source, Long_Type, Data, Time, WCS, Save, File)
+        Write_long_event(File, long_mask, Long_Source, Long_Type,long_saves, Data, WCS, HDU, Save)
 
 
 
@@ -1891,8 +1901,8 @@ def K2TranPix(pixelfile,save):
                 # Print figures
                 K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType,Maskobj)
                 #K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
-                K2TranPixZoo(events,eventtime,eventmask,Source,SourceType,Maskdata,time,mywcs,Save,pixelfile)
-                Write_event(pixelfile,eventtime,eventmask,Source,SourceType,Maskdata,mywcs,hdu,Save)
+                Zoo_saves = K2TranPixZoo(events,eventtime,eventmask,Source,SourceType,Maskdata,time,mywcs,Save,pixelfile)
+                Write_event(pixelfile,eventtime,eventmask,Source,SourceType,Zoo_saves,Maskdata,mywcs,hdu,Save)
 
             Find_Long_Events(Maskdata,time,Eventmask,Objmasks,Mask,thrusters,distdrif,mywcs,hdu,pixelfile,Save)
         else:
