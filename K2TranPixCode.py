@@ -882,11 +882,8 @@ def Thumbnail(LC,BGLC,Eventtime,Time,Xlim,Ylim,Eventnum,File,Direct):
     yfigsizeTN=1.5
     fig.set_size_inches(xfigsizeTN,yfigsizeTN)
     #Save_space(Save + '/Figures/Thumb/')
-    #plt.savefig(Save + '/Figures/Thumb/'+ File.split('/')[-1].split('-')[0]+'_'+str(Eventnum)+'.png', bbox_inches = 'tight')
-    if 'VLong' in Direct:
-        plt.savefig(Direct+ 'TN-' + File.split('/')[-1].split('-')[0]+'_L'+str(Eventnum)+'.png', bbox_inches = 'tight')
-    else:    
-        plt.savefig(Direct+ 'TN-' + File.split('/')[-1].split('-')[0]+'_'+str(Eventnum)+'.png', bbox_inches = 'tight')
+    #plt.savefig(Save + '/Figures/Thumb/'+ File.split('/')[-1].split('-')[0]+'_'+str(Eventnum)+'.png', bbox_inches = 'tight')  
+    plt.savefig(Direct+ 'TN-' + File.split('/')[-1].split('-')[0]+'_'+str(Eventnum)+'.png', bbox_inches = 'tight')
     plt.close();
 
 def Im_lims(dim,ev):
@@ -1263,7 +1260,7 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save
         ffmpegcall = 'ffmpeg -y -nostats -loglevel 8 -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + 'Zoo-' + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4'
         os.system(ffmpegcall);
 
-        saves.append('./Figures' + directory.split('Figures')[-1])
+        saves.append('./Figures' + directory.split('Figures')[-1]) + 'Zoo-' + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4'
 
     return saves
 
@@ -1371,7 +1368,7 @@ def Long_events(Data,Dist):
         lc = np.nansum(Data*long_events[i],axis=(1,2))
         lc[lc <= 0] = np.nan
     
-        if len(lc[lc > np.nanmean(lc)]) > 48*2:
+        if len(lc[lc > np.nanmean(lc)]) > 48*2: # condition on the number of exposures in 2 days 
             long_mask.append(long_events[i])
     
     return long_mask
@@ -1623,7 +1620,7 @@ def LongK2TranPixZoo(Long,Source,SourceType,Data,Time,wcs,Save,File):
         ffmpegcall = 'ffmpeg -y -nostats -loglevel 8 -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + 'Zoo-' + File.split('/')[-1].split('-')[0] + '_L' + str(i) + '.mp4'
         os.system(ffmpegcall);
 
-        saves.append('./Figures' + directory.split('Figures')[-1])
+        saves.append('./Figures' + directory.split('Figures')[-1] + 'Zoo-' + File.split('/')[-1].split('-')[0] + '_L' + str(i) + '.mp4') 
 
     return saves
 
@@ -1659,7 +1656,7 @@ def Write_long_event(Pixelfile, Long, Source, Sourcetype, Long_Save, Data, WCS, 
             Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
 
         size = np.nansum(Long[i])
-        Zoo_fig = Long_Save
+        Zoo_fig = Long_Save[i]
         CVSstring = [str(feild), str(ID), 'L' + str(i), Sourcetype[i], str(start), str(duration), str(maxlc), str(size), str(Coord[0]), str(Coord[1]), Source[i], str(hdu[0].header['CHANNEL']), str(hdu[0].header['MODULE']), str(hdu[0].header['OUTPUT']), Zoo_fig]                
         if os.path.isfile(Path + '/Events.csv'):
             with open(Path + '/Events.csv', 'a') as csvfile:
