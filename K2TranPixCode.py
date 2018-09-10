@@ -981,9 +981,9 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         BGLC = level
         # Generate a light curve from the transient masks
         LC = np.nansum(Data*mask, axis = (1,2))# - level
-        for i in range(len(LC)):
+        for k in range(len(LC)):
             if np.isnan(Data*mask).all():
-                LC[i] = np.nan
+                LC[k] = np.nan
 
         Obj = ObjMask[i]
         ObjLC = np.nansum(Datacube*Obj,axis = (1,2))
@@ -1448,9 +1448,9 @@ def Long_figure(Long,Data,WCS,Time,Save,File,Source,SourceType,ObjMask,Frames):
         BGLC = level
         # Generate a light curve from the transient masks
         LC = np.nansum(Data*mask, axis = (1,2))# - level
-        for i in range(len(LC)):
+        for k in range(len(LC)):
             if np.isnan(Data*mask).all():
-                LC[i] = np.nan
+                LC[k] = np.nan
         
         Six_LC, ind = SixMedian(LC)
 
