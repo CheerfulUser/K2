@@ -22,6 +22,8 @@ from xml.parsers.expat import ExpatError
 from astroquery.exceptions import TableParseError
 from astropy import coordinates
 import astropy.units as u
+from astropy.visualization import (SqrtStretch, ImageNormalize)
+
 
 import csv
 
@@ -1551,6 +1553,9 @@ def LongK2TranPixZoo(Long,Source,SourceType,Data,Time,wcs,Save,File):
                 maxcolor = temp
                 Mid = ([position[0][j]],[position[1][j]])
 
+        # Create an ImageNormalize object using a SqrtStretch object
+        norm = ImageNormalize(vmin=0, vmax=maxcolor, stretch=SqrtStretch())
+        
         xmin = 0
         xmax = len(Data)-1
         
@@ -1595,7 +1600,7 @@ def LongK2TranPixZoo(Long,Source,SourceType,Data,Time,wcs,Save,File):
             plt.subplot(1,2,2)
             plt.title('Kepler image')
             Data[np.isnan(Data)] = 0
-            plt.imshow(Data[Section[j]],origin='lower',cmap='gray',vmin=0,vmax=maxcolor)
+            plt.imshow(Data[Section[j]],origin='lower',cmap='gray', norm=norm)
             current_cmap = plt.cm.get_cmap()
             current_cmap.set_bad(color='black')
             #plt.colorbar()
