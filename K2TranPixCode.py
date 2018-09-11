@@ -1344,8 +1344,12 @@ def SixMedian(LC):
     lc6 = []
     x = []
     for i in range(int(len(LC)/12)):
-        lc6.append(np.nanmedian(LC[i*12:(i*12)+12]))
-        x.append(i*12+6)
+        if np.isnan(LC[i*12:(i*12)+12]).all():
+            lc6.append(np.nan)
+            x.append(i*12+6)
+        else:
+            lc6.append(np.nanmedian(LC[i*12:(i*12)+12]))
+            x.append(i*12+6)
     lc6 = np.array(lc6)
     x = np.array(x)
     return lc6, x
