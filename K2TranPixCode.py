@@ -1186,8 +1186,6 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save
         
         step = int((xmax - xmin)*.05) # Make a step so that only 5% of the frames are produced 
         Section = np.arange(int(xmin),int(xmax),step)
-        #print('step ', step)
-        #print('Section len ', len(Section))
 
         FrameSave = Save + '/Figures/Frames/' + File.split('/')[-1].split('-')[0] + '/Event_' + str(int(i)) + '/'
 
@@ -1195,26 +1193,33 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save
 
         ylims, xlims = Fig_cut(Data,Mid)
 
+        LC = np.nansum(Data*mask,axis=(1,2))
+        for k in range(len(LC)):
+            if np.isnan(Data*mask).all():
+                LC[k] = np.nan
+
+        ymin = np.nanmedian(LC) - 0.1*np.nanstd(LC)
+        temp = sorted(LC[Eventtime[i,0]:Eventtime[i,1]].flatten())
+        temp = np.array(temp)
+        temp = temp[np.isfinite(temp)]
+        temp = temp[-3] # get 3rd brightest point
+        ymax = temp + 0.1*temp
+
+        # Create an ImageNormalize object using a SqrtStretch object
+        norm = ImageNormalize(vmin=ymin/len(position[0]), vmax=maxcolor, stretch=SqrtStretch())
+
+        height = 1100/2
+        width = 2200/2
+        my_dpi = 100
         for j in range(len(Section)):
             filename = FrameSave + 'Frame_' + str(int(j)).zfill(4)+".png"
-            height = 1100/2
-            width = 2200/2
-            my_dpi = 100
-            
-            LC = np.nansum(Data*mask,axis=(1,2))
             
             fig = plt.figure(figsize=(width/my_dpi,height/my_dpi),dpi=my_dpi)
             plt.subplot(1, 2, 1)
             plt.title('Event light curve')
             plt.axvspan(Time[Eventtime[i,0]]-Time[0],Time[Eventtime[i,1]]-Time[0],color='orange',alpha = 0.5)
             plt.plot(Time - Time[0], LC,'k.')
-            ymin = np.nanmedian(LC) - 0.5*np.nanstd(LC)
             
-            temp = sorted(LC[Eventtime[i,0]:Eventtime[i,1]].flatten())
-            temp = np.array(temp)
-            temp = temp[np.isfinite(temp)]
-            temp = temp[-3] # get 3rd brightest point
-            ymax = temp + 0.2*temp
             
             plt.ylim(ymin,ymax)
                                                   
@@ -1237,7 +1242,7 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save
             plt.subplot(1,2,2)
             plt.title('Kepler image')
             Data[np.isnan(Data)] = 0
-            plt.imshow(Data[Section[j]],origin='lower',cmap='gray',vmin=0,vmax=maxcolor)
+            plt.imshow(Data[Section[j]],origin='lower',cmap='gray',norm=norm)
             current_cmap = plt.cm.get_cmap()
             current_cmap.set_bad(color='black')
             #plt.colorbar()
@@ -1552,17 +1557,12 @@ def LongK2TranPixZoo(Long,Source,SourceType,Data,Time,wcs,Save,File):
             if temp > maxcolor:
                 maxcolor = temp
                 Mid = ([position[0][j]],[position[1][j]])
-
-        # Create an ImageNormalize object using a SqrtStretch object
-        norm = ImageNormalize(vmin=0, vmax=maxcolor, stretch=SqrtStretch())
         
         xmin = 0
         xmax = len(Data)-1
         
-        step = int((xmax - xmin)*.005) # Make a step so that only 0.05% of the frames are produced 
+        step = int((xmax - xmin)*.005) # Make a step so that only 0.5% of the frames are produced 
         Section = np.arange(int(xmin),int(xmax),step)
-        #print('step ', step)
-        #print('Section len ', len(Section))
 
         FrameSave = Save + '/Figures/Frames/' + File.split('/')[-1].split('-')[0] + '/Event_L' + str(int(i)) + '/'
 
@@ -1570,22 +1570,27 @@ def LongK2TranPixZoo(Long,Source,SourceType,Data,Time,wcs,Save,File):
 
         ylims, xlims = Fig_cut(Data,Mid)
 
+        LC = np.nansum(Data*mask,axis=(1,2))
+        Six_LC, ind = SixMedian(LC)
+        
+        ymin = np.nanmin(Six_LC) - 0.1*np.nanmin(Six_LC)
+        ymax = np.nanmax(Six_LC) + 0.1*np.nanmax(Six_LC)
+
+        # Create an ImageNormalize object using a SqrtStretch object
+        norm = ImageNormalize(vmin=ymin/len(position[0]), vmax=maxcolor, stretch=SqrtStretch())
+
+        filename = FrameSave + 'Frame_' + str(int(j)).zfill(4)+".png"
+        height = 1100/2
+        width = 2200/2
+        my_dpi = 100
+        
         for j in range(len(Section)):
-            filename = FrameSave + 'Frame_' + str(int(j)).zfill(4)+".png"
-            height = 1100/2
-            width = 2200/2
-            my_dpi = 100
-            
-            LC = np.nansum(Data*mask,axis=(1,2))
             
             fig = plt.figure(figsize=(width/my_dpi,height/my_dpi),dpi=my_dpi)
             plt.subplot(1, 2, 1)
             plt.title('Event light curve')
             plt.plot(Time - Time[0], LC,'k.')
-            Six_LC, ind = SixMedian(LC)
             
-            ymin = np.nanmin(Six_LC) - 0.1*np.nanmin(Six_LC)
-            ymax = np.nanmax(Six_LC) + 0.1*np.nanmax(Six_LC)
             
             plt.ylim(ymin,ymax)
                                                   
@@ -1721,7 +1726,7 @@ def Find_Long_Events(Data,Time,Eventmask,Objmasks,Mask,Thrusters,Dist,WCS,HDU,Fi
 
 def K2TranPix(pixelfile,save): 
     """
-    Runs an assortment of functions to detect events in Kepler TPFs.
+    Main code yo. Runs an assortment of functions to detect events in Kepler TPFs.
     """
     Save = save + pixelfile.split('-')[1].split('_')[0]
     try:
