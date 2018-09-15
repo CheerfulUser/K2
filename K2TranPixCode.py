@@ -640,7 +640,7 @@ def Database_event_check(Data,Eventtime,Eventmask,WCS):
                 try:
                     result_table = Simbad.query_region(c,radius = 2*u.arcsec)
                     if len(result_table.colnames) > 0:
-                        objtype = objtype + ' Simbad'
+                        objtype = objtype + 'Simbad'
                 except (AttributeError,ExpatError,TableParseError,ValueError,EOFError) as e:
                     pass
                 
@@ -689,7 +689,7 @@ def Database_check_mask(Datacube,Thrusters,Masks,WCS):
                 try:
                     result_table = Simbad.query_region(c,radius = 6*u.arcsec)
                     if len(result_table.colnames) > 0:
-                        objtype = objtype + ' Simbad'
+                        objtype = objtype + 'Simbad'
                 except (AttributeError,ExpatError,TableParseError,ValueError,EOFError) as e:
                     pass
                 
@@ -1583,13 +1583,15 @@ def LongK2TranPixZoo(Long,Source,SourceType,Data,Time,wcs,Save,File):
         # Create an ImageNormalize object using a SqrtStretch object
         norm = ImageNormalize(vmin=ymin/len(position[0]), vmax=maxcolor, stretch=SqrtStretch())
 
-        filename = FrameSave + 'Frame_' + str(int(j)).zfill(4)+".png"
+        
         height = 1100/2
         width = 2200/2
         my_dpi = 100
         
         for j in range(len(Section)):
             
+            filename = FrameSave + 'Frame_' + str(int(j)).zfill(4)+".png"
+
             fig = plt.figure(figsize=(width/my_dpi,height/my_dpi),dpi=my_dpi)
             plt.subplot(1, 2, 1)
             plt.title('Event light curve')
