@@ -867,6 +867,14 @@ def Save_environment(Eventtime,maxcolor,Source,SourceType,Save):
     Save_space(directory)
     return directory
 
+def Lightcurve(Data,Mask):
+    LC = np.nansum(Data*mask, axis = (1,2))# - level
+    for k in range(len(LC)):
+        if np.isnan(Data*mask).all():
+            LC[k] = np.nan
+
+    return LC
+
 def Thumbnail(LC,BGLC,Eventtime,Time,Xlim,Ylim,Eventnum,File,Direct):
     fig = plt.figure()
     if Eventtime[-1] < len(Time):
@@ -979,17 +987,13 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         BG[BG <= 0] = np.nan
         BGLC = level
         # Generate a light curve from the transient masks
-        LC = np.nansum(Data*mask, axis = (1,2))# - level
-        for k in range(len(LC)):
-            if np.isnan(Data*mask).all():
-                LC[k] = np.nan
+        LC = Lightcurve(Data, mask)
 
         Obj = ObjMask[i]
-        ObjLC = np.nansum(Datacube*Obj,axis = (1,2))
+        ObjLC = Lightcurve(Datacube, Obj)
         ObjLC = ObjLC/np.nanmedian(ObjLC)*np.nanmedian(LC)
 
-        OrigLC = np.nansum(Datacube*mask, axis = (1,2))
-
+        OrigLC = Lightcurve(Datacube, mask)
 
         fig = plt.figure(figsize=(10,6))
         # set up subplot grid
@@ -1193,10 +1197,7 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save
 
         ylims, xlims = Fig_cut(Data,Mid)
 
-        LC = np.nansum(Data*mask,axis=(1,2))
-        for k in range(len(LC)):
-            if np.isnan(Data*mask).all():
-                LC[k] = np.nan
+        LC = Lightcurve(Data, mask)
 
         ymin = np.nanmedian(LC) - 0.1*np.nanstd(LC)
         temp = sorted(LC[Eventtime[i,0]:Eventtime[i,1]].flatten())
@@ -1282,7 +1283,7 @@ def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Zoo_Save, D
         mask[Eventmask[i][0],Eventmask[i][1]] = 1
         start = Eventtime[i][0]
         duration = Eventtime[i][1] - Eventtime[i][0]
-        maxlc = np.nanmax(np.nansum(Data[Eventtime[i][0]:Eventtime[i][-1]]*(mask == 1),axis=(1,2)))
+        maxlc = np.nanmax(Lightcurve(Data[Eventtime[i][0]:Eventtime[i][-1]], mask))
 
         position = np.where(mask)
         Mid = ([position[0][0]],[position[1][0]])
@@ -1341,6 +1342,9 @@ def Probable_host(Eventtime,Eventmask,Source,SourceType,Objmasks,ObjName,ObjType
     return Source, SourceType
 
 def SixMedian(LC):
+    '''
+    Creates a lightcurve using a 6 hour median average.
+    '''
     lc6 = []
     x = []
     for i in range(int(len(LC)/12)):
@@ -1358,7 +1362,6 @@ def Long_events(Data,Dist,Save,File):
     '''
     Simple search for pixels that experience events longer than 2 days.
     '''
-    
     sub = np.zeros(Data[0].shape)
     good_frames = np.where(Dist < 0.5)[0]
 
@@ -1378,7 +1381,7 @@ def Long_events(Data,Dist,Save,File):
     long_mask = []
     
     for i in range(len(long_events)):
-        lc = np.nansum(Data*long_events[i],axis=(1,2))
+        lc = Lightcurve(Data, long_events[i])
         lc[lc <= 0] = np.nan
     
         if len(lc[lc > np.nanmean(lc)]) > 48*2: # condition on the number of exposures in 2 days 
@@ -1457,18 +1460,15 @@ def Long_figure(Long,Data,WCS,Time,Save,File,Source,SourceType,ObjMask,Frames):
         BG[BG <= 0] = np.nan
         BGLC = level
         # Generate a light curve from the transient masks
-        LC = np.nansum(Data*mask, axis = (1,2))# - level
-        for k in range(len(LC)):
-            if np.isnan(Data*mask).all():
-                LC[k] = np.nan
+        LC = Lightcurve(Data, mask)
         
         Six_LC, ind = SixMedian(LC)
 
         Obj = ObjMask[i]
-        ObjLC = np.nansum(Data*Obj,axis = (1,2))
+        ObjLC = Lightcurve(Data, Obj)
         ObjLC = ObjLC/np.nanmedian(ObjLC)*np.nanmedian(LC)
 
-        OrigLC = np.nansum(Data*mask, axis = (1,2))
+        OrigLC = Lightcurve(Data, mask)
         
         
         # Generate a light curve from the transient masks
@@ -1576,7 +1576,7 @@ def LongK2TranPixZoo(Long,Source,SourceType,Data,Time,wcs,Save,File):
 
         ylims, xlims = Fig_cut(Data,Mid)
 
-        LC = np.nansum(Data*mask,axis=(1,2))
+        LC = Lightcurve(Data, mask)
         Six_LC, ind = SixMedian(LC)
         
         ymin = np.nanmin(Six_LC) - 0.1*np.nanmin(Six_LC)
@@ -1654,7 +1654,7 @@ def Write_long_event(Pixelfile, Long, Source, Sourcetype, Long_Save, Data, WCS, 
 
         start = 0
         duration = Data.shape[0]
-        maxlc = np.nanmax(np.nansum(Data*(mask == 1),axis=(1,2)))
+        maxlc = np.nanmax(Lightcurve(Data, mask))
 
         position = np.where(mask)
         Mid = ([position[0][0]],[position[1][0]])
@@ -1687,7 +1687,9 @@ def Write_long_event(Pixelfile, Long, Source, Sourcetype, Long_Save, Data, WCS, 
                 spamwriter.writerow(CVSstring)
 
 def Find_Long_Events(Data,Time,Eventmask,Objmasks,Mask,Thrusters,Dist,WCS,HDU,File,Save):
-
+    '''
+    Wrapper function for the long events finding routine.
+    '''
     long_mask = Long_events(Data,Dist,Save,File)
     Long_Source, Long_Type = Database_check_mask(Data,Thrusters,long_mask,WCS)
 
