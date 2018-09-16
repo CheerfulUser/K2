@@ -1354,7 +1354,7 @@ def SixMedian(LC):
     x = np.array(x)
     return lc6, x
 
-def Long_events(Data,Dist):
+def Long_events(Data,Dist,Save,File):
     '''
     Simple search for pixels that experience events longer than 2 days.
     '''
@@ -1369,7 +1369,9 @@ def Long_events(Data,Dist):
             sub[i,j] = abs((np.nanmean(lc) - np.nanmedian(lc)))
 
     cut = np.nanmedian(sub) + np.nanstd(sub)
-
+    Limitsave = Save + '/Limit/' + File.split('ktwo')[-1].split('-')[0]+'_VLimit'
+    Save_space(Save + '/Limit/')
+    np.savez(Limitsave,cut)
     
     long_events = Identify_masks(sub>=cut)
     
@@ -1686,7 +1688,7 @@ def Write_long_event(Pixelfile, Long, Source, Sourcetype, Long_Save, Data, WCS, 
 
 def Find_Long_Events(Data,Time,Eventmask,Objmasks,Mask,Thrusters,Dist,WCS,HDU,File,Save):
 
-    long_mask = Long_events(Data,Dist)
+    long_mask = Long_events(Data,Dist,Save,File)
     Long_Source, Long_Type = Database_check_mask(Data,Thrusters,long_mask,WCS)
 
     if len(long_mask) > 0:
