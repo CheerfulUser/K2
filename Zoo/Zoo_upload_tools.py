@@ -69,6 +69,7 @@ def Zoo_upload(Set_name, Path, Permit, Prohibit, Save):
     '''
     from panoptes_client import Panoptes, Project, SubjectSet, Subject
     import pandas as pd
+    import os
     # Connect to my account
     Panoptes.connect(username='cheerfuluser',password='dragon1243')
     # Link the K2BS project
