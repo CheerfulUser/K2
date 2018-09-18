@@ -67,6 +67,8 @@ def Zoo_upload(Set_name, Path, Permit, Prohibit, Save):
     Prohibit is the prohibited event types.
     Save is the location where the Zoo upload ticket will be saved.
     '''
+    from panoptes_client import Panoptes, Project, SubjectSet, Subject
+    import pandas as pd
     # Connect to my account
     Panoptes.connect(username='cheerfuluser',password='dragon1243')
     # Link the K2BS project
