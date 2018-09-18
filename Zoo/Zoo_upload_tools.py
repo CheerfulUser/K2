@@ -81,27 +81,27 @@ def Zoo_upload(Set_name, Path, Permit, Prohibit, Save):
     subject_set.save()
 
     # Load event paths and metadata
-    events = pd.read_csv(path + 'Events.csv',header=0)
+    events = pd.read_csv(Path + 'Events.csv',header=0)
     ar = events.values # Array form of events
     keys = events.keys() # Header entries 
     # Organise files and metadata into the Zoo example
     dic = {}
     failed = {}
     for i in range(len(events.Counts)):
-        if os.path.isfile(path + ar[i,14][2:]):
+        if os.path.isfile(Path + ar[i,14][2:]):
             # Conduct a check to only let through preselected types specified in the Uploads variable
             allowed = False
             for j in range(len(Permit)):
-                if (Permit[j] in (path + ar[i,14][2:])):
+                if (Permit[j] in (Path + ar[i,14][2:])):
                     allowed = True
                     
             for j in range(len(Prohibit)):
-                if (Prohibit[j] in (path + ar[i,14][2:])):
+                if (Prohibit[j] in (Path + ar[i,14][2:])):
                     allowed = False
             
             if allowed == True:
                 entry = {}
-                entry = {path + ar[i,14][2:] : {
+                entry = {Path + ar[i,14][2:] : {
                     keys[0] : ar[i,0],
                     keys[1] : ar[i,1],
                     keys[2] : ar[i,2],
@@ -120,7 +120,7 @@ def Zoo_upload(Set_name, Path, Permit, Prohibit, Save):
                 dic.update(entry)
         else:
             entry = {}
-            entry = {path + ar[i,14][2:] : {
+            entry = {Path + ar[i,14][2:] : {
                 keys[0] : ar[i,0],
                 keys[1] : ar[i,1],
                 keys[2] : ar[i,2],
