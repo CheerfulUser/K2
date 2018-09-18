@@ -868,9 +868,9 @@ def Save_environment(Eventtime,maxcolor,Source,SourceType,Save):
     return directory
 
 def Lightcurve(Data,Mask):
-    LC = np.nansum(Data*mask, axis = (1,2))# - level
+    LC = np.nansum(Data*Mask, axis = (1,2))
     for k in range(len(LC)):
-        if np.isnan(Data*mask).all():
+        if np.isnan(Data*Mask).all():
             LC[k] = np.nan
 
     return LC
