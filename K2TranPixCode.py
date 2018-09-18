@@ -1161,6 +1161,9 @@ def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType
         ffmpegcall = 'ffmpeg -y -nostats -loglevel 0 -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4'
         os.system(ffmpegcall);
 
+        os.system('sleep 0.1')
+        os.system('rm -r ' + FrameSave)
+
 def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save,File):
     """
     Iteratively gmakes Zooniverse videos for events. Videos are made from frames which are saved in a corresponding Frame directory.
@@ -1269,6 +1272,9 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save
         os.system(ffmpegcall);
 
         saves.append('./Figures' + directory.split('Figures')[-1] + 'Zoo-' + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4')
+
+        os.system('sleep 0.1')
+        os.system('rm -r ' + FrameSave)
 
     return saves
 
@@ -1639,6 +1645,9 @@ def LongK2TranPixZoo(Long,Source,SourceType,Data,Time,wcs,Save,File):
         os.system(ffmpegcall);
 
         saves.append('./Figures' + directory.split('Figures')[-1] + 'Zoo-' + File.split('/')[-1].split('-')[0] + '_L' + str(i) + '.mp4') 
+
+        os.system('sleep 0.1')
+        os.system('rm -r ' + FrameSave)
 
     return saves
 
