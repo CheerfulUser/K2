@@ -142,6 +142,7 @@ def Zoo_upload(Set_name, Path, Permit, Prohibit, Save):
     new_subjects = []
     
     for filename, metadata in dic.items():
+        print(filename)
         subject = Subject()
 
         subject.links.project = project
