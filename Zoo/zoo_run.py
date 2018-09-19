@@ -1,7 +1,7 @@
 from Zoo_upload_tools import *
 
 #permit = ['Unknown', 'G', 'QSO', 'R', 'IrS', 'WDStar', 'SN', 'XrayS']
-permit = ['G', 'QSO']
+permit = ['\G', 'QSO']
 
 prohibit = ['Star']
 
