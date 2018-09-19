@@ -54,9 +54,7 @@ def Zoo_ticket(Set_name, Dictionary, Path, Permit, Prohibit, Save):
     
     Save_space(Save)
     
-    savename = (Save + 'Zoo_upload_' + str(datetime.now().year) + str(datetime.now().month) 
-                + str(datetime.now().day) + str(datetime.now().hour) + str(datetime.now().minute) 
-                + str(datetime.now().seconds) + '.txt')
+    savename = (Save + 'Zoo_upload_' + datetime.now().strftime('%Y%m%d%H%M%S') + '.txt')
     
     with open(savename, 'w') as f:
         for item in ticket:
