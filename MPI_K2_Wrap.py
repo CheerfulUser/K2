@@ -132,7 +132,7 @@ for n in range(my_start, my_end+1):
     mytimestop = sys_time.time()
     mytime = mytimestop-mytimestart
 
-
+print_mpi('Done allocation')
 # MPI collective communication (all reduce)
 
 stop = sys_time.time()
