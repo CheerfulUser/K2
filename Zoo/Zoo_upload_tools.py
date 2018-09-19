@@ -1,3 +1,9 @@
+from panoptes_client import Panoptes, Project, SubjectSet, Subject
+import pandas as pd
+import os   
+from datetime import datetime
+
+
 def Save_space(Save):
     try:
         if not os.path.exists(Save):
@@ -22,7 +28,6 @@ def Zoo_ticket(Set_name, Dictionary, Path, Permit, Prohibit, Save):
     Prohibited types
     Files uploaded
     '''
-    from datetime import datetime
     ticket = []
     
     ticket.append(Set_name)
@@ -67,9 +72,6 @@ def Zoo_upload(Set_name, Path, Permit, Prohibit, Save):
     Prohibit is the prohibited event types.
     Save is the location where the Zoo upload ticket will be saved.
     '''
-    from panoptes_client import Panoptes, Project, SubjectSet, Subject
-    import pandas as pd
-    import os
     # Connect to my account
     Panoptes.connect(username='cheerfuluser',password='dragon1243')
     # Link the K2BS project
