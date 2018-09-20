@@ -870,7 +870,7 @@ def Save_environment(Eventtime,maxcolor,Source,SourceType,Save):
 def Lightcurve(Data,Mask):
     LC = np.nansum(Data*Mask, axis = (1,2))
     for k in range(len(LC)):
-        if np.isnan(Data*Mask).all():
+        if np.isnan(Data[k]*Mask).all():
             LC[k] = np.nan
 
     return LC
@@ -1391,6 +1391,7 @@ def Long_events(Data,Dist,Save,File):
         lc[lc <= 0] = np.nan
     
         if len(lc[lc > np.nanmean(lc)]) > 48*2: # condition on the number of exposures in 2 days 
+            temp = long_events[i]
             long_mask.append(long_events[i])
     
     return long_mask
