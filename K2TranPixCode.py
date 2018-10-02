@@ -868,9 +868,11 @@ def Save_environment(Eventtime,maxcolor,Source,SourceType,Save):
     return directory
 
 def Lightcurve(Data,Mask):
+    Mask = Mask*1.0
+    Mask[Mask == 0.0] = np.nan
     LC = np.nansum(Data*Mask, axis = (1,2))
     for k in range(len(LC)):
-        if np.isnan(Data[k]*Mask).all():
+        if np.isnan(np.sum(Data[k]*Mask)) & (np.nansum(Data[k]*Mask) == 0):     #np.isnan(Data[k]*Mask).all():
             LC[k] = np.nan
 
     return LC
@@ -1036,9 +1038,13 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
             xmax = Time[-1] - np.floor(Time[0])
         if np.isfinite(xmin) & np.isfinite(xmax):
             plt.xlim(xmin,xmax) 
+
+        temp = sorted(LC[Eventtime[i][0]:Eventtime[i][-1]].flatten())
+        temp = np.array(temp)
+        temp = temp[np.isfinite(temp)]
+        temp  = temp[-3] # get 3rd brightest point
         ymin = np.nanmedian(LC)-np.nanstd(LC[Eventtime[i][0]:Eventtime[i][-1]])
-        tempy = sorted(LC[Eventtime[i][0]:Eventtime[i][-1]].flatten())
-        ymax = tempy[-3] +0.2*tempy[-3]
+        ymax = temp +0.2*temp
 
         plt.ylim(ymin,ymax)
         plt.legend(loc = 1)
