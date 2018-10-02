@@ -872,7 +872,7 @@ def Lightcurve(Data,Mask):
     Mask[Mask == 0.0] = np.nan
     LC = np.nansum(Data*Mask, axis = (1,2))
     for k in range(len(LC)):
-        if np.isnan(np.sum(Data[k]*Mask)) & (np.nansum(Data[k]*Mask) == 0):     #np.isnan(Data[k]*Mask).all():
+        if np.isnan(Data[k]*Mask).all(): # np.isnan(np.sum(Data[k]*Mask)) & (np.nansum(Data[k]*Mask) == 0):
             LC[k] = np.nan
 
     return LC
@@ -1167,7 +1167,7 @@ def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType
         ffmpegcall = 'ffmpeg -y -nostats -loglevel 0 -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4'
         os.system(ffmpegcall);
 
-        os.system('sleep 0.1')
+        os.system('sleep 1')
         os.system('rm -r ' + FrameSave)
 
 def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save,File):
@@ -1279,7 +1279,7 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save
 
         saves.append('./Figures' + directory.split('Figures')[-1] + 'Zoo-' + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4')
 
-        os.system('sleep 0.1')
+        os.system('sleep 1')
         os.system('rm -r ' + FrameSave)
 
     return saves
@@ -1394,7 +1394,6 @@ def Long_events(Data,Dist,Save,File):
     
     for i in range(len(long_events)):
         lc = Lightcurve(Data, long_events[i])
-        lc[lc <= 0] = np.nan
     
         if len(lc[lc > np.nanmean(lc)]) > 48*2: # condition on the number of exposures in 2 days 
             temp = long_events[i]
