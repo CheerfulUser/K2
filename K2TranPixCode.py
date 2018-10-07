@@ -113,7 +113,7 @@ def Event_ID(Eventmask,Mask,Minlength):
     eventmask = []
 
     for i in range(len(X)):
-        temp = np.insert(tarr[:,X[i],Y[i]],0,False)
+        temp = np.insert(tarr[:,X[i],Y[i]],0,False) # add a false value to the start of the array
         testf = np.diff(np.where(~temp)[0])
         indf = np.where(~temp)[0]
         testf[testf == 1] = 0
@@ -1370,12 +1370,12 @@ def SixMedian(LC):
     x = np.array(x)
     return lc6, x
 
-def Long_events(Data,Dist,Save,File):
+def Long_events(Data,Time,Dist,Save,File):
     '''
     Simple search for pixels that experience events longer than 2 days.
     '''
     sub = np.zeros(Data[0].shape)
-    good_frames = np.where(Dist < 0.5)[0]
+    good_frames = np.where(Dist < 0.2)[0]
 
     dim1,dim2 = Data[0].shape
     for i in range(dim1):
@@ -1393,10 +1393,16 @@ def Long_events(Data,Dist,Save,File):
     long_mask = []
     
     for i in range(len(long_events)):
-        lc = Lightcurve(Data, long_events[i])
-    
-        if len(lc[lc > np.nanmean(lc)]) > 48*2: # condition on the number of exposures in 2 days 
-            temp = long_events[i]
+        lc = Lightcurve(Data[good_frames], long_events[i])
+        lc[lc <= 0] = np.nan
+        
+        goodtime = Time[good_frames]
+        
+        tarr = np.copy(lc) <= np.nanmedian(lc)
+        
+        time_comp = goodtime[tarr]
+        difftime = np.diff(time_comp)
+        if (difftime >= 2).any(): # condition on the number of exposures in 2 days 
             long_mask.append(long_events[i])
     
     return long_mask
@@ -1705,7 +1711,7 @@ def Find_Long_Events(Data,Time,Eventmask,Objmasks,Mask,Thrusters,Dist,WCS,HDU,Fi
     '''
     Wrapper function for the long events finding routine.
     '''
-    long_mask = Long_events(Data,Dist,Save,File)
+    long_mask = Long_events(Data,Time,Dist,Save,File)
     Long_Source, Long_Type = Database_check_mask(Data,Thrusters,long_mask,WCS)
 
     if len(long_mask) > 0:
