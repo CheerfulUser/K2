@@ -57,7 +57,7 @@ Files = np.asarray(glob(path+'*.gz'))
 # Code to remove files from the list that have already been calculated
 
 try:
-    Log = open('/avatar/ryanr/Code/shell' + field + '.out')
+    Log = open('/avatar/ryanr/Code/Limit' + field + '.out')
     log = Log.read()
     lines  = log.split('n')
     files = []
