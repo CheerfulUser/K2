@@ -126,7 +126,7 @@ print_mpi("my_start = "+str(my_start)+", my_end = "+str(my_end))
 for n in range(my_start, my_end+1):
     mytimestart = sys_time.time()
     
-    K2TranPix_limt(Files[n],save)
+    K2TranPix_limit(Files[n],save)
     print_mpi(Files[n])
     
     mytimestop = sys_time.time()
