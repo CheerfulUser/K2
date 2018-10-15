@@ -1378,18 +1378,24 @@ def Long_events(Data,Time,Dist,Save,File):
     Simple search for pixels that experience events longer than 2 days.
     '''
     sub = np.zeros(Data[0].shape)
-    good_frames = np.where(Dist < 0.2)[0]
+    limit = np.zeros(Data[0].shape)
+    good_frames = np.where(Dist < 0.5)[0]
 
     dim1,dim2 = Data[0].shape
     for i in range(dim1):
         for j in range(dim2):
             lc = Data[good_frames,i,j]
+            lc[lc<0] = 0
             sub[i,j] = abs((np.nanmean(lc) - np.nanmedian(lc)))
+            if np.nanmean(lc) < np.nanmedian(lc):
+                limit[i,j] = np.nanmean(lc)
+            else:
+                limit[i,j] = np.nanmedian(lc)
 
-    cut = np.nanmedian(sub) + np.nanstd(sub)
+    cut = np.nanmedian(sub) + 1*np.nanstd(sub)
     Limitsave = Save + '/Limit/' + File.split('ktwo')[-1].split('-')[0]+'_VLimit'
     Save_space(Save + '/Limit/')
-    np.savez(Limitsave,cut)
+    np.savez(Limitsave,limit + cut)
     
     long_events = Identify_masks(sub>=cut)
     
