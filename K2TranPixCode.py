@@ -1355,7 +1355,10 @@ def Probable_host(Eventtime,Eventmask,Source,SourceType,Objmasks,ObjName,ObjType
 
 def SixMedian(LC):
     '''
-    Creates a lightcurve using a 6 hour median average.
+    Creates a lightcurve using a 6 hour median average. 
+    Returns:
+    lc6 - the 6 hour averaged light curve
+    x   - the time indecies of the light curve positions to index the time array on.
     '''
     lc6 = []
     x = []
@@ -1889,11 +1892,13 @@ def K2TranPix(pixelfile,save):
 
             if len(Objmasks.shape) < 3:
                 Objmasks = np.zeros((1,datacube.shape[1],datacube.shape[2]))
+            ObjName, ObjType = Database_check_mask(datacube,thrusters,Objmasks,mywcs)
+            Gal_pixel_check(Mask,ObjName,Objmasks,ObjType,limit,mywcs,pixelfile,Save)
             
             
             if len(events) > 0:
                 Source, SourceType = Database_event_check(Maskdata,eventtime,eventmask,mywcs)
-                ObjName, ObjType = Database_check_mask(datacube,thrusters,Objmasks,mywcs)
+                
                 Near = Near_which_mask(eventmask,Objmasks,datacube)
                 In = In_which_mask(eventmask,Objmasks,datacube)
                 Maskobj = np.zeros((len(events),Maskdata.shape[1],Maskdata.shape[2])) # for plotting masked object reference
@@ -1934,7 +1939,7 @@ def K2TranPix(pixelfile,save):
                         Source = np.delete(Source,i)
                         SourceType = np.delete(SourceType,i)
                     i += 1
-                Gal_pixel_check(Mask,ObjName,Objmasks,ObjType,limit,mywcs,pixelfile,Save)
+                
                 
                 # Print figures
                 K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType,Maskobj)
