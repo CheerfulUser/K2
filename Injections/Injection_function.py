@@ -1,4 +1,3 @@
-import lightkurve as lk
 import pandas as pd
 import numpy as np
 
@@ -68,19 +67,23 @@ def KSN2015E(Magnitude,Start,Time):
     return K 
 
 
-def Blur_seed(TPF,Model,Start, Mag):
-    x = np.arange(-0, TPF.flux.shape[1])
-    y = np.arange(0, TPF.flux.shape[2])
+def Blur_seed(Flux,Time,Model,Start, Mag, Fixed = [False, False], Position=False):
+    y = np.arange(-0, Flux.shape[1])
+    x = np.arange(0, Flux.shape[2])
     x, y = np.meshgrid(x, y)
-
-    seed = [np.random.rand()*TPF.flux.shape[1],np.random.rand()*TPF.flux.shape[2]]  
+    if Fixed[0] != False:
+        seed = Fixed
+    else:
+        seed = [np.random.rand()*Flux.shape[1],np.random.rand()*Flux.shape[2]]  
+    if Position == True:
+        print(seed)
     if 'K' in Model:
-        model_lc = KSN2017K(Mag, Start, TPF.time)
+        model_lc = KSN2017K(Mag, Start, Time)
     elif 'E' in Model:
-        model_lc = KSN2015E(Mag, Start, TPF.time)
+        model_lc = KSN2015E(Mag, Start, Time)
     
-    Seeded = np.copy(TPF.flux)
-    for i in range(len(TPF.time)):
+    Seeded = np.copy(Flux)
+    for i in range(len(Time)):
         gauss = Gaussian2D(model_lc[i], seed[0], seed[1], 1, 1)
 
         data_2D = gauss(x, y)
