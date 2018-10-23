@@ -964,9 +964,9 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         Mid = ([position[0][0]],[position[1][0]])
         maxcolor = -1000 # Set a bad value for error identification
         for j in range(len(position[0])):
-            temp = sorted(Data[Eventtime[i][0]:Eventtime[i][-1],position[0][j],position[1][j]].flatten())
+            nonanind = np.isfinite(Data[:,position[0][j],position[1][j]])
+            temp = sorted(Data[nonanind,position[0][j],position[1][j]].flatten())
             temp = np.array(temp)
-            temp = temp[np.isfinite(temp)]
             temp  = temp[-3] # get 3rd brightest point
             if temp > maxcolor:
                 maxcolor = temp
@@ -1036,13 +1036,13 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
             xmax = Time[-1] - np.floor(Time[0])
         if np.isfinite(xmin) & np.isfinite(xmax):
             plt.xlim(xmin,xmax) 
-
+        lctemp = LC[Eventtime[i][0]:Eventtime[i][-1]]
+        lctemp = lctemp[np.isfinite(lctemp)]
         temp = sorted(LC[Eventtime[i][0]:Eventtime[i][-1]].flatten())
         temp = np.array(temp)
-        temp = temp[np.isfinite(temp)]
         temp  = temp[-3] # get 3rd brightest point
         ymin = np.nanmedian(LC)-np.nanstd(LC[Eventtime[i][0]:Eventtime[i][-1]])
-        ymax = temp +0.2*temp
+        ymax = temp + 0.2*temp
 
         plt.ylim(ymin,ymax)
         plt.legend(loc = 1)
