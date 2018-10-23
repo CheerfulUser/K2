@@ -1161,9 +1161,9 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save
         Mid = ([position[0][0]],[position[1][0]])
         maxcolor = 0 # Set a bad value for error identification
         for j in range(len(position[0])):
-            temp = sorted(Data[Eventtime[i][0]:Eventtime[i][-1],position[0][j],position[1][j]].flatten())
+            nonanind = np.isfinite(Data[:,position[0][j],position[1][j]])
+            temp = sorted(Data[nonanind,position[0][j],position[1][j]].flatten())
             temp = np.array(temp)
-            temp = temp[np.isfinite(temp)]
             temp  = temp[-3] # get 3rd brightest point
             if temp > maxcolor:
                 maxcolor = temp
@@ -1280,9 +1280,9 @@ def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Zoo_Save, D
         Mid = ([position[0][0]],[position[1][0]])
         maxcolor = -1000 # Set a bad value for error identification
         for j in range(len(position[0])):
-            temp = sorted(Data[Eventtime[i][0]:Eventtime[i][-1],position[0][j],position[1][j]].flatten())
+            nonanind = np.isfinite(Data[:,position[0][j],position[1][j]])
+            temp = sorted(Data[nonanind,position[0][j],position[1][j]].flatten())
             temp = np.array(temp)
-            temp = temp[np.isfinite(temp)]
             temp  = temp[-3] # get 3rd brightest point
             if temp > maxcolor:
                 maxcolor = temp
@@ -1365,7 +1365,7 @@ def Long_events(Data, Time, Mask, Dist, Save, File):
         for j in range(dim2):
 
             lc = np.copy(Data[:,i,j])#[good_frames,i,j]
-            #lc[lc < 0] = np.nan
+            lc[lc < 0] = 0
 
             condition = np.nanmedian(lc)+ np.nanstd(lc)
             diff = np.diff(Time[lc < condition])
@@ -1382,7 +1382,7 @@ def Long_events(Data, Time, Mask, Dist, Save, File):
                 
                     
             elif ~np.isnan(Mask[i,j]):
-                sub[i,j] = abs(1-(np.nanmean(lc) / np.nanmedian(lc)))
+                sub[i,j] = abs((np.nanmean(lc) - np.nanmedian(lc)))
                 
                 
     plt.figure()
@@ -1486,9 +1486,9 @@ def Long_figure(Long,Data,WCS,Time,Save,File,Source,SourceType,ObjMask,Frames):
         Mid = ([position[0][0]],[position[1][0]])
         maxcolor = -1000 # Set a bad value for error identification
         for j in range(len(position[0])):
-            temp = sorted(Data[:,position[0][j],position[1][j]].flatten())
+            nonanind = np.isfinite(Data[:,position[0][j],position[1][j]])
+            temp = sorted(Data[nonanind,position[0][j],position[1][j]].flatten())
             temp = np.array(temp)
-            temp = temp[np.isfinite(temp)]
             temp  = temp[-3] # get 3rd brightest point
             if temp > maxcolor:
                 maxcolor = temp
@@ -1521,9 +1521,8 @@ def Long_figure(Long,Data,WCS,Time,Save,File,Source,SourceType,ObjMask,Frames):
         
         
         # Generate a light curve from the transient masks
-        temp = sorted(LC.flatten())
+        temp = sorted(LC[np.isfinite(LC)].flatten())
         temp = np.array(temp)
-        temp = temp[np.isfinite(temp)]
         temp = temp[-5] # get 5th brightest point
         
         max_frame = np.where(LC == temp)[0][0]
@@ -1605,9 +1604,9 @@ def LongK2TranPixZoo(Long,Source,SourceType,Data,Time,wcs,Save,File):
         Mid = ([position[0][0]],[position[1][0]])
         maxcolor = 0 # Set a bad value for error identification
         for j in range(len(position[0])):
-            temp = sorted(Data[:,position[0][j],position[1][j]].flatten())
+            nonanind = np.isfinite(Data[:,position[0][j],position[1][j]])
+            temp = sorted(Data[nonanind,position[0][j],position[1][j]].flatten())
             temp = np.array(temp)
-            temp = temp[np.isfinite(temp)]
             temp  = temp[-3] # get 3rd brightest point
             if temp > maxcolor:
                 maxcolor = temp
