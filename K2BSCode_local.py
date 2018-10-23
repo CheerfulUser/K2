@@ -1358,7 +1358,7 @@ def Long_events(Data, Time, Mask, Dist, Save, File):
     '''
     sub = np.zeros(Data[0].shape)
     limit = np.zeros(Data[0].shape)
-    good_frames = np.where(Dist < 0.5)[0]
+    good_frames = np.where(Dist < 0.3)[0]
 
     dim1,dim2 = Data[0].shape
     for i in range(dim1):
@@ -1367,27 +1367,25 @@ def Long_events(Data, Time, Mask, Dist, Save, File):
             lc = np.copy(Data[:,i,j])#[good_frames,i,j]
             lc[lc < 0] = 0
 
-            condition = np.nanmedian(lc)+ np.nanstd(lc)
+            condition = np.nanmedian(lc) + np.nanstd(lc)
             diff = np.diff(Time[lc < condition])
             ind = np.where(lc < condition)[0]
             lc2 = np.copy(lc)
             for k in range(len(diff)):
                 if diff[k] < 1:
                     section = np.copy(lc[ind[k]:ind[k+1]])
+                    
                     section[section > condition] = np.nan
                     lc2[ind[k]:ind[k+1]] = section
-            
+                    
+
             if np.isnan(Mask[i,j]):
-                sub[i,j] = abs((np.nanmean(lc) - np.nanmedian(lc)))
+                sub[i,j] = abs((np.nanmean(lc2) - np.nanmedian(lc2)))
                 
                     
             elif ~np.isnan(Mask[i,j]):
-                sub[i,j] = abs((np.nanmean(lc) - np.nanmedian(lc)))
+                sub[i,j] = abs((np.nanmean(lc2) - np.nanmedian(lc2)))
                 
-                
-    plt.figure()
-    plt.imshow(sub*Mask,origin='lower')
-    plt.colorbar()
     
     cutbkg = np.nanmedian(sub*Mask) + 1*np.nanstd(sub*Mask)
     ob = np.ma.masked_invalid(Mask).mask
@@ -1399,20 +1397,20 @@ def Long_events(Data, Time, Mask, Dist, Save, File):
     
     limit[0,sub*Mask>=cutbkg] = sub[sub*Mask>=cutbkg]
     limit[0,sub*Mask<cutbkg] = cutbkg
+    #print(limit[0])
     limit[1,sub*ob>=cutobj] = sub[sub*ob>=cutobj]
     limit[1,sub*ob<cutobj] = cutobj
+    #print(sub[sub*ob>=cutobj])
     Limitsave = Save + '/Limit/' + File.split('ktwo')[-1].split('-')[0]+'_VLimit'
     Save_space(Save + '/Limit/')
-    np.savez(Limitsave,limit)
+    np.save(Limitsave,limit)
 
-    
     long_events_bkg = Identify_masks(sub*Mask>=cutbkg)
-    
     long_events_obj = Identify_masks(sub*ob>=cutobj)
-
+    
     if len(long_events_bkg) > 0:
         long_events = long_events_bkg
-        #if len(long_events_obj) > 0:
+        
         for z in range(len(long_events_obj)):
             long_events.append(long_events_obj[z])
             
@@ -1422,18 +1420,23 @@ def Long_events(Data, Time, Mask, Dist, Save, File):
         long_events = []
 
     long_mask = []
-    
+
     for i in range(len(long_events)):
-        lc = Lightcurve(Data[good_frames], long_events[i])
+        lc_nans = Lightcurve(Data[good_frames], long_events[i])
+        lc = lc_nans[np.isfinite(lc_nans)]
         #lc[lc <= 0] = np.nan
         
         goodtime = Time[good_frames]
+        goodtime = goodtime[np.isfinite(lc_nans)]
         
         tarr = np.copy(lc) <= np.nanmedian(lc)
+        tarr[0] = 1
+        tarr[-1] = 1
         
         time_comp = goodtime[tarr]
+
         difftime = np.diff(time_comp)
-        if (difftime >= 2).any() and (np.nanmean(lc) > 0): # condition on the number of exposures in 2 days 
+        if (difftime >= 2).any() and (np.nanmean(lc) > 10): # condition on the number of exposures in 2 days 
             long_mask.append(long_events[i])
 
     return long_mask
