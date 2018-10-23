@@ -966,9 +966,10 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         Mid = ([position[0][0]],[position[1][0]])
         maxcolor = -1000 # Set a bad value for error identification
         for j in range(len(position[0])):
-            temp = sorted(Data[Eventtime[i][0]:Eventtime[i][-1],position[0][j],position[1][j]].flatten())
+            lcpos = np.copy(Data[Eventtime[i][0]:Eventtime[i][-1],position[0][j],position[1][j]])
+            nonanind = np.isfinite(lcpos)
+            temp = sorted(lcpos[nonanind].flatten())
             temp = np.array(temp)
-            temp = temp[np.isfinite(temp)]
             temp  = temp[-3] # get 3rd brightest point
             if temp > maxcolor:
                 maxcolor = temp
@@ -1039,12 +1040,18 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         if np.isfinite(xmin) & np.isfinite(xmax):
             plt.xlim(xmin,xmax) 
 
-        temp = sorted(LC[Eventtime[i][0]:Eventtime[i][-1]].flatten())
+        lclim = np.copy(LC[Eventtime[i,0]:Eventtime[i,1]])
+
+        temp = sorted(lclim[np.isfinite(lclim)].flatten())
         temp = np.array(temp)
-        temp = temp[np.isfinite(temp)]
-        temp  = temp[-3] # get 3rd brightest point
-        ymin = np.nanmedian(LC)-np.nanstd(LC[Eventtime[i][0]:Eventtime[i][-1]])
-        ymax = temp +0.2*temp
+        maxy  = temp[-5] # get 8th brightest point
+
+        temp = sorted(lclim[np.isfinite(lclim)].flatten())
+        temp = np.array(temp)
+        miny  = temp[3] # get 3rd faintest point
+
+        ymin = miny - 0.1*miny
+        ymax = maxy + 0.1*maxy
 
         plt.ylim(ymin,ymax)
         plt.legend(loc = 1)
@@ -1167,7 +1174,7 @@ def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType
         ffmpegcall = 'ffmpeg -y -nostats -loglevel 0 -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4'
         os.system(ffmpegcall);
 
-        os.system('sleep 60')
+        os.system('sleep 1')
         os.system('rm -r ' + FrameSave)
 
 def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save,File):
@@ -1182,10 +1189,12 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save
         Mid = ([position[0][0]],[position[1][0]])
         maxcolor = 0 # Set a bad value for error identification
         for j in range(len(position[0])):
-            temp = sorted(Data[Eventtime[i][0]:Eventtime[i][-1],position[0][j],position[1][j]].flatten())
+            lcpos = np.copy(Data[Eventtime[i][0]:Eventtime[i][-1],position[0][j],position[1][j]])
+            nonanind = np.isfinite(lcpos)
+            temp = sorted(lcpos[nonanind].flatten())
             temp = np.array(temp)
-            temp = temp[np.isfinite(temp)]
             temp  = temp[-3] # get 3rd brightest point
+
             if temp > maxcolor:
                 maxcolor = temp
                 Mid = ([position[0][j]],[position[1][j]])
@@ -1208,12 +1217,18 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save
 
         LC = Lightcurve(Data, mask)
 
-        ymin = np.nanmedian(LC) - 0.1*np.nanstd(LC)
-        temp = sorted(LC[Eventtime[i,0]:Eventtime[i,1]].flatten())
+        lclim = np.copy(LC[Eventtime[i,0]:Eventtime[i,1]])
+
+        temp = sorted(lclim[np.isfinite(lclim)].flatten())
         temp = np.array(temp)
-        temp = temp[np.isfinite(temp)]
-        temp = temp[-3] # get 3rd brightest point
-        ymax = temp + 0.1*temp
+        maxy  = temp[-5] # get 8th brightest point
+
+        temp = sorted(lclim[np.isfinite(lclim)].flatten())
+        temp = np.array(temp)
+        miny  = temp[3] # get 3rd faintest point
+
+        ymin = miny - 0.1*miny
+        ymax = maxy + 0.1*maxy
 
         # Create an ImageNormalize object using a SqrtStretch object
         norm = ImageNormalize(vmin=ymin/len(position[0]), vmax=maxcolor, stretch=SqrtStretch())
@@ -1279,7 +1294,7 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save
 
         saves.append('./Figures' + directory.split('Figures')[-1] + 'Zoo-' + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4')
 
-        os.system('sleep 60')
+        os.system('sleep 1')
         os.system('rm -r ' + FrameSave)
 
     return saves
@@ -1373,47 +1388,93 @@ def SixMedian(LC):
     x = np.array(x)
     return lc6, x
 
-def Long_events(Data,Time,Dist,Save,File):
+def Long_events(Data, Time, Mask, Dist, Save, File):
     '''
-    Simple search for pixels that experience events longer than 2 days.
+    Search for pixels that experience events longer than 2 days.
     '''
     sub = np.zeros(Data[0].shape)
     limit = np.zeros(Data[0].shape)
-    good_frames = np.where(Dist < 0.5)[0]
+    good_frames = np.where(Dist < 0.3)[0]
 
     dim1,dim2 = Data[0].shape
     for i in range(dim1):
         for j in range(dim2):
-            lc = Data[good_frames,i,j]
-            lc[lc<0] = 0
-            sub[i,j] = abs((np.nanmean(lc) - np.nanmedian(lc)))
-            if np.nanmean(lc) < np.nanmedian(lc):
-                limit[i,j] = np.nanmean(lc)
-            else:
-                limit[i,j] = np.nanmedian(lc)
 
-    cut = np.nanmedian(sub) + 1*np.nanstd(sub)
+            lc = np.copy(Data[:,i,j])#[good_frames,i,j]
+            lc[lc < 0] = 0
+
+            condition = np.nanmedian(lc) + np.nanstd(lc)
+            diff = np.diff(Time[lc < condition])
+            ind = np.where(lc < condition)[0]
+            lc2 = np.copy(lc)
+            for k in range(len(diff)):
+                if diff[k] < 1:
+                    section = np.copy(lc[ind[k]:ind[k+1]])
+                    
+                    section[section > condition] = np.nan
+                    lc2[ind[k]:ind[k+1]] = section
+                    
+
+            if np.isnan(Mask[i,j]):
+                sub[i,j] = abs((np.nanmean(lc2) - np.nanmedian(lc2)))
+                
+                    
+            elif ~np.isnan(Mask[i,j]):
+                sub[i,j] = abs(1-(np.nanmean(lc2) / np.nanmedian(lc2)))
+                
+    
+    cutbkg = np.nanmedian(sub*Mask) + 2*np.nanstd(sub*Mask)
+    ob = np.ma.masked_invalid(Mask).mask
+    cutobj = np.nanmedian(sub*ob) + 2*np.nanstd(sub*ob)
+    ob = ob*1.
+    ob[ob == 0] = np.nan
+
+    limit = np.zeros((2,sub.shape[0],sub.shape[1]))
+    
+    limit[0,sub*Mask>=cutbkg] = sub[sub*Mask>=cutbkg]
+    limit[0,sub*Mask<cutbkg] = cutbkg
+    #print(limit[0])
+    limit[1,sub*ob>=cutobj] = sub[sub*ob>=cutobj]
+    limit[1,sub*ob<cutobj] = cutobj
+    #print(sub[sub*ob>=cutobj])
     Limitsave = Save + '/Limit/' + File.split('ktwo')[-1].split('-')[0]+'_VLimit'
     Save_space(Save + '/Limit/')
-    np.savez(Limitsave,limit + cut)
+    np.save(Limitsave,limit)
+
+    long_events_bkg = Identify_masks(sub*Mask>=cutbkg)
+    long_events_obj = Identify_masks(sub*ob>=cutobj)
     
-    long_events = Identify_masks(sub>=cut)
-    
+    if len(long_events_bkg) > 0:
+        long_events = long_events_bkg
+        
+        for z in range(len(long_events_obj)):
+            long_events.append(long_events_obj[z])
+            
+    elif len(long_events_obj) > 0:
+        long_events = long_events_obj
+    else:
+        long_events = []
+
     long_mask = []
-    
+
     for i in range(len(long_events)):
-        lc = Lightcurve(Data[good_frames], long_events[i])
-        lc[lc <= 0] = np.nan
+        lc_nans = Lightcurve(Data[good_frames], long_events[i])
+        lc = lc_nans[np.isfinite(lc_nans)]
+        #lc[lc <= 0] = np.nan
         
         goodtime = Time[good_frames]
+        goodtime = goodtime[np.isfinite(lc_nans)]
         
         tarr = np.copy(lc) <= np.nanmedian(lc)
+        tarr[0] = 1
+        tarr[-1] = 1
         
         time_comp = goodtime[tarr]
+
         difftime = np.diff(time_comp)
-        if (difftime >= 2).any(): # condition on the number of exposures in 2 days 
+        if (difftime >= 2).any() and (np.nanmean(lc) > 10): # condition on the number of exposures in 2 days 
             long_mask.append(long_events[i])
-    
+
     return long_mask
 
 def In_long_mask(Eventmask,Objmasks,Data):
@@ -1464,10 +1525,10 @@ def Long_figure(Long,Data,WCS,Time,Save,File,Source,SourceType,ObjMask,Frames):
         Mid = ([position[0][0]],[position[1][0]])
         maxcolor = -1000 # Set a bad value for error identification
         for j in range(len(position[0])):
-            temp = sorted(Data[:,position[0][j],position[1][j]].flatten())
+            nonanind = np.isfinite(Data[:,position[0][j],position[1][j]])
+            temp = sorted(Data[nonanind,position[0][j],position[1][j]].flatten())
             temp = np.array(temp)
-            temp = temp[np.isfinite(temp)]
-            temp  = temp[-3] # get 3rd brightest point
+            temp  = temp[-5] # get 5th brightest point
             if temp > maxcolor:
                 maxcolor = temp
                 Mid = ([position[0][j]],[position[1][j]])
@@ -1499,12 +1560,18 @@ def Long_figure(Long,Data,WCS,Time,Save,File,Source,SourceType,ObjMask,Frames):
         
         
         # Generate a light curve from the transient masks
-        temp = sorted(LC.flatten())
+        temp = sorted(Six_LC[np.isfinite(Six_LC)].flatten())
         temp = np.array(temp)
-        temp = temp[np.isfinite(temp)]
-        temp = temp[-5] # get 5th brightest point
+        maxy  = temp[-5] # get 8th brightest point
+
+        temp = sorted(Six_LC[np.isfinite(Six_LC)].flatten())
+        temp = np.array(temp)
+        miny  = temp[3] # get 3rd faintest point
+
+        ymin = miny - 0.1*miny
+        ymax = maxy + 0.1*maxy
         
-        max_frame = np.where(LC == temp)[0][0]
+        max_frame = np.where(LC == maxy)[0][0]
         
         mead = np.nanmedian(LC[np.isfinite(LC)])
         mead_frame = np.where(np.nanmin(abs(LC-mead)) == abs(LC-mead))[0][0]
@@ -1524,8 +1591,8 @@ def Long_figure(Long,Data,WCS,Time,Save,File,Source,SourceType,ObjMask,Frames):
         plt.plot(Time - np.floor(Time[0]), LC,'.', label = 'Event LC',alpha=0.5)
         plt.plot(Time[ind] - np.floor(Time[0]), Six_LC,'.', label = '6hr average',alpha=1)
         
-        ymin = np.nanmin(Six_LC) - 0.1*np.nanmin(Six_LC)
-        ymax = np.nanmax(Six_LC) + 0.1*np.nanmax(Six_LC)
+        ymin = ymin - 0.1*ymin
+        ymax = ymax + 0.1*ymax
         
         plt.ylim(ymin,ymax)
         plt.legend(loc = 1)
@@ -1606,8 +1673,16 @@ def LongK2TranPixZoo(Long,Source,SourceType,Data,Time,wcs,Save,File):
         LC = Lightcurve(Data, mask)
         Six_LC, ind = SixMedian(LC)
         
-        ymin = np.nanmin(Six_LC) - 0.1*np.nanmin(Six_LC)
-        ymax = np.nanmax(Six_LC) + 0.1*np.nanmax(Six_LC)
+        temp = sorted(Six_LC[np.isfinite(Six_LC)].flatten())
+        temp = np.array(temp)
+        maxy  = temp[-5] # get 8th brightest point
+
+        temp = sorted(Six_LC[np.isfinite(Six_LC)].flatten())
+        temp = np.array(temp)
+        miny  = temp[3] # get 3rd faintest point
+
+        ymin = miny - 0.1*miny
+        ymax = maxy + 0.1*maxy
 
         # Create an ImageNormalize object using a SqrtStretch object
         norm = ImageNormalize(vmin=ymin/len(position[0]), vmax=maxcolor, stretch=SqrtStretch())
@@ -1667,7 +1742,7 @@ def LongK2TranPixZoo(Long,Source,SourceType,Data,Time,wcs,Save,File):
 
         saves.append('./Figures' + directory.split('Figures')[-1] + 'Zoo-' + File.split('/')[-1].split('-')[0] + '_L' + str(i) + '.mp4') 
 
-        os.system('sleep 60')
+        os.system('sleep 1')
         os.system('rm -r ' + FrameSave)
 
     return saves
@@ -1720,7 +1795,7 @@ def Find_Long_Events(Data,Time,Eventmask,Objmasks,Mask,Thrusters,Dist,WCS,HDU,Fi
     '''
     Wrapper function for the long events finding routine.
     '''
-    long_mask = Long_events(Data,Time,Dist,Save,File)
+    long_mask = Long_events(Data,Time, Mask,Dist,Save,File)
     Long_Source, Long_Type = Database_check_mask(Data,Thrusters,long_mask,WCS)
 
     if len(long_mask) > 0:
