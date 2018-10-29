@@ -342,34 +342,66 @@ def SixMedian(LC):
     x = np.array(x)
     return lc6, x
 
-def Long_events_limit(Data,Dist,Save,File):
+def Long_events(Data, Time, Mask, Dist, Save, File):
     '''
     Saves the magnitude limit per pixel for events longer than 2 days.
 
     Data - 3d fux array
+    Time - 1d time array
+    Mask - 2d masked pixel array
     Dist - 1d displacement array
     Save - Save directory
     File - TPF name
     '''
     sub = np.zeros(Data[0].shape)
     limit = np.zeros(Data[0].shape)
-    good_frames = np.where(Dist < 0.5)[0]
+    good_frames = np.where(Dist < 0.3)[0]
 
     dim1,dim2 = Data[0].shape
     for i in range(dim1):
         for j in range(dim2):
-            lc = Data[good_frames,i,j]
-            lc[lc<0] = 0
-            sub[i,j] = abs((np.nanmean(lc) - np.nanmedian(lc)))
-            if np.nanmean(lc) < np.nanmedian(lc):
-                limit[i,j] = np.nanmean(lc)
-            else:
-                limit[i,j] = np.nanmedian(lc)
 
-    cut = np.nanmedian(sub) + 1*np.nanstd(sub)
+            lc = np.copy(Data[:,i,j])#[good_frames,i,j]
+            lc[lc < 0] = 0
+
+            condition = np.nanmedian(lc) + np.nanstd(lc)
+            diff = np.diff(Time[lc < condition])
+            ind = np.where(lc < condition)[0]
+            lc2 = np.copy(lc)
+            for k in range(len(diff)):
+                if diff[k] < 1:
+                    section = np.copy(lc[ind[k]:ind[k+1]])
+                    
+                    section[section > condition] = np.nan
+                    lc2[ind[k]:ind[k+1]] = section
+                    
+
+            if np.isnan(Mask[i,j]):
+                sub[i,j] = abs((np.nanmean(lc2) - np.nanmedian(lc2)))
+                
+                    
+            elif ~np.isnan(Mask[i,j]):
+                sub[i,j] = abs(1-(np.nanmean(lc2) / np.nanmedian(lc2)))
+                
+    
+    cutbkg = np.nanmedian(sub*Mask) + 2*np.nanstd(sub*Mask)
+    ob = np.ma.masked_invalid(Mask).mask
+    cutobj = np.nanmedian(sub*ob) + 2*np.nanstd(sub*ob)
+    ob = ob*1.
+    ob[ob == 0] = np.nan
+
+    limit = np.zeros((2,sub.shape[0],sub.shape[1]))
+    
+    limit[0,sub*Mask>=cutbkg] = sub[sub*Mask>=cutbkg]
+    limit[0,sub*Mask<cutbkg] = cutbkg
+    #print(limit[0])
+    limit[1,sub*ob>=cutobj] = sub[sub*ob>=cutobj]
+    limit[1,sub*ob<cutobj] = cutobj
+    #print(sub[sub*ob>=cutobj])
     Limitsave = Save + '/Limit/' + File.split('ktwo')[-1].split('-')[0]+'_VLimit'
     Save_space(Save + '/Limit/')
-    np.savez(Limitsave,limit + cut)
+    np.save(Limitsave,limit)
+    return
 
 
 
@@ -481,8 +513,8 @@ def K2TranPix_limit(pixelfile,save):
             ObjName, ObjType = Database_check_mask(datacube,thrusters,Objmasks,mywcs)
             Gal_pixel_check(Mask,ObjName,Objmasks,ObjType,limit,mywcs,pixelfile,Save)
 
-            Long_events_limit(Maskdata,time,Save,pixelfile)
-
+            Long_events_limit(Maskdata,time,Mask,distdrif,Save,pixelfile)
+        	
         else:
             print('Small ', pixelfile)
     except (OSError):
