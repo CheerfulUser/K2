@@ -1046,9 +1046,9 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         temp = np.array(temp)
         maxy  = temp[-5] # get 8th brightest point
 
-        temp = sorted(lclim[np.isfinite(lclim)].flatten())
+        temp = sorted(LC[np.isfinite(LC)].flatten())
         temp = np.array(temp)
-        miny  = temp[3] # get 3rd faintest point
+        miny  = temp[10] # get 10th faintest point
 
         ymin = miny - 0.1*miny
         ymax = maxy + 0.1*maxy
@@ -1223,9 +1223,9 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save
         temp = np.array(temp)
         maxy  = temp[-5] # get 8th brightest point
 
-        temp = sorted(lclim[np.isfinite(lclim)].flatten())
+        temp = sorted(LC[np.isfinite(LC)].flatten())
         temp = np.array(temp)
-        miny  = temp[3] # get 3rd faintest point
+        miny  = temp[10] # get 10th faintest point
 
         ymin = miny - 0.1*miny
         ymax = maxy + 0.1*maxy
