@@ -342,7 +342,7 @@ def SixMedian(LC):
     x = np.array(x)
     return lc6, x
 
-def Long_events(Data, Time, Mask, Dist, Save, File):
+def Long_events_limit(Data, Time, Mask, Dist, Save, File):
     '''
     Saves the magnitude limit per pixel for events longer than 2 days.
 
@@ -394,10 +394,10 @@ def Long_events(Data, Time, Mask, Dist, Save, File):
     
     limit[0,sub*Mask>=cutbkg] = sub[sub*Mask>=cutbkg]
     limit[0,sub*Mask<cutbkg] = cutbkg
-    #print(limit[0])
+    
     limit[1,sub*ob>=cutobj] = sub[sub*ob>=cutobj]
     limit[1,sub*ob<cutobj] = cutobj
-    #print(sub[sub*ob>=cutobj])
+ 	
     Limitsave = Save + '/Limit/' + File.split('ktwo')[-1].split('-')[0]+'_VLimit'
     Save_space(Save + '/Limit/')
     np.save(Limitsave,limit)
