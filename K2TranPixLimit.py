@@ -514,7 +514,7 @@ def K2TranPix_limit(pixelfile,save):
                 Objmasks = np.zeros((1,datacube.shape[1],datacube.shape[2]))
             	
             ObjName, ObjType = Database_check_mask(datacube,thrusters,Objmasks,mywcs)
-            Gal_pixel_check(Mask,ObjName,Objmasks,ObjType,limit,mywcs,pixelfile,Save)
+            #Gal_pixel_check(Mask,ObjName,Objmasks,ObjType,limit,mywcs,pixelfile,Save)
 
             Long_events_limit(Maskdata,time,Mask,distdrif,Save,pixelfile)
         	
