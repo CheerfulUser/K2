@@ -36,6 +36,8 @@ import warnings
 warnings.filterwarnings("ignore",category = RuntimeWarning)
 warnings.filterwarnings("ignore",category = UserWarning)
 
+import traceback
+
 
 def ThrustObjectMask(data,thrust):
     """
@@ -301,6 +303,7 @@ def Gal_pixel_check(Mask,Obj,Objmasks,Objtype,Limit,WCS,File,Save):
                     spamwriter = csv.writer(csvfile, delimiter=',')
                     spamwriter.writerow(['Name', 'Type', 'Redshift', 'Mag', 'RA', 'DEC', 'Maglim'])
                     spamwriter.writerow(CVSstring)
+    return
 
 
 def Save_space(Save):
@@ -518,5 +521,6 @@ def K2TranPix_limit(pixelfile,save):
         else:
             print('Small ', pixelfile)
     except (OSError):
-        print('OSError ',pixelfile)
+        print(pixelfile)
+        traceback.print_exc()
         pass  
