@@ -1,8 +1,3 @@
-import matplotlib 
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-import matplotlib.gridspec as gridspec
 import imageio
 import numpy as np
 
@@ -365,7 +360,7 @@ def Long_events_limit(Data, Time, Mask, Dist, Save, File):
         for j in range(dim2):
 
             lc = np.copy(Data[:,i,j])#[good_frames,i,j]
-            lc[lc < 0] = 0
+            #lc[lc < 0] = 0
 
             condition = np.nanmedian(lc) + np.nanstd(lc)
             diff = np.diff(Time[lc < condition])
@@ -384,7 +379,13 @@ def Long_events_limit(Data, Time, Mask, Dist, Save, File):
                 
                     
             elif ~np.isnan(Mask[i,j]):
-                sub[i,j] = abs(1-(np.nanmean(lc2) / np.nanmedian(lc2)))
+                if np.nanmedian(lc2) != 0:
+                    sub[i,j] = abs(1-(np.nanmean(lc2) / np.nanmedian(lc2)))
+                else:
+                    sub[i,j] = abs(1-(np.nanmean(lc2) / 1e-15))
+                print(sub[i,j])
+                print(np.nanmean(lc2),np.nanmedian(lc2))
+
                 
     
     cutbkg = np.nanmedian(sub*Mask) + 2*np.nanstd(sub*Mask)
@@ -397,7 +398,7 @@ def Long_events_limit(Data, Time, Mask, Dist, Save, File):
     
     limit[0,sub*Mask>=cutbkg] = sub[sub*Mask>=cutbkg]
     limit[0,sub*Mask<cutbkg] = cutbkg
-    
+    print(limit[0])
     limit[1,sub*ob>=cutobj] = sub[sub*ob>=cutobj]
     limit[1,sub*ob<cutobj] = cutobj
  	
