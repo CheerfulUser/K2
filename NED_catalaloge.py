@@ -18,6 +18,8 @@ def Save_space(Save):
     except FileExistsError:
         pass
 
+    return  
+
 def NED_database(File, Save):
     coords = np.loadtxt(File,dtype='str')
     for camp in coords:
@@ -35,6 +37,7 @@ def NED_database(File, Save):
                 table = result_table.to_pandas()
                 
                 name = 'NED_database_' + camp[0] + '_' + str(ra) + '_' + str(dec) + '.csv'
+                sav = Save + camp[0] + '/'
                 Save_space(Save)
                 table.to_csv(Save+name)
                 print('Saved')
