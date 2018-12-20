@@ -1,6 +1,9 @@
 import numpy as np
 import pandas as pd
+
 import os
+from time import sleep
+import httplib
 
 from astropy.io import fits
 from astropy import units as u
@@ -20,27 +23,36 @@ def Save_space(Save):
 
     return  
 
-def NED_database(File, Save):
+def NED_database(File, Campaign, Save):
     coords = np.loadtxt(File,dtype='str')
-    for camp in coords:
-        c = SkyCoord(coords[0,1] + ' ' + coords[0,1], unit=(u.hourangle, u.deg))
-        startra = c.ra-7*u.deg
-        startdec = c.dec-7*u.deg
-        step = 0.25
-        steps = int(6/0.25) # make a grid of points quesried every 1/4 degree, lots of overlap
-        for i in range(steps):
-            for j in range(steps):
-                ra = startra + i*step*u.deg
-                dec = startdec + j*step*u.deg
-                center = SkyCoord(str(ra.deg) + ' ' + str(dec.deg), unit=(u.deg, u.deg))
-                result_table = Ned.query_region(center, radius = 30*u.arcmin, equinox='J2000')
-                table = result_table.to_pandas()
-                
-                name = 'NED_database_' + camp[0] + '_' + str(ra) + '_' + str(dec) + '.csv'
-                sav = Save + camp[0] + '/'
-                Save_space(Save)
-                table.to_csv(Save+name)
-                print('Saved')
-        print('Done', camp[0])
+    camp = coords[Campaign]
+    #for camp in coords:
+    c = SkyCoord(coords[0,1] + ' ' + coords[0,1], unit=(u.hourangle, u.deg))
+    startra = c.ra-7*u.deg
+    startdec = c.dec-7*u.deg
+    step = 0.25
+    steps = int(6/0.25) # make a grid of points quesried every 1/4 degree, lots of overlap
+    for i in range(steps):
+        for j in range(steps):
+            ra = startra + i*step*u.deg
+            dec = startdec + j*step*u.deg
+            saved = False
+            while saved != True:
+                try:
+                    center = SkyCoord(str(ra.deg) + ' ' + str(dec.deg), unit=(u.deg, u.deg))
+                    result_table = Ned.query_region(center, radius = 30*u.arcmin, equinox='J2000')
+                    table = result_table.to_pandas()
+                    
+                    name = 'NED_database_' + camp[0] + '_' + str(ra) + '_' + str(dec) + '.csv'
+                    sav = Save + camp[0] + '/'
+                    Save_space(sav)
+                    table.to_csv(sav+name)
+                    saved = True
+                    print('Saved')
+                except (ChunkedEncodingError,ProtocolError,httplib.IncompleteRead,ValueError) as e :
+                    print(e)
+                    print('Sleeping')
+                    sleep(10*60) # Time in seconds.
+    print('Done', camp[0])
     return 
 
