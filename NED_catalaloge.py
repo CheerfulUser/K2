@@ -49,7 +49,7 @@ def NED_database(File, Campaign, Save):
                     table.to_csv(sav+name)
                     saved = True
                     print('Saved')
-                except (ChunkedEncodingError,ProtocolError,httplib.IncompleteRead,ValueError) as e :
+                except (httplib.IncompleteRead,ValueError) as e :
                     print(e)
                     print('Sleeping')
                     sleep(10*60) # Time in seconds.
