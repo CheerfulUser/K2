@@ -300,6 +300,70 @@ def Gal_pixel_check(Mask,Obj,Objmasks,Objtype,Limit,WCS,File,Save):
                     spamwriter.writerow(CVSstring)
     return
 
+def Local_Gal_Check(Mask,Obj,Objmasks,Objtype,Limit,WCS,File,Save):
+    """
+    Checks each pixel outside of objects and the objects to see if they coincide with a galaxy.
+    If there is a coincidence with NED then galaxy properties and limit of the pixel are saved
+    to file in a Gal directory.
+    """
+    Database_location = '/avatar/ryanr/Data/Catalog/NED/' 
+    Y, X = np.where(Mask)
+    for i in range(len(X)):
+        coord = pix2coord(X[i],Y[i],WCS)
+
+        c = coordinates.SkyCoord(ra=coord[0], dec=coord[1],unit=(u.deg, u.deg), frame='icrs')
+        ra = c.ra.deg
+        dec = c.dec.deg
+        result_table = pd.read_csv(Path+'NED_' + camp + '.csv').values
+        dist = np.sqrt((float(result_table[:,1]) - ra)**2 + (float(result_table[:,2]) - dec)**2)
+        radius = 2/3600 # Convert arcsec to deg 
+        if (dist <= radius).any():
+            ind = np.where(np.nanmin(dist))
+            obj = result_table[ind,:]
+            Objtype = obj[3]
+            if (obtype == 'G') | (obtype == 'QSO') | (obtype == 'QGroup') | (obtype == 'Q_Lens'):
+
+                redshift = obj[5]
+                magfilt = obj[7]
+                CVSstring =[Ob, obtype, str(redshift), magfilt, str(coord[0]), str(coord[1]), str(Limit[Y[i],X[i]])]
+                Save_space(Save+'/Gals/')
+                Path = Save + '/Gals/' + File.split('/')[-1].split('-')[0] + '_Gs.csv'
+                
+                if os.path.isfile(Path):
+                    with open(Path, 'a') as csvfile:
+                        spamwriter = csv.writer(csvfile, delimiter=',')
+                        spamwriter.writerow(CVSstring)
+                else:
+                    with open(Path, 'w') as csvfile:
+                        spamwriter = csv.writer(csvfile, delimiter=',')
+                        spamwriter.writerow(['Name', 'Type', 'Redshift', 'Mag', 'RA', 'DEC', 'Maglim'])
+                        spamwriter.writerow(CVSstring)
+    
+    for i in range(len(Obj)):
+        if (Objtype[i] == 'G') | (Objtype[i] == 'QSO') | (Objtype[i] == 'QGroup') | (Objtype[i] == 'Q_Lens'):
+            ind = np.where(result_table[:,0] == Obj)
+            obj = result_table[ind,:]
+            obtype = obj[3]
+
+            Ob = ob[0]
+            redshift = obj[5]
+            magfilt = obj[7]
+            limit = np.nanmean(Limit[Objmasks[i]==1])
+            CVSstring =[Ob, obtype, str(redshift), magfilt, str(coord[0]), str(coord[1]), str(limit)]
+            Save_space(Save+'/Gals/')
+            Path = Save + '/Gals/' + File.split('/')[-1].split('-')[0] + '_Gs.csv'
+
+            if os.path.isfile(Path):
+                with open(Path, 'a') as csvfile:
+                    spamwriter = csv.writer(csvfile, delimiter=',')
+                    spamwriter.writerow(CVSstring)
+            else:
+                with open(Path, 'w') as csvfile:
+                    spamwriter = csv.writer(csvfile, delimiter=',')
+                    spamwriter.writerow(['Name', 'Type', 'Redshift', 'Mag', 'RA', 'DEC', 'Maglim'])
+                    spamwriter.writerow(CVSstring)
+    return
+
 
 def Save_space(Save):
     """
@@ -401,10 +465,15 @@ def Long_events_limit(Data, Time, Mask, Dist, Save, File):
     print(limit[0])
     limit[1,sub*ob>=cutobj] = sub[sub*ob>=cutobj]
     limit[1,sub*ob<cutobj] = cutobj
+
+    limitfile = np.zeros((3,limit.shape[0],limit.shape[1]))
+    limitfile[0] = limit[0]
+    limitfile[1] = limit[1]
+    limitfile[2] = np.nanstd(Maskdata[Qual == 0], axis = (0))
  	
     Limitsave = Save + '/Limit/' + File.split('ktwo')[-1].split('-')[0]+'_VLimit'
     Save_space(Save + '/Limit/')
-    np.save(Limitsave,limit)
+    np.save(Limitsave,limitfile)
     return
 
 
@@ -466,10 +535,13 @@ def K2TranPix_limit(pixelfile,save):
             limit = abs(np.nanmedian(Maskdata[Qual == 0], axis = (0))+3*(np.nanstd(Maskdata[Qual == 0], axis = (0))))
             limit[limit<22] = 22
             
-            
+            limitfile = np.zeros((2,limit.shape[0],limit.shape[1]))
+            limitfile[0] = limit
+            limitfile[1] = np.nanstd(Maskdata[Qual == 0], axis = (0))
+
             Limitsave = Save + '/Limit/' + pixelfile.split('ktwo')[-1].split('-')[0]+'_Limit'
             Save_space(Save + '/Limit/')
-            np.savez(Limitsave,limit)
+            np.savez(Limitsave,limitfile)
             
             
             # Create an array that saves the total area of mask and time. 
@@ -516,6 +588,7 @@ def K2TranPix_limit(pixelfile,save):
             	
             #ObjName, ObjType = Database_check_mask(datacube,thrusters,Objmasks,mywcs)
             #Gal_pixel_check(Mask,ObjName,Objmasks,ObjType,limit,mywcs,pixelfile,Save)
+            Local_Gal_Check(Mask,ObjName,Objmasks,ObjType,limit,mywcs,pixelfile,Save)
 
             Long_events_limit(Maskdata,time,Mask,distdrif,Save,pixelfile)
         	
