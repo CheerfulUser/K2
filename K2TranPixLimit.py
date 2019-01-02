@@ -1,5 +1,6 @@
 import imageio
 import numpy as np
+import pandas as pd
 
 from scipy.ndimage.filters import convolve
 from scipy.interpolate import interp1d
@@ -212,27 +213,31 @@ def Database_check_mask(Datacube,Thrusters,Masks,WCS):
         objtype = 'Unknown'
         try:
             result_table = Ned.query_region(c, radius = 6*u.arcsec, equinox='J2000')
-            Ob = np.asarray(result_table['Object Name'])[0].decode("utf-8") 
-            objtype = result_table['Type'][0].decode("utf-8") 
+            if len(result_table.colnames) > 0:
+                if len(result_table['No.']) > 0:
+                    Ob = np.asarray(result_table['Object Name'])[0].decode("utf-8") 
+                    objtype = result_table['Type'][0].decode("utf-8") 
 
-            if '*' in objtype:
-                objtype = objtype.replace('*','Star')
-            if '!' in objtype:
-                objtype = objtype.replace('!','Gal') # Galactic sources
-            if objtype == 'G':
-                try:
-                    result_table = Simbad.query_region(c,radius = 6*u.arcsec)
-                    if len(result_table.colnames) > 0:
-                        objtype = objtype + 'Simbad'
-                except (AttributeError,ExpatError,TableParseError,ValueError,EOFError) as e:
-                    pass
+                    if '*' in objtype:
+                        objtype = objtype.replace('*','Star')
+                    if '!' in objtype:
+                        objtype = objtype.replace('!','Gal') # Galactic sources
+                    if objtype == 'G':
+                        try:
+                            result_table = Simbad.query_region(c,radius = 6*u.arcsec)
+                            if len(result_table.colnames) > 0:
+                                if len(result_table['MAIN_ID']) > 0:
+                                    objtype = objtype + 'Simbad'
+                        except (AttributeError,ExpatError,TableParseError,ValueError,EOFError) as e:
+                            pass
                 
         except (RemoteServiceError,ExpatError,TableParseError,ValueError,EOFError) as e:
             try:
                 result_table = Simbad.query_region(c,radius = 6*u.arcsec)
                 if len(result_table.colnames) > 0:
-                    Ob = np.asarray(result_table['MAIN_ID'])[0].decode("utf-8") 
-                    objtype = 'Simbad'
+                    if len(result_table['MAIN_ID']) > 0:
+                        Ob = np.asarray(result_table['MAIN_ID'])[0].decode("utf-8") 
+                        objtype = 'Simbad'
             except (AttributeError,ExpatError,TableParseError,ValueError,EOFError) as e:
                 pass
         Objects.append(Ob)
