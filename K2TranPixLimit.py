@@ -357,7 +357,7 @@ def Local_Gal_Check(Mask,Obj,Objmasks,Objtype,Limit,WCS,File,Save):
             hack_str = "b'%s'" %Obj
             ind = np.where(hack_str == result_table[:,0])
             obj = result_table[ind,:]
-            if len(obj > 3):
+            if len(obj) > 3:
                 obtype = obj[3]
 
                 Ob = obj[0][2:-1]
