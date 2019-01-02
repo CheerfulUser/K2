@@ -312,7 +312,7 @@ def Local_Gal_Check(Mask,Obj,Objmasks,Objtype,Limit,WCS,File,Save):
     to file in a Gal directory.
     """
     Database_location = '/avatar/ryanr/Data/Catalog/NED/' 
-    camp = File.split('-')[0].split('_')[0]
+    Campaign = File.split('-')[1].split('_')[0]
     Y, X = np.where(Mask)
     for i in range(len(X)):
         coord = pix2coord(X[i],Y[i],WCS)
@@ -320,7 +320,7 @@ def Local_Gal_Check(Mask,Obj,Objmasks,Objtype,Limit,WCS,File,Save):
         c = coordinates.SkyCoord(ra=coord[0], dec=coord[1],unit=(u.deg, u.deg), frame='icrs')
         ra = c.ra.deg
         dec = c.dec.deg
-        result_table = pd.read_csv(Database_location + 'NED_' + camp + '.csv').values
+        result_table = pd.read_csv(Database_location + 'NED_' + Campaign + '.csv').values
         dist = np.sqrt((float(result_table[:,1]) - ra)**2 + (float(result_table[:,2]) - dec)**2)
         radius = 2/3600 # Convert arcsec to deg 
         if (dist <= radius).any():
