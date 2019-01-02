@@ -312,6 +312,7 @@ def Local_Gal_Check(Mask,Obj,Objmasks,Objtype,Limit,WCS,File,Save):
     to file in a Gal directory.
     """
     Database_location = '/avatar/ryanr/Data/Catalog/NED/' 
+    camp = File.split('-')[0].split('_')[0]
     Y, X = np.where(Mask)
     for i in range(len(X)):
         coord = pix2coord(X[i],Y[i],WCS)
