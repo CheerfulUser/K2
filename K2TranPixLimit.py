@@ -356,28 +356,30 @@ def Local_Gal_Check(Mask,Obj,Objmasks,Objtype,Limit,WCS,File,Save):
         if (Objtype[i] == 'G') | (Objtype[i] == 'QSO') | (Objtype[i] == 'QGroup') | (Objtype[i] == 'Q_Lens'):
             hack_str = "b'%s'" %Obj
             ind = np.where(hack_str == result_table[:,0])
-            print(ind)
             obj = result_table[ind,:]
-            print(obj)
-            obtype = obj[3]
+            if len(obj > 3):
+                obtype = obj[3]
 
-            Ob = obj[0][2:-1]
-            redshift = obj[5]
-            magfilt = obj[7]
-            limit = np.nanmean(Limit[Objmasks[i]==1])
-            CVSstring =[Ob, obtype, str(redshift), magfilt, str(coord[0]), str(coord[1]), str(limit)]
-            Save_space(Save+'/Gals/')
-            Path = Save + '/Gals/' + File.split('/')[-1].split('-')[0] + '_Gs.csv'
+                Ob = obj[0][2:-1]
+                redshift = obj[5]
+                magfilt = obj[7]
+                limit = np.nanmean(Limit[Objmasks[i]==1])
+                CVSstring =[Ob, obtype, str(redshift), magfilt, str(coord[0]), str(coord[1]), str(limit)]
+                Save_space(Save+'/Gals/')
+                Path = Save + '/Gals/' + File.split('/')[-1].split('-')[0] + '_Gs.csv'
 
-            if os.path.isfile(Path):
-                with open(Path, 'a') as csvfile:
-                    spamwriter = csv.writer(csvfile, delimiter=',')
-                    spamwriter.writerow(CVSstring)
+                if os.path.isfile(Path):
+                    with open(Path, 'a') as csvfile:
+                        spamwriter = csv.writer(csvfile, delimiter=',')
+                        spamwriter.writerow(CVSstring)
+                else:
+                    with open(Path, 'w') as csvfile:
+                        spamwriter = csv.writer(csvfile, delimiter=',')
+                        spamwriter.writerow(['Name', 'Type', 'Redshift', 'Mag', 'RA', 'DEC', 'Maglim'])
+                        spamwriter.writerow(CVSstring)
             else:
-                with open(Path, 'w') as csvfile:
-                    spamwriter = csv.writer(csvfile, delimiter=',')
-                    spamwriter.writerow(['Name', 'Type', 'Redshift', 'Mag', 'RA', 'DEC', 'Maglim'])
-                    spamwriter.writerow(CVSstring)
+                print(Obj)
+                print(hack_str)
     return
 
 
