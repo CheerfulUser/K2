@@ -316,8 +316,11 @@ def Local_Gal_Check(Mask,Obj,Objmasks,Objtype,Limit,WCS,File,Save):
     Y, X = np.where(Mask)
 
     result_table = pd.read_csv(Database_location + 'NED_' + Campaign + '.csv').values
-    NED_RA = result_table[:,1]
-    NED_DEC = result_table[:,2]
+    NED_RA = np.zeros(len(result_table[:,1]))
+    NED_DEC = np.zeros(len(result_table[:,1]))
+    for i in range(len(result_table[:,1])):
+        NED_RA[i] = result_table[i,1]
+        NED_DEC[i] = result_table[i,2]
 
     for i in range(len(X)):
         coord = pix2coord(X[i],Y[i],WCS)
