@@ -316,11 +316,8 @@ def Local_Gal_Check(Mask,Obj,Objmasks,Objtype,Limit,WCS,File,Save):
     Y, X = np.where(Mask)
 
     result_table = pd.read_csv(Database_location + 'NED_' + Campaign + '.csv').values
-    NED_RA = np.zeros(len(result_table[:,1]))
-    NED_DEC = np.zeros(len(result_table[:,1]))
-    for i in range(len(result_table[:,1])):
-        NED_RA[i] = float(result_table[i,1])
-        NED_DEC[i] = float(result_table[i,2])
+    NED_RA = result_table[:,1]
+    NED_DEC = result_table[:,2]
 
     for i in range(len(X)):
         coord = pix2coord(X[i],Y[i],WCS)
@@ -333,9 +330,9 @@ def Local_Gal_Check(Mask,Obj,Objmasks,Objtype,Limit,WCS,File,Save):
         if (dist <= radius).any():
             ind = np.where(np.nanmin(dist))
             obj = result_table[ind,:]
-            Objtype = obj[3]
+            Objtype = obj[3][2:-1] # final indexing is to get rid of annoying pandas import 
             if (obtype == 'G') | (obtype == 'QSO') | (obtype == 'QGroup') | (obtype == 'Q_Lens'):
-
+                Ob = obj[0][2:-1]
                 redshift = obj[5]
                 magfilt = obj[7]
                 CVSstring =[Ob, obtype, str(redshift), magfilt, str(coord[0]), str(coord[1]), str(Limit[Y[i],X[i]])]
@@ -354,11 +351,12 @@ def Local_Gal_Check(Mask,Obj,Objmasks,Objtype,Limit,WCS,File,Save):
     
     for i in range(len(Obj)):
         if (Objtype[i] == 'G') | (Objtype[i] == 'QSO') | (Objtype[i] == 'QGroup') | (Objtype[i] == 'Q_Lens'):
-            ind = np.where(result_table[:,0] == Obj)
+            hack_str = "b'%s'" %Obj
+            ind = np.where(hack_str == result_table[:,0])
             obj = result_table[ind,:]
             obtype = obj[3]
 
-            Ob = ob[0]
+            Ob = obj[0][2:-1]
             redshift = obj[5]
             magfilt = obj[7]
             limit = np.nanmean(Limit[Objmasks[i]==1])
@@ -481,7 +479,7 @@ def Long_events_limit(Data, Time, Mask, Dist, Save, File):
     limitfile = np.zeros((3,limit.shape[1],limit.shape[2]))
     limitfile[0] = limit[0]
     limitfile[1] = limit[1]
-    limitfile[2] = np.nanstd(Maskdata[Qual == 0], axis = (0))
+    limitfile[2] = np.nanstd(sub*Mask)
  	
     Limitsave = Save + '/Limit/' + File.split('ktwo')[-1].split('-')[0]+'_VLimit'
     Save_space(Save + '/Limit/')
