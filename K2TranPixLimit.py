@@ -356,7 +356,9 @@ def Local_Gal_Check(Mask,Obj,Objmasks,Objtype,Limit,WCS,File,Save):
         if (Objtype[i] == 'G') | (Objtype[i] == 'QSO') | (Objtype[i] == 'QGroup') | (Objtype[i] == 'Q_Lens'):
             hack_str = "b'%s'" %Obj
             ind = np.where(hack_str == result_table[:,0])
+            print(ind)
             obj = result_table[ind,:]
+            print(obj)
             obtype = obj[3]
 
             Ob = obj[0][2:-1]
