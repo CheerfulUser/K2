@@ -319,7 +319,7 @@ def Local_Gal_Check(Mask,Obj,Objmasks,Objtype,Limit,WCS,File,Save):
         c = coordinates.SkyCoord(ra=coord[0], dec=coord[1],unit=(u.deg, u.deg), frame='icrs')
         ra = c.ra.deg
         dec = c.dec.deg
-        result_table = pd.read_csv(Path+'NED_' + camp + '.csv').values
+        result_table = pd.read_csv(Database_location + 'NED_' + camp + '.csv').values
         dist = np.sqrt((float(result_table[:,1]) - ra)**2 + (float(result_table[:,2]) - dec)**2)
         radius = 2/3600 # Convert arcsec to deg 
         if (dist <= radius).any():
