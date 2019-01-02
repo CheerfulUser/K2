@@ -460,8 +460,7 @@ def Long_events_limit(Data, Time, Mask, Dist, Save, File):
                     sub[i,j] = abs(1-(np.nanmean(lc2) / np.nanmedian(lc2)))
                 else:
                     sub[i,j] = abs(1-(np.nanmean(lc2) / 1e-15))
-                print(sub[i,j])
-                print(np.nanmean(lc2),np.nanmedian(lc2))
+                
 
                 
     
@@ -475,11 +474,11 @@ def Long_events_limit(Data, Time, Mask, Dist, Save, File):
     
     limit[0,sub*Mask>=cutbkg] = sub[sub*Mask>=cutbkg]
     limit[0,sub*Mask<cutbkg] = cutbkg
-    print(limit[0])
+    
     limit[1,sub*ob>=cutobj] = sub[sub*ob>=cutobj]
     limit[1,sub*ob<cutobj] = cutobj
 
-    limitfile = np.zeros((3,limit.shape[0],limit.shape[1]))
+    limitfile = np.zeros((3,limit.shape[1],limit.shape[2]))
     limitfile[0] = limit[0]
     limitfile[1] = limit[1]
     limitfile[2] = np.nanstd(Maskdata[Qual == 0], axis = (0))
