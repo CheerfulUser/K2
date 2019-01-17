@@ -1722,7 +1722,7 @@ def LongK2TranPixZoo(Long,Eventtime,Source,SourceType,Data,Time,wcs,Save,File):
 
         saves.append('./Figures' + directory.split('Figures')[-1] + 'Zoo-' + File.split('/')[-1].split('-')[0] + '_L' + str(i) + '.mp4') 
 
-        os.system('sleep 60')
+        os.system('sleep 1')
         os.system('rm -r ' + FrameSave)
 
     return saves
