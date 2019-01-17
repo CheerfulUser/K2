@@ -1904,8 +1904,8 @@ def Rank_brightness(Eventtime,Eventmask,Data,Quality):
         mask = mask > 0
         LC = Lightcurve(Data,mask)
         outside_mask = np.ones(len(LC))
-        lower = Eventtime[i][0]-5
-        upper = Eventtime[i][1] + 20
+        lower = Eventtime[i][0] - 2*48
+        upper = Eventtime[i][1] + 10*48
         if lower < 0:
             lower = 0
         if upper > len(LC):
