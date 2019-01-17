@@ -37,6 +37,8 @@ import warnings
 warnings.filterwarnings("ignore",category = RuntimeWarning)
 warnings.filterwarnings("ignore",category = UserWarning)
 
+import traceback
+
 
 def Clip_cube(Data):
     """
@@ -724,66 +726,6 @@ def Database_check_mask(Datacube,Thrusters,Masks,WCS):
         Objtype.append(objtype)
 
     return Objects, Objtype
-
-
-def Gal_pixel_check(Mask,Obj,Objmasks,Objtype,Limit,WCS,File,Save):
-    """
-    Checks each pixel outside of objects and the objects to see if they coincide with a galaxy.
-    If there is a coincidence with NED then galaxy properties and limit of the pixel are saved
-    to file in a Gal directory.
-    """
-    Y, X = np.where(Mask)
-    for i in range(len(X)):
-        coord = pix2coord(X[i],Y[i],WCS)
-
-        c = coordinates.SkyCoord(ra=coord[0], dec=coord[1],unit=(u.deg, u.deg), frame='icrs')
-        try:
-            result_table = Ned.query_region(c, radius = 2*u.arcsec, equinox='J2000')
-            obtype = np.asarray(result_table['Type'])[0].decode("utf-8") 
-            if (obtype == 'G') | (obtype == 'QSO') | (obtype == 'QGroup') | (obtype == 'Q_Lens'):
-
-                Ob = np.asarray(result_table['Object Name'])[0].decode("utf-8") 
-                redshift = np.asarray(result_table['Redshift'])[0]
-                magfilt = np.asarray(result_table['Magnitude and Filter'])[0].decode("utf-8") 
-                CVSstring =[Ob, obtype, str(redshift), magfilt, str(coord[0]), str(coord[1]), str(Limit[Y[i],X[i]])]
-                Save_space(Save+'/Gals/')
-                Path = Save + '/Gals/' + File.split('/')[-1].split('-')[0] + '_Gs.csv'
-                
-                if os.path.isfile(Path):
-                    with open(Path, 'a') as csvfile:
-                        spamwriter = csv.writer(csvfile, delimiter=',')
-                        spamwriter.writerow(CVSstring)
-                else:
-                    with open(Path, 'w') as csvfile:
-                        spamwriter = csv.writer(csvfile, delimiter=',')
-                        spamwriter.writerow(['Name', 'Type', 'Redshift', 'Mag', 'RA', 'DEC', 'Maglim'])
-                        spamwriter.writerow(CVSstring)
-        except (RemoteServiceError,ExpatError,TableParseError,ValueError,EOFError) as e:
-            pass
-    
-    for i in range(len(Obj)):
-        if (Objtype[i] == 'G') | (Objtype[i] == 'QSO') | (Objtype[i] == 'QGroup') | (Objtype[i] == 'Q_Lens'):
-            result_table = Ned.query_object(Obj[i])
-            print('working')
-            obtype = np.asarray(result_table['Type'])[0].decode("utf-8")             
-
-            Ob = np.asarray(result_table['Object Name'])[0].decode("utf-8") 
-            redshift = np.asarray(result_table['Redshift'])[0]
-            magfilt = np.asarray(result_table['Magnitude and Filter'])[0].decode("utf-8") 
-            limit = np.nanmean(Limit[Objmasks[i]==1])
-            CVSstring =[Ob, obtype, str(redshift), magfilt, str(coord[0]), str(coord[1]), str(limit)]
-            Save_space(Save+'/Gals/')
-            Path = Save + '/Gals/' + File.split('/')[-1].split('-')[0] + '_Gs.csv'
-
-            if os.path.isfile(Path):
-                with open(Path, 'a') as csvfile:
-                    spamwriter = csv.writer(csvfile, delimiter=',')
-                    spamwriter.writerow(CVSstring)
-            else:
-                with open(Path, 'w') as csvfile:
-                    spamwriter = csv.writer(csvfile, delimiter=',')
-                    spamwriter.writerow(['Name', 'Type', 'Redshift', 'Mag', 'RA', 'DEC', 'Maglim'])
-                    spamwriter.writerow(CVSstring)
 
 
 
@@ -2086,7 +2028,6 @@ def K2TranPix(pixelfile,save):
             if len(Objmasks.shape) < 3:
                 Objmasks = np.zeros((1,datacube.shape[1],datacube.shape[2]))
             ObjName, ObjType = Database_check_mask(datacube,thrusters,Objmasks,mywcs)
-            #Gal_pixel_check(Mask,ObjName,Objmasks,ObjType,limit,mywcs,pixelfile,Save)
             
             
             if len(events) > 0:
@@ -2145,4 +2086,5 @@ def K2TranPix(pixelfile,save):
             print('Small ', pixelfile)
     except (OSError):
         print('OSError ',pixelfile)
+        traceback.print_exc()
         pass  
