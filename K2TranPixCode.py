@@ -2086,7 +2086,7 @@ def K2TranPix(pixelfile,save):
             if len(Objmasks.shape) < 3:
                 Objmasks = np.zeros((1,datacube.shape[1],datacube.shape[2]))
             ObjName, ObjType = Database_check_mask(datacube,thrusters,Objmasks,mywcs)
-            Gal_pixel_check(Mask,ObjName,Objmasks,ObjType,limit,mywcs,pixelfile,Save)
+            #Gal_pixel_check(Mask,ObjName,Objmasks,ObjType,limit,mywcs,pixelfile,Save)
             
             
             if len(events) > 0:
