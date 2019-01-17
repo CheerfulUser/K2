@@ -5,6 +5,7 @@ import matplotlib.animation as animation
 import matplotlib.gridspec as gridspec
 import imageio
 import numpy as np
+import pandas as pd
 
 from scipy.ndimage.filters import convolve
 from scipy.interpolate import interp1d
@@ -37,13 +38,19 @@ warnings.filterwarnings("ignore",category = RuntimeWarning)
 warnings.filterwarnings("ignore",category = UserWarning)
 
 
-def FindMinFrame(data,thrusters):
+def Clip_cube(Data):
     """
-    This function isnt used anymore 
-    Finding the reference frame
+    Performs a sigma clip on the light curves of all pixels in the data.
+    Data - 3d array with time and pixel values
     """
-    Framemin = data[thrusters[3]+1]
-    return Framemin
+    data = np.copy(Data)
+    frame = np.nanmedian(Data,axis=(0))
+    frame[frame==0] = np.nan
+    ind = np.where(np.isfinite(frame))
+    for i in range(len(ind)):
+        lc = data[:,ind[0][i],ind[1][i]]
+        data[sigma_clip(lc,sigma=5.).mask,ind[0][i],ind[1][i]] = np.nan
+    return data
 
 def ObjectMask(datacube,Framemin):
     """
@@ -280,17 +287,17 @@ def ThrusterElim(Events,Times,Masks,Firings,Quality,qual,Data):
                 #print(LC.shape)
                 maxloc = Smoothmax(Times[i],LC,qual)
 
-                if ((maxloc > begining).all() & (maxloc < end)).all(): 
-                    premean = np.nanmean(LC[eventthrust-1]) 
-                    poststd = np.nanstd(LC[eventthrust+1])
-                    postmean = np.nanmedian(LC[eventthrust+1])
-                    Outsidethrust = Firings[(Firings < Times[i][0]) | (Firings > Times[i][-1]+20)]
-                    Outsidemean = np.nanmedian(LC[Outsidethrust+1])
-                    Outsidestd = np.nanstd(LC[Outsidethrust+1])
-                    if  postmean > Outsidemean+2*Outsidestd:
-                        temp.append(Events[i])
-                        temp2.append(Times[i])
-                        temp3.append(Masks[i])
+                #if ((maxloc > begining).all() & (maxloc < end)).all(): 
+                premean = np.nanmean(LC[eventthrust-2]) 
+                poststd = np.nanstd(LC[eventthrust+2])
+                postmean = np.nanmedian(LC[eventthrust+2])
+                Outsidethrust = Firings[(Firings < Times[i][0]) | (Firings > Times[i][-1]+20)]
+                Outsidemean = np.nanmedian(LC[Outsidethrust[:-2]+2])
+                Outsidestd = np.nanstd(LC[Outsidethrust[:-2]+2])
+                if  postmean > Outsidemean+2*Outsidestd:
+                    temp.append(Events[i])
+                    temp2.append(Times[i])
+                    temp3.append(Masks[i])
 
 
     events = np.array(temp)
@@ -498,6 +505,7 @@ def Motion_correction(Data,Mask,Thrusters,Dist):
     C03 or C10.
     """
     Corrected = np.zeros((Data.shape[0],Data.shape[1],Data.shape[2]))
+    Motion_flag = np.zeros(Data.shape[0])
     fit = np.zeros(len(Data))
     X = np.where(Mask == 1)[0]
     Y = np.where(Mask == 1)[1]
@@ -511,8 +519,10 @@ def Motion_correction(Data,Mask,Thrusters,Dist):
             if (beep < 0.3).any():
                 datrange = Data[Thrusters[i]+1:Thrusters[i+1]-1,X[j],Y[j]]
                 val = Data[np.where(beep == np.nanmin(beep))[0][0]+Thrusters[i]+1,X[j],Y[j]]
-                if val < np.nanmedian(datrange) + 2*np.nanstd(datrange):
-                    AvSplineind.append(np.where(beep == np.nanmin(beep))[0][0]+Thrusters[i]+1)
+                #if val < np.nanmedian(datrange) + 2*np.nanstd(datrange):
+                AvSplineind.append(np.where(beep == np.nanmin(beep))[0][0]+Thrusters[i]+1)
+            else:
+                Motion_flag[Thrusters[i]+1:Thrusters[i+1]-1] = 1
         AvSplineind = np.array(AvSplineind)
 
         if len(AvSplineind) > 1:
@@ -552,8 +562,9 @@ def Motion_correction(Data,Mask,Thrusters,Dist):
                             polyfit, resid, _, _, _  = np.polyfit(x[ind], Section[ind], 3, full = True)
                             p3 = np.poly1d(polyfit)
 
-                            if np.abs(resid/len(x[ind])) < 10:
-                                temp[x+Thrusters[i]+2] = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) 
+                            #if np.abs(resid/len(x[ind])) < 10:
+                            temp[x+Thrusters[i]+2] = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) 
+                            temp[Thrusters[i]:Thrusters[i]+2] = np.nan
                         # This should kill all instances of uncorrected data due to drift systematically being > 0.3 pix
                         if (np.isnan(Spline[Thrusters[i]+2:Thrusters[i+1]])).all():
                             temp[x+Thrusters[i]+2] = np.nan
@@ -561,7 +572,7 @@ def Motion_correction(Data,Mask,Thrusters,Dist):
                         pass
 
         Corrected[:,X[j],Y[j]] = temp                    
-    return Corrected
+    return Corrected, Motion_flag
 
 def pix2coord(x,y,mywcs):
     """
@@ -629,27 +640,31 @@ def Database_event_check(Data,Eventtime,Eventmask,WCS):
         objtype = 'Unknown'
         try:
             result_table = Ned.query_region(c, radius = 2*u.arcsec, equinox='J2000')
-            Ob = np.asarray(result_table['Object Name'])[0].decode("utf-8") 
-            objtype = result_table['Type'][0].decode("utf-8") 
+            if len(result_table.colnames) > 0:
+                if len(result_table['No.']) > 0:
+                    Ob = np.asarray(result_table['Object Name'])[0].decode("utf-8") 
+                    objtype = result_table['Type'][0].decode("utf-8") 
 
-            if '*' in objtype:
-                objtype = objtype.replace('*','Star')
-            if '!' in objtype:
-                objtype = objtype.replace('!','Gal') # Galactic sources
-            if objtype == 'G':
-                try:
-                    result_table = Simbad.query_region(c,radius = 2*u.arcsec)
-                    if len(result_table.colnames) > 0:
-                        objtype = objtype + 'Simbad'
-                except (AttributeError,ExpatError,TableParseError,ValueError,EOFError) as e:
-                    pass
+                    if '*' in objtype:
+                        objtype = objtype.replace('*','Star')
+                    if '!' in objtype:
+                        objtype = objtype.replace('!','Gal') # Galactic sources
+                    if objtype == 'G':
+                        try:
+                            result_table = Simbad.query_region(c,radius = 2*u.arcsec)
+                            if len(result_table.colnames) > 0:
+                                if len(result_table['MAIN_ID']) > 0:
+                                    objtype = objtype + 'Simbad'
+                        except (AttributeError,ExpatError,TableParseError,ValueError,EOFError) as e:
+                            pass
                 
         except (RemoteServiceError,ExpatError,TableParseError,ValueError,EOFError) as e:
             try:
                 result_table = Simbad.query_region(c,radius = 2*u.arcsec)
                 if len(result_table.colnames) > 0:
-                    Ob = np.asarray(result_table['MAIN_ID'])[0].decode("utf-8") 
-                    objtype = 'Simbad'
+                    if len(result_table['MAIN_ID']) > 0:
+                        Ob = np.asarray(result_table['MAIN_ID'])[0].decode("utf-8") 
+                        objtype = 'Simbad'
             except (AttributeError,ExpatError,TableParseError,ValueError,EOFError) as e:
                 pass
         Objects.append(Ob)
@@ -678,33 +693,38 @@ def Database_check_mask(Datacube,Thrusters,Masks,WCS):
         objtype = 'Unknown'
         try:
             result_table = Ned.query_region(c, radius = 6*u.arcsec, equinox='J2000')
-            Ob = np.asarray(result_table['Object Name'])[0].decode("utf-8") 
-            objtype = result_table['Type'][0].decode("utf-8") 
+            if len(result_table.colnames) > 0:
+                if len(result_table['No.']) > 0:
+                    Ob = np.asarray(result_table['Object Name'])[0].decode("utf-8") 
+                    objtype = result_table['Type'][0].decode("utf-8") 
 
-            if '*' in objtype:
-                objtype = objtype.replace('*','Star')
-            if '!' in objtype:
-                objtype = objtype.replace('!','Gal') # Galactic sources
-            if objtype == 'G':
-                try:
-                    result_table = Simbad.query_region(c,radius = 6*u.arcsec)
-                    if len(result_table.colnames) > 0:
-                        objtype = objtype + 'Simbad'
-                except (AttributeError,ExpatError,TableParseError,ValueError,EOFError) as e:
-                    pass
+                    if '*' in objtype:
+                        objtype = objtype.replace('*','Star')
+                    if '!' in objtype:
+                        objtype = objtype.replace('!','Gal') # Galactic sources
+                    if objtype == 'G':
+                        try:
+                            result_table = Simbad.query_region(c,radius = 6*u.arcsec)
+                            if len(result_table.colnames) > 0:
+                                if len(result_table['MAIN_ID']) > 0:
+                                    objtype = objtype + 'Simbad'
+                        except (AttributeError,ExpatError,TableParseError,ValueError,EOFError) as e:
+                            pass
                 
         except (RemoteServiceError,ExpatError,TableParseError,ValueError,EOFError) as e:
             try:
                 result_table = Simbad.query_region(c,radius = 6*u.arcsec)
                 if len(result_table.colnames) > 0:
-                    Ob = np.asarray(result_table['MAIN_ID'])[0].decode("utf-8") 
-                    objtype = 'Simbad'
+                    if len(result_table['MAIN_ID']) > 0:
+                        Ob = np.asarray(result_table['MAIN_ID'])[0].decode("utf-8") 
+                        objtype = 'Simbad'
             except (AttributeError,ExpatError,TableParseError,ValueError,EOFError) as e:
                 pass
         Objects.append(Ob)
         Objtype.append(objtype)
 
     return Objects, Objtype
+
 
 def Gal_pixel_check(Mask,Obj,Objmasks,Objtype,Limit,WCS,File,Save):
     """
@@ -1008,18 +1028,19 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         plt.xlabel('Time (+'+str(np.floor(Time[0]))+' BJD)')
         plt.ylabel('Counts')
         if Eventtime[i][-1] < len(Time):
-            plt.axvspan(Time[Eventtime[i][0]]-np.floor(Time[0]),Time[Eventtime[i][-1]]-np.floor(Time[0]), color = 'orange', label = 'Event duration')
+            plt.axvspan(Time[Eventtime[i][0]]-np.floor(Time[0]),Time[Eventtime[i][-1]]-np.floor(Time[0]), color = 'orange',alpha=0.5, label = 'Event duration')
         else:
-            plt.axvspan(Time[Eventtime[i][0]]-np.floor(Time[0]),Time[-1]-np.floor(Time[0]), color = 'orange', label = 'Event duration')
-        plt.axvline(Time[Quality[0]]-np.floor(Time[0]),color = 'red', linestyle='dashed',label = 'Quality', alpha = 0.5)
-        for j in range(Quality.shape[0]-1):
-            j = j+1 
-            plt.axvline(Time[Quality[j]]-np.floor(Time[0]), linestyle='dashed', color = 'red', alpha = 0.5)
-        # plot Thurster firings 
-        plt.axvline(Time[Thrusters[0]]-np.floor(Time[0]),color = 'red',label = 'Thruster', alpha = 0.5)
-        for j in range(Thrusters.shape[0]-1):
-            j = j+1 
-            plt.axvline(Time[Thrusters[j]]-np.floor(Time[0]),color = 'red', alpha = 0.5)
+            plt.axvspan(Time[Eventtime[i][0]]-np.floor(Time[0]),Time[-1]-np.floor(Time[0]), color = 'orange',alpha=0.5, label = 'Event duration')
+        if (Eventtime[i][-1] - Eventtime[i][0]) < 48:
+            plt.axvline(Time[Quality[0]]-np.floor(Time[0]),color = 'red', linestyle='dashed',label = 'Quality', alpha = 0.5)
+            for j in range(Quality.shape[0]-1):
+                j = j+1 
+                plt.axvline(Time[Quality[j]]-np.floor(Time[0]), linestyle='dashed', color = 'red', alpha = 0.5)
+            # plot Thurster firings 
+            plt.axvline(Time[Thrusters[0]]-np.floor(Time[0]),color = 'red',label = 'Thruster', alpha = 0.5)
+            for j in range(Thrusters.shape[0]-1):
+                j = j+1 
+                plt.axvline(Time[Thrusters[j]]-np.floor(Time[0]),color = 'red', alpha = 0.5)
             
         
 
@@ -1054,7 +1075,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         ymax = maxy + 0.1*maxy
 
         plt.ylim(ymin,ymax)
-        plt.legend(loc = 1)
+        plt.legend()#loc = 1)
         plt.minorticks_on()
         ylims, xlims = Fig_cut(Datacube,Mid)
 
@@ -1093,6 +1114,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         
         plt.close()
         Thumbnail(LC,BGLC,Eventtime[i],Time,[xmin,xmax],[ymin,ymax],i,File,directory);
+    return
 
 def create_gifv(input_glob, output_base_name, fps):
     output_extensions = ["gif"]
@@ -1299,12 +1321,19 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save
 
     return saves
 
-def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Zoo_Save, Data, WCS, hdu, Path):
+def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Zoo_Save, Data, Quality, WCS, hdu, Path):
     """
     Saves the event and field properties to a csv file.
     """
     feild = Pixelfile.split('-')[1].split('_')[0]
     ID = Pixelfile.split('ktwo')[1].split('-')[0]
+    
+    rank_brightness = Rank_brightness(Eventtime,Eventmask,Data,Quality)
+    rank_duration = Rank_duration(Eventtime)
+    rank_mask = Rank_mask(Eventmask)
+    rank_host = Rank_host(Sourcetype)
+    
+    rank_total = rank_brightness + rank_duration + rank_mask + rank_host 
     for i in range(len(Eventtime)):
         mask = np.zeros((Data.shape[1],Data.shape[2]))
         mask[Eventmask[i][0],Eventmask[i][1]] = 1
@@ -1331,7 +1360,11 @@ def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Zoo_Save, D
 
         size = np.nansum(Eventmask[i])
         Zoo_fig = Zoo_Save[i]
-        CVSstring = [str(feild), str(ID), str(i), Sourcetype[i], str(start), str(duration), str(maxlc), str(size), str(Coord[0]), str(Coord[1]), Source[i], str(hdu[0].header['CHANNEL']), str(hdu[0].header['MODULE']), str(hdu[0].header['OUTPUT']), Zoo_fig]                
+        CVSstring = [str(feild), str(ID), str(i), Sourcetype[i], str(start), 
+                     str(duration), str(maxlc), str(size), str(Coord[0]), str(Coord[1]), 
+                     Source[i], str(hdu[0].header['CHANNEL']), str(hdu[0].header['MODULE']), 
+                     str(hdu[0].header['OUTPUT']), str(rank_brightness[i]), str(rank_duration[i]),
+                     rank_mask[i],rank_host[i], rank_total[i], Zoo_fig]                
         if os.path.isfile(Path + '/Events.csv'):
             with open(Path + '/Events.csv', 'a') as csvfile:
                 spamwriter = csv.writer(csvfile, delimiter=',')
@@ -1339,8 +1372,13 @@ def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Zoo_Save, D
         else:
             with open(Path + '/Events.csv', 'w') as csvfile:
                 spamwriter = csv.writer(csvfile, delimiter=',')
-                spamwriter.writerow(['Field', '#EPIC', '#Event number', '!Host type', '#Start', 'Duration', 'Counts', '#Size','#RA','#DEC','#Host', '#Channel', '#Module', '#Output', '#Zoofig'])
+                spamwriter.writerow(['Field', 'EPIC', '#Event number', '!Host type', '#Start', 
+                                     'Duration', 'Counts', '#Size','#RA','#DEC',
+                                     '#Host', '#Channel', '#Module', 
+                                     '#Output', '#Rank brightness', '#Rank duration',
+                                     '#Rank mask', '#Rank host','#Rank total', '#Zoofig'])
                 spamwriter.writerow(CVSstring)
+    return
             
 def Probable_host(Eventtime,Eventmask,Source,SourceType,Objmasks,ObjName,ObjType,Data):
     """
@@ -1456,6 +1494,7 @@ def Long_events(Data, Time, Mask, Dist, Save, File):
         long_events = []
 
     long_mask = []
+    eventtime = []
 
     for i in range(len(long_events)):
         lc_nans = Lightcurve(Data[good_frames], long_events[i])
@@ -1473,9 +1512,16 @@ def Long_events(Data, Time, Mask, Dist, Save, File):
 
         difftime = np.diff(time_comp)
         if (difftime >= 2).any() and (np.nanmean(lc) > 10): # condition on the number of exposures in 2 days 
+            big_diff = np.where(difftime == np.nanmax(difftime))
+            start = np.where(time == time_comp[big_diff])[0]
+            if big_diff[0]+1 > len(time_comp):
+                end = len(time)
+            else:
+                end = np.where(time == time_comp[big_diff[0]+1])[0]
+            eventtime.append([start,end])
             long_mask.append(long_events[i])
 
-    return long_mask
+    return long_mask, eventtime
 
 def In_long_mask(Eventmask,Objmasks,Data):
     '''
@@ -1514,7 +1560,7 @@ def Long_save_environment(maxcolor,Source,SourceType,Save):
     Save_space(directory)
     return directory
 
-def Long_figure(Long,Data,WCS,Time,Save,File,Source,SourceType,ObjMask,Frames):
+def Long_figure(Long,Eventtime,Data,WCS,Time,Save,File,Source,SourceType,ObjMask,Frames):
     for i in range(len(Long)):
         mask = Long[i]
         
@@ -1528,7 +1574,7 @@ def Long_figure(Long,Data,WCS,Time,Save,File,Source,SourceType,ObjMask,Frames):
             nonanind = np.isfinite(Data[:,position[0][j],position[1][j]])
             temp = sorted(Data[nonanind,position[0][j],position[1][j]].flatten())
             temp = np.array(temp)
-            temp  = temp[-5] # get 5th brightest point
+            temp  = temp[-3] # get 3rd brightest point
             if temp > maxcolor:
                 maxcolor = temp
                 Mid = ([position[0][j]],[position[1][j]])
@@ -1560,18 +1606,11 @@ def Long_figure(Long,Data,WCS,Time,Save,File,Source,SourceType,ObjMask,Frames):
         
         
         # Generate a light curve from the transient masks
-        temp = sorted(Six_LC[np.isfinite(Six_LC)].flatten())
+        temp = sorted(LC[np.isfinite(LC)].flatten())
         temp = np.array(temp)
-        maxy  = temp[-5] # get 8th brightest point
-
-        temp = sorted(Six_LC[np.isfinite(Six_LC)].flatten())
-        temp = np.array(temp)
-        miny  = temp[3] # get 3rd faintest point
-
-        ymin = miny - 0.1*miny
-        ymax = maxy + 0.1*maxy
+        temp = temp[-5] # get 5th brightest point
         
-        max_frame = np.where(LC == maxy)[0][0]
+        max_frame = np.where(LC == temp)[0][0]
         
         mead = np.nanmedian(LC[np.isfinite(LC)])
         mead_frame = np.where(np.nanmin(abs(LC-mead)) == abs(LC-mead))[0][0]
@@ -1589,13 +1628,17 @@ def Long_figure(Long,Data,WCS,Time,Save,File,Source,SourceType,ObjMask,Frames):
         plt.plot(Time - np.floor(Time[0]), BGLC,'k.', label = 'Background LC')
         plt.plot(Time - np.floor(Time[0]), ObjLC,'kx', label = 'Scaled object LC')
         plt.plot(Time - np.floor(Time[0]), LC,'.', label = 'Event LC',alpha=0.5)
-        plt.plot(Time[ind] - np.floor(Time[0]), Six_LC,'.', label = '6hr average',alpha=1)
+        plt.plot(Time[ind] - np.floor(Time[0]), Six_LC,'m.', label = '6hr average',alpha=1)
+        if Eventtime[i][-1] < len(Time):
+            plt.axvspan(Time[Eventtime[i][0]]-np.floor(Time[0]),Time[Eventtime[i][-1]]-np.floor(Time[0]), color = 'orange',alpha = 0.5, label = 'Event duration')
+        else:
+            plt.axvspan(Time[Eventtime[i][0]]-np.floor(Time[0]),Time[-1]-np.floor(Time[0]), color = 'orange',alpha = 0.5, label = 'Event duration')
         
-        ymin = ymin - 0.1*ymin
-        ymax = ymax + 0.1*ymax
+        ymin = np.nanmin(Six_LC) - 0.1*np.nanmin(Six_LC)
+        ymax = np.nanmax(Six_LC) + 0.1*np.nanmax(Six_LC)
         
         plt.ylim(ymin,ymax)
-        plt.legend(loc = 1)
+        plt.legend()#loc = 1)
         plt.minorticks_on()
         
         # Set the axes limits for the imshows
@@ -1636,10 +1679,12 @@ def Long_figure(Long,Data,WCS,Time,Save,File,Source,SourceType,ObjMask,Frames):
             
         plt.savefig(directory + File.split('/')[-1].split('-')[0]+'_L'+str(i)+'.pdf', bbox_inches = 'tight')
         plt.close()
-        Thumbnail(LC,BGLC,[0,len(Data)],Time,[0,np.floor(Time[-1]-Time[0])],[ymin,ymax],'L'+str(i),File,directory);
+        Thumbnail(LC,BGLC,Eventtime[i],Time,[0,np.floor(Time[-1]-Time[0])],[ymin,ymax],'L'+str(i),File,directory);
+
+    return
         
         
-def LongK2TranPixZoo(Long,Source,SourceType,Data,Time,wcs,Save,File):
+def LongK2TranPixZoo(Long,Eventtime,Source,SourceType,Data,Time,wcs,Save,File):
     """
     Iteratively gmakes Zooniverse videos for events. Videos are made from frames which are saved in a corresponding Frame directory.
     """
@@ -1650,9 +1695,9 @@ def LongK2TranPixZoo(Long,Source,SourceType,Data,Time,wcs,Save,File):
         Mid = ([position[0][0]],[position[1][0]])
         maxcolor = 0 # Set a bad value for error identification
         for j in range(len(position[0])):
-            temp = sorted(Data[:,position[0][j],position[1][j]].flatten())
+            nonanind = np.isfinite(Data[:,position[0][j],position[1][j]])
+            temp = sorted(Data[nonanind,position[0][j],position[1][j]].flatten())
             temp = np.array(temp)
-            temp = temp[np.isfinite(temp)]
             temp  = temp[-3] # get 3rd brightest point
             if temp > maxcolor:
                 maxcolor = temp
@@ -1673,16 +1718,8 @@ def LongK2TranPixZoo(Long,Source,SourceType,Data,Time,wcs,Save,File):
         LC = Lightcurve(Data, mask)
         Six_LC, ind = SixMedian(LC)
         
-        temp = sorted(Six_LC[np.isfinite(Six_LC)].flatten())
-        temp = np.array(temp)
-        maxy  = temp[-5] # get 8th brightest point
-
-        temp = sorted(Six_LC[np.isfinite(Six_LC)].flatten())
-        temp = np.array(temp)
-        miny  = temp[3] # get 3rd faintest point
-
-        ymin = miny - 0.1*miny
-        ymax = maxy + 0.1*maxy
+        ymin = np.nanmin(Six_LC) - 0.1*np.nanmin(Six_LC)
+        ymax = np.nanmax(Six_LC) + 0.1*np.nanmax(Six_LC)
 
         # Create an ImageNormalize object using a SqrtStretch object
         norm = ImageNormalize(vmin=ymin/len(position[0]), vmax=maxcolor, stretch=SqrtStretch())
@@ -1711,6 +1748,7 @@ def LongK2TranPixZoo(Long,Source,SourceType,Data,Time,wcs,Save,File):
             plt.ylabel('Counts')
             plt.xlabel('Time (days)')
             plt.axvline(Time[Section[j]]-Time[0],color='red',lw=2)
+            plt.axvspan(Time[Eventtime[i,0]]-Time[0],Time[Eventtime[i,1]]-Time[0],color='orange',alpha = 0.5)
 
             plt.subplot(1,2,2)
             plt.title('Kepler image')
@@ -1742,18 +1780,27 @@ def LongK2TranPixZoo(Long,Source,SourceType,Data,Time,wcs,Save,File):
 
         saves.append('./Figures' + directory.split('Figures')[-1] + 'Zoo-' + File.split('/')[-1].split('-')[0] + '_L' + str(i) + '.mp4') 
 
-        os.system('sleep 1')
+        os.system('sleep 60')
         os.system('rm -r ' + FrameSave)
 
     return saves
 
         
-def Write_long_event(Pixelfile, Long, Source, Sourcetype, Long_Save, Data, WCS, hdu, Path):
+def Write_long_event(Pixelfile, Long, Eventtime, Source, Sourcetype, Long_Save, Data, Quality, WCS, hdu, Path):
     """
     Saves the event and field properties to a csv file.
     """
+    
     feild = Pixelfile.split('-')[1].split('_')[0]
     ID = Pixelfile.split('ktwo')[1].split('-')[0]
+    
+    rank_brightness = Rank_brightness(Eventtime,Long,Data,Quality)
+    rank_duration = Rank_duration(Eventtime)
+    rank_mask = Rank_mask(Long)
+    rank_host = Rank_host(Sourcetype)
+    
+    rank_total = rank_brightness + rank_duration + rank_mask + rank_host 
+    
     for i in range(len(Long)):
         mask = Long[i]
 
@@ -1780,7 +1827,11 @@ def Write_long_event(Pixelfile, Long, Source, Sourcetype, Long_Save, Data, WCS, 
 
         size = np.nansum(Long[i])
         Zoo_fig = Long_Save[i]
-        CVSstring = [str(feild), str(ID), 'L' + str(i), Sourcetype[i], str(start), str(duration), str(maxlc), str(size), str(Coord[0]), str(Coord[1]), Source[i], str(hdu[0].header['CHANNEL']), str(hdu[0].header['MODULE']), str(hdu[0].header['OUTPUT']), Zoo_fig]                
+        CVSstring = [str(feild), str(ID), str(i), Sourcetype[i], str(start), 
+                     str(duration), str(maxlc), str(size), str(Coord[0]), str(Coord[1]), 
+                     Source[i], str(hdu[0].header['CHANNEL']), str(hdu[0].header['MODULE']), 
+                     str(hdu[0].header['OUTPUT']), str(rank_brightness[i]), str(rank_duration[i]),
+                     rank_mask[i],rank_host[i], rank_total[i], Zoo_fig]    
         if os.path.isfile(Path + '/Events.csv'):
             with open(Path + '/Events.csv', 'a') as csvfile:
                 spamwriter = csv.writer(csvfile, delimiter=',')
@@ -1788,14 +1839,22 @@ def Write_long_event(Pixelfile, Long, Source, Sourcetype, Long_Save, Data, WCS, 
         else:
             with open(Path + '/Events.csv', 'w') as csvfile:
                 spamwriter = csv.writer(csvfile, delimiter=',')
-                spamwriter.writerow(['Field', '#EPIC', '#Event number', '!Host type', '#Start', 'Duration', 'Counts', '#Size','#RA','#DEC','#Host', '#Channel', '#Module', '#Output', '#Zoofig'])
+                spamwriter.writerow(['Field', 'EPIC', '#Event number', '!Host type', '#Start', 
+                                     'Duration', 'Counts', '#Size','#RA','#DEC',
+                                     '#Host', '#Channel', '#Module', 
+                                     '#Output', '#Rank brightness', '#Rank duration',
+                                     '#Rank mask', '#Rank host','#Rank total', '#Zoofig'])
                 spamwriter.writerow(CVSstring)
+    return
 
-def Find_Long_Events(Data,Time,Eventmask,Objmasks,Mask,Thrusters,Dist,WCS,HDU,File,Save):
+def Find_Long_Events(Data,Time,Eventmask,Objmasks,Mask,Thrusters,Dist,Quality,WCS,HDU,File,Save):
     '''
     Wrapper function for the long events finding routine.
     '''
-    long_mask = Long_events(Data,Time, Mask,Dist,Save,File)
+    long_mask, long_time = Long_events(Data,Time, Mask,Dist,Save,File)
+    long_time = np.array(long_time)
+    if len(long_time.shape) == 3:
+        long_time = long_time[:,:,0]
     Long_Source, Long_Type = Database_check_mask(Data,Thrusters,long_mask,WCS)
 
     if len(long_mask) > 0:
@@ -1832,12 +1891,67 @@ def Find_Long_Events(Data,Time,Eventmask,Objmasks,Mask,Thrusters,Dist,WCS,HDU,Fi
             Long_Source = np.delete(Long_Source,i)
             Long_Type = np.delete(Long_Type,i)
             
+    
+        Long_figure(long_mask, long_time, Data, WCS, Time, Save, File, Long_Source, Long_Type, Long_Maskobj, Eventmask)
+        long_saves = LongK2TranPixZoo(long_mask, long_time, Long_Source, Long_Type, Data, Time, WCS, Save, File)
+        Write_long_event(File, long_mask, long_time, Long_Source, Long_Type,long_saves, Data, Quality, WCS, HDU, Save)
 
-        Long_figure(long_mask, Data, WCS, Time, Save, File, Long_Source, Long_Type, Long_Maskobj, Eventmask)
-        long_saves = LongK2TranPixZoo(long_mask, Long_Source, Long_Type, Data, Time, WCS, Save, File)
-        Write_long_event(File, long_mask, Long_Source, Long_Type,long_saves, Data, WCS, HDU, Save)
+def Rank_brightness(Eventtime,Eventmask,Data,Quality):
+    Rank = np.zeros(len(Eventtime))
+    for i in range(len(Eventtime)):
+        mask = np.zeros(Data.shape[1:])
+        mask[Eventmask[i]] = 1
+        mask = mask > 0
+        LC = Lightcurve(Data,mask)
+        outside_mask = np.ones(len(LC))
+        lower = Eventtime[i][0]-5
+        upper = Eventtime[i][1] + 20
+        if lower < 0:
+            lower = 0
+        if upper > len(LC):
+            upper = -1
 
+        outside_mask[lower:upper] = 0
+        outside_mask = outside_mask > 0
 
+        median = np.nanmedian(LC[outside_mask])
+        std = np.nanstd(LC[outside_mask])
+        event_max = Smoothmax(Eventtime[i],LC,Quality)
+        
+        if len(event_max) > 0:
+            Rank[i] = np.round((LC[event_max[0]]-median)/std,1)
+        else:
+            Rank[i] = 0
+    
+    return Rank
+
+def Rank_duration(Eventtime):
+    Rank = np.zeros(len(Eventtime))
+    Rank = np.round((Eventtime[:,1] - Eventtime[:,0])/48,1)
+    
+    return Rank
+
+def Rank_mask(Eventmask,Data):
+    Rank = np.zeros(len(Eventmask))
+    for i in range(len(Eventmask)):
+        mask = np.zeros(Data.shape[1:])
+        mask[Eventmask[i]] = 1
+        mask = mask > 0
+        Rank[i] = np.round(np.nansum(mask)/3,1)
+    Rank[Rank > 1] = 1
+    return Rank
+
+import pandas as pd
+
+def Rank_host(Type):
+    rank_system = pd.read_csv('Type_weights.csv').values
+    Rank = np.zeros(len(Type))
+    for i in range(len(Type)):
+        for j in range(len(rank_system)):
+            if rank_system[j,0] in Type[i]:
+                Rank[i] = int(rank_system[j,1])
+    return Rank
+        
 
 def K2TranPix(pixelfile,save): 
     """
@@ -1853,10 +1967,7 @@ def K2TranPix(pixelfile,save):
             return
         datacube = fits.ImageHDU(hdu[1].data.field('FLUX')[:]).data#np.copy(testdata)#
         if datacube.shape[1] > 1 and datacube.shape[2] > 1:
-            ind = np.where(np.isfinite(datacube[0]))
-            for i in range(len(ind)):
-                lc = datacube[:,ind[0][i],ind[1][i]]
-                datacube[sigma_clip(lc,sigma=5.).mask,ind[0][i],ind[1][i]] = np.nan
+            datacube = Clip_cube(datacube)
 
             time = dat["TIME"] + 2454833.0
             Qual = hdu[1].data.field('QUALITY')
@@ -1882,7 +1993,8 @@ def K2TranPix(pixelfile,save):
             #Maskdata, ast = First_pass(np.copy(datacube),Qual,quality,thrusters,pixelfile)
             Maskdata = np.copy(datacube)
             allMask = np.ones((datacube.shape[1],datacube.shape[2]))
-            Maskdata = Motion_correction(Maskdata,allMask,thrusters,distdrif)
+            Maskdata, Motion_flag = Motion_correction(Maskdata,allMask,thrusters,distdrif)
+            Maskdata = Clip_cube(Maskdata)
 
             # Make a mask for the object to use as a test to eliminate very bad pointings
             obj = np.ma.masked_invalid(Mask).mask
@@ -2026,9 +2138,9 @@ def K2TranPix(pixelfile,save):
                 K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType,Maskobj)
                 #K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
                 Zoo_saves = K2TranPixZoo(events,eventtime,eventmask,Source,SourceType,Maskdata,time,mywcs,Save,pixelfile)
-                Write_event(pixelfile,eventtime,eventmask,Source,SourceType,Zoo_saves,Maskdata,mywcs,hdu,Save)
+                Write_event(pixelfile,eventtime,eventmask,Source,SourceType,Zoo_saves,Maskdata,Qual,mywcs,hdu,Save)
 
-            Find_Long_Events(Maskdata,time,Eventmask,Objmasks,Mask,thrusters,distdrif,mywcs,hdu,pixelfile,Save)
+            Find_Long_Events(Maskdata,time,Eventmask,Objmasks,Mask,thrusters,distdrif,Qual,mywcs,hdu,pixelfile,Save)
         else:
             print('Small ', pixelfile)
     except (OSError):
