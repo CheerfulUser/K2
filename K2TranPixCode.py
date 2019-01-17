@@ -1272,7 +1272,7 @@ def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Zoo_Save, D
     
     rank_brightness = Rank_brightness(Eventtime,Eventmask,Data,Quality)
     rank_duration = Rank_duration(Eventtime)
-    rank_mask = Rank_mask(Eventmask)
+    rank_mask = Rank_mask(Eventmask,Data)
     rank_host = Rank_host(Sourcetype)
     
     rank_total = rank_brightness + rank_duration + rank_mask + rank_host 
@@ -1455,11 +1455,11 @@ def Long_events(Data, Time, Mask, Dist, Save, File):
         difftime = np.diff(time_comp)
         if (difftime >= 2).any() and (np.nanmean(lc) > 10): # condition on the number of exposures in 2 days 
             big_diff = np.where(difftime == np.nanmax(difftime))
-            start = np.where(time == time_comp[big_diff])[0]
+            start = np.where(Time == time_comp[big_diff])[0]
             if big_diff[0]+1 > len(time_comp):
-                end = len(time)
+                end = len(Time)
             else:
-                end = np.where(time == time_comp[big_diff[0]+1])[0]
+                end = np.where(Time == time_comp[big_diff[0]+1])[0]
             eventtime.append([start,end])
             long_mask.append(long_events[i])
 
@@ -1735,10 +1735,13 @@ def Write_long_event(Pixelfile, Long, Eventtime, Source, Sourcetype, Long_Save, 
     
     feild = Pixelfile.split('-')[1].split('_')[0]
     ID = Pixelfile.split('ktwo')[1].split('-')[0]
-    
-    rank_brightness = Rank_brightness(Eventtime,Long,Data,Quality)
+    mask = []
+    for i in range(len(Long)):
+        mask.append(np.where(Long[i]))
+
+    rank_brightness = Rank_brightness(Eventtime,mask,Data,Quality)
     rank_duration = Rank_duration(Eventtime)
-    rank_mask = Rank_mask(Long)
+    rank_mask = Rank_mask(mask,Data)
     rank_host = Rank_host(Sourcetype)
     
     rank_total = rank_brightness + rank_duration + rank_mask + rank_host 
