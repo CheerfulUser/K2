@@ -520,6 +520,17 @@ def Motion_correction(Data,Mask,Thrusters,Dist):
             beep = Dist[Thrusters[i]+1:Thrusters[i+1]-1]
             if (beep < 0.3).any():
                 datrange = Data[Thrusters[i]+1:Thrusters[i+1]-1,X[j],Y[j]]
+                lim = np.nanmedian(datrange)+3*np.nanstd(datrange)
+                ind = np.where(datrange > lim)[0]
+                for index in ind:
+                    if index < len(datrange) & index > 0:
+                        datrange[index] = np.nanmedian([datrange[index-1],datrange[index+1]])
+                    elif index == 0:
+                        datrange[index] = datrange[index+1]
+                    elif index >= len(datrange):
+                        datrange[index] = datrange[index-1]
+                        
+
                 val = Data[np.where(beep == np.nanmin(beep))[0][0]+Thrusters[i]+1,X[j],Y[j]]
                 #if val < np.nanmedian(datrange) + 2*np.nanstd(datrange):
                 AvSplineind.append(np.where(beep == np.nanmin(beep))[0][0]+Thrusters[i]+1)
