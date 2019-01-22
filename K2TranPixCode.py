@@ -520,6 +520,10 @@ def Motion_correction(Data,Mask,Thrusters,Dist):
             beep = Dist[Thrusters[i]+1:Thrusters[i+1]-1]
             if (beep < 0.3).any():
                 datrange = Data[Thrusters[i]+1:Thrusters[i+1]-1,X[j],Y[j]]
+                # Need to make sure most stable frame isnt skewed by a cosmic ray or asteroid. 
+                # make a standard deviation cut on all points in the thruster interval,
+                # then reset all values which exceed by either the average of its neighbours, 
+                # or neigbour value for frings cases.
                 lim = np.nanmedian(datrange)+3*np.nanstd(datrange)
                 ind = np.where(datrange > lim)[0]
                 for index in ind:
