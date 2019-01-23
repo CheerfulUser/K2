@@ -527,7 +527,7 @@ def Motion_correction(Data,Mask,Thrusters,Dist):
                 lim = np.nanmedian(datrange)+3*np.nanstd(datrange)
                 ind = np.where(datrange > lim)[0]
                 for index in ind:
-                    if index < len(datrange) & index > 0:
+                    if (index < len(datrange)) & (index > 0):
                         datrange[index] = np.nanmedian([datrange[index-1],datrange[index+1]])
                     elif index == 0:
                         datrange[index] = datrange[index+1]
