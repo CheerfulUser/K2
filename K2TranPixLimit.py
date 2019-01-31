@@ -245,75 +245,19 @@ def Database_check_mask(Datacube,Thrusters,Masks,WCS):
 
     return Objects, Objtype
 
-def Gal_pixel_check(Mask,Obj,Objmasks,Objtype,Limit,WCS,File,Save):
+
+
+def Local_check_mask(Datacube,Thrusters,Masks,WCS,File):
     """
-    Checks each pixel outside of objects and the objects to see if they coincide with a galaxy.
-    If there is a coincidence with NED then galaxy properties and limit of the pixel are saved
-    to file in a Gal directory.
+    Checks Ned and Simbad to find the object name and type in the mask.
+    This uses the mask set created by Identify_masks.
     """
-    Y, X = np.where(Mask)
-    for i in range(len(X)):
-        coord = pix2coord(X[i],Y[i],WCS)
+    Objects = []
+    Objtype = []
+    av = np.nanmedian(Datacube[Thrusters+1],axis = 0)
 
-        c = coordinates.SkyCoord(ra=coord[0], dec=coord[1],unit=(u.deg, u.deg), frame='icrs')
-        try:
-            result_table = Ned.query_region(c, radius = 2*u.arcsec, equinox='J2000')
-            obtype = np.asarray(result_table['Type'])[0].decode("utf-8") 
-            if (obtype == 'G') | (obtype == 'QSO') | (obtype == 'QGroup') | (obtype == 'Q_Lens'):
-
-                Ob = np.asarray(result_table['Object Name'])[0].decode("utf-8") 
-                redshift = np.asarray(result_table['Redshift'])[0]
-                magfilt = np.asarray(result_table['Magnitude and Filter'])[0].decode("utf-8") 
-                CVSstring =[Ob, obtype, str(redshift), magfilt, str(coord[0]), str(coord[1]), str(Limit[Y[i],X[i]])]
-                Save_space(Save+'/Gals/')
-                Path = Save + '/Gals/' + File.split('/')[-1].split('-')[0] + '_Gs.csv'
-                
-                if os.path.isfile(Path):
-                    with open(Path, 'a') as csvfile:
-                        spamwriter = csv.writer(csvfile, delimiter=',')
-                        spamwriter.writerow(CVSstring)
-                else:
-                    with open(Path, 'w') as csvfile:
-                        spamwriter = csv.writer(csvfile, delimiter=',')
-                        spamwriter.writerow(['Name', 'Type', 'Redshift', 'Mag', 'RA', 'DEC', 'Maglim'])
-                        spamwriter.writerow(CVSstring)
-        except (RemoteServiceError,ExpatError,TableParseError,ValueError,EOFError) as e:
-            pass
-    
-    for i in range(len(Obj)):
-        if (Objtype[i] == 'G') | (Objtype[i] == 'QSO') | (Objtype[i] == 'QGroup') | (Objtype[i] == 'Q_Lens'):
-            result_table = Ned.query_object(Obj[i])
-            print('working')
-            obtype = np.asarray(result_table['Type'])[0].decode("utf-8")             
-
-            Ob = np.asarray(result_table['Object Name'])[0].decode("utf-8") 
-            redshift = np.asarray(result_table['Redshift'])[0]
-            magfilt = np.asarray(result_table['Magnitude and Filter'])[0].decode("utf-8") 
-            limit = np.nanmean(Limit[Objmasks[i]==1])
-            CVSstring =[Ob, obtype, str(redshift), magfilt, str(coord[0]), str(coord[1]), str(limit)]
-            Save_space(Save+'/Gals/')
-            Path = Save + '/Gals/' + File.split('/')[-1].split('-')[0] + '_Gs.csv'
-
-            if os.path.isfile(Path):
-                with open(Path, 'a') as csvfile:
-                    spamwriter = csv.writer(csvfile, delimiter=',')
-                    spamwriter.writerow(CVSstring)
-            else:
-                with open(Path, 'w') as csvfile:
-                    spamwriter = csv.writer(csvfile, delimiter=',')
-                    spamwriter.writerow(['Name', 'Type', 'Redshift', 'Mag', 'RA', 'DEC', 'Maglim'])
-                    spamwriter.writerow(CVSstring)
-    return
-
-def Local_Gal_Check(Mask,Obj,Objmasks,Objtype,Limit,WCS,File,Save):
-    """
-    Checks each pixel outside of objects and the objects to see if they coincide with a galaxy.
-    If there is a coincidence with NED then galaxy properties and limit of the pixel are saved
-    to file in a Gal directory.
-    """
     Database_location = '/avatar/ryanr/Data/Catalog/NED/' 
     Campaign = File.split('-')[1].split('_')[0].split('c')[1]
-    Y, X = np.where(Mask)
 
     result_table = pd.read_csv(Database_location + 'NED_' + Campaign + '.csv').values
     NED_RA = np.zeros(len(result_table[:,1]))
@@ -322,64 +266,94 @@ def Local_Gal_Check(Mask,Obj,Objmasks,Objtype,Limit,WCS,File,Save):
         NED_RA[i] = result_table[i,1]
         NED_DEC[i] = result_table[i,2]
 
+    for I in range(len(Masks)):
+
+        Mid = np.where(av*Masks[I] == np.nanmax(av*Masks[I]))
+        if len(Mid[0]) == 1:
+            Coord = pix2coord(Mid[1],Mid[0],WCS)
+        elif len(Mid[0]) > 1:
+            Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
+
+        c = coordinates.SkyCoord(ra=Coord[0], dec=Coord[1],unit=(u.deg, u.deg), frame='icrs')
+        ra = c.ra.deg
+        dec = c.dec.deg
+
+        Ob = 'Unknown'
+        objtype = 'Unknown'
+
+        dist = np.sqrt((NED_RA - ra)**2 + (NED_DEC - dec)**2)
+        radius = 2/3600 # Convert arcsec to deg 
+        if (dist <= radius).any():
+            ind = np.where(np.nanmin(dist))
+
+            Ob = result_table[ind,0][2:-1]
+            objtype = result_table[ind,3][2:-1]
+
+            if '*' in objtype:
+                objtype = objtype.replace('*','Star')
+            if '!' in objtype:
+                objtype = objtype.replace('!','Gal') # Galactic sources
+
+        Objects.append(Ob)
+        Objtype.append(objtype)
+
+    return Objects, Objtype
+
+def Local_Gal_Check(Datacube,Obj,Objmasks,Objtype,Limit,WCS,File,Save):
+    """
+    Checks each pixel outside of objects and the objects to see if they coincide with a galaxy.
+    If there is a coincidence with NED then galaxy properties and limit of the pixel are saved
+    to file in a Gal directory.
+    """
+    Database_location = '/avatar/ryanr/Data/Catalog/PS/' 
+    Campaign = File.split('-')[1].split('_')[0].split('c')[1]
+    valid_pix = np.nansum(abs(Datacube),axis=(0)) > 0
+    Y, X = np.where(valid_pix)
+
+    result_table = pd.read_csv(Database_location + 'Gal_c' + Campaign + '_Cheerful.csv').values
+    keys = pd.read_csv(Database_location + 'Gal_c' + Campaign + '_Cheerful.csv').key
+    header = []
+    for k in keys:
+        header.append(k)
+    header.append('Maglim')
+    footprint = WCS.calc_footprint()
+    min_ra = np.nanmin(footprint[:,0])
+    max_ra = np.nanmax(footprint[:,0])
+    min_dec = np.nanmin(footprint[:,1])
+    max_dec = np.nanmax(footprint[:,1])
+
+    ind1 = np.where((result_table[:,1] >= min_ra) & (result_table[:,1] <= max_ra))
+    temp = result_table[ind1,:]
+    ind2 = np.where((temp[:,1] >= min_dec) & (temp[:,2] <= max_dec))
+    gals = temp[ind2,:]
+
     for i in range(len(X)):
         coord = pix2coord(X[i],Y[i],WCS)
 
         c = coordinates.SkyCoord(ra=coord[0], dec=coord[1],unit=(u.deg, u.deg), frame='icrs')
         ra = c.ra.deg
         dec = c.dec.deg
-        dist = np.sqrt((NED_RA - ra)**2 + (NED_DEC - dec)**2)
+        dist = np.sqrt((gals[:,1] - ra)**2 + (gals[:,2] - dec)**2)
         radius = 2/3600 # Convert arcsec to deg 
-        if (dist <= radius).any():
-            ind = np.where(np.nanmin(dist))
-            obj = result_table[ind,:]
-            Objtype = obj[3][2:-1] # final indexing is to get rid of annoying pandas import 
-            if (obtype == 'G') | (obtype == 'QSO') | (obtype == 'QGroup') | (obtype == 'Q_Lens'):
-                Ob = obj[0][2:-1]
-                redshift = obj[5]
-                magfilt = obj[7]
-                CVSstring =[Ob, obtype, str(redshift), magfilt, str(coord[0]), str(coord[1]), str(Limit[Y[i],X[i]])]
-                Save_space(Save+'/Gals/')
-                Path = Save + '/Gals/' + File.split('/')[-1].split('-')[0] + '_Gs.csv'
-                
-                if os.path.isfile(Path):
-                    with open(Path, 'a') as csvfile:
-                        spamwriter = csv.writer(csvfile, delimiter=',')
-                        spamwriter.writerow(CVSstring)
-                else:
-                    with open(Path, 'w') as csvfile:
-                        spamwriter = csv.writer(csvfile, delimiter=',')
-                        spamwriter.writerow(['Name', 'Type', 'Redshift', 'Mag', 'RA', 'DEC', 'Maglim'])
-                        spamwriter.writerow(CVSstring)
-    
-    for i in range(len(Obj)):
-        if (Objtype[i] == 'G') | (Objtype[i] == 'QSO') | (Objtype[i] == 'QGroup') | (Objtype[i] == 'Q_Lens'):
-            hack_str = "b'%s'" %Obj
-            ind = np.where(hack_str == result_table[:,0])
-            obj = result_table[ind,:]
-            if len(obj) > 3:
-                obtype = obj[3]
-
-                Ob = obj[0][2:-1]
-                redshift = obj[5]
-                magfilt = obj[7]
-                limit = np.nanmean(Limit[Objmasks[i]==1])
-                CVSstring =[Ob, obtype, str(redshift), magfilt, str(coord[0]), str(coord[1]), str(limit)]
-                Save_space(Save+'/Gals/')
-                Path = Save + '/Gals/' + File.split('/')[-1].split('-')[0] + '_Gs.csv'
-
-                if os.path.isfile(Path):
-                    with open(Path, 'a') as csvfile:
-                        spamwriter = csv.writer(csvfile, delimiter=',')
-                        spamwriter.writerow(CVSstring)
-                else:
-                    with open(Path, 'w') as csvfile:
-                        spamwriter = csv.writer(csvfile, delimiter=',')
-                        spamwriter.writerow(['Name', 'Type', 'Redshift', 'Mag', 'RA', 'DEC', 'Maglim'])
-                        spamwriter.writerow(CVSstring)
+        short_list = gals[dist <= radius]
+        for item in short_list:
+            CVSstring = []
+            for ele in item:
+                CVSstring.append(ele)
+            CVSstring.append(Limit[Y[i],X[i]])
+            
+            Save_space(Save+'/Gals/')
+            Path = Save + '/Gals/' + File.split('/')[-1].split('-')[0] + '_Gs.csv'
+            
+            if os.path.isfile(Path):
+                with open(Path, 'a') as csvfile:
+                    spamwriter = csv.writer(csvfile, delimiter=',')
+                    spamwriter.writerow(CVSstring)
             else:
-                print(Obj)
-                print(hack_str)
+                with open(Path, 'w') as csvfile:
+                    spamwriter = csv.writer(csvfile, delimiter=',')
+                    spamwriter.writerow(header)
+                    spamwriter.writerow(CVSstring)
     return
 
 
@@ -603,7 +577,7 @@ def K2TranPix_limit(pixelfile,save):
             if len(Objmasks.shape) < 3:
                 Objmasks = np.zeros((1,datacube.shape[1],datacube.shape[2]))
             	
-            ObjName, ObjType = Database_check_mask(datacube,thrusters,Objmasks,mywcs)
+            ObjName, ObjType = Local_check_mask(datacube,thrusters,Objmasks,mywcs,pixelfile)
             #Gal_pixel_check(Mask,ObjName,Objmasks,ObjType,limit,mywcs,pixelfile,Save)
             Local_Gal_Check(Mask,ObjName,Objmasks,ObjType,limit,mywcs,pixelfile,Save)
 
