@@ -317,10 +317,11 @@ def Local_Gal_Check(Datacube,Obj,Objmasks,Objtype,Limit,WCS,File,Save):
         header.append(k)
     header.append('Maglim')
     footprint = WCS.calc_footprint()
-    min_ra = np.nanmin(footprint[:,0])
-    max_ra = np.nanmax(footprint[:,0])
-    min_dec = np.nanmin(footprint[:,1])
-    max_dec = np.nanmax(footprint[:,1])
+    padding = 4/3600
+    min_ra = np.nanmin(footprint[:,0]) - padding
+    max_ra = np.nanmax(footprint[:,0]) + padding
+    min_dec = np.nanmin(footprint[:,1]) - padding
+    max_dec = np.nanmax(footprint[:,1]) + padding
 
     ind1 = np.where((result_table[:,1] >= min_ra) & (result_table[:,1] <= max_ra))
     temp = result_table[ind1,:]
@@ -341,7 +342,7 @@ def Local_Gal_Check(Datacube,Obj,Objmasks,Objtype,Limit,WCS,File,Save):
             for ele in item:
                 CVSstring.append(ele)
             CVSstring.append(Limit[Y[i],X[i]])
-            
+
             Save_space(Save+'/Gals/')
             Path = Save + '/Gals/' + File.split('/')[-1].split('-')[0] + '_Gs.csv'
             
