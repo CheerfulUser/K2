@@ -11,9 +11,6 @@ from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.wcs import WCS
 
-from astroquery.simbad import Simbad
-from astroquery.ned import Ned
-from astroquery.ned.core import RemoteServiceError
 from xml.parsers.expat import ExpatError
 from astroquery.exceptions import TableParseError
 from astropy import coordinates
@@ -163,147 +160,11 @@ def Get_gal_lat(mywcs,datacube):
     b = SkyCoord(ra=float(ra)*u.degree, dec=float(dec)*u.degree, frame='icrs').galactic.b.degree
     return b
 
-def Identify_masks(Obj):
+
+
+def Local_Gal_Check(Datacube,Limit,WCS,File,Save):
     """
-    Uses an iterrative process to find spacially seperated masks in the object mask.
-    """
-    objsub = np.copy(Obj)
-    Objmasks = []
-
-    mask1 = np.zeros((Obj.shape))
-    if np.nansum(objsub) > 0:
-        mask1[np.where(objsub==1)[0][0],np.where(objsub==1)[1][0]] = 1
-        while np.nansum(objsub) > 0:
-
-            conv = ((convolve(mask1*1,np.ones((3,3)),mode='constant', cval=0.0)) > 0)*1.0
-            objsub = objsub - mask1
-            objsub[objsub < 0] = 0
-
-            if np.nansum(conv*objsub) > 0:
-                
-                mask1 = mask1 + (conv * objsub)
-                mask1 = (mask1 > 0)*1
-            else:
-                
-                Objmasks.append(mask1)
-                mask1 = np.zeros((Obj.shape))
-                if np.nansum(objsub) > 0:
-                    mask1[np.where(objsub==1)[0][0],np.where(objsub==1)[1][0]] = 1
-    return Objmasks
-
-
-def Database_check_mask(Datacube,Thrusters,Masks,WCS):
-    """
-    Checks Ned and Simbad to find the object name and type in the mask.
-    This uses the mask set created by Identify_masks.
-    """
-    Objects = []
-    Objtype = []
-    av = np.nanmedian(Datacube[Thrusters+1],axis = 0)
-    for I in range(len(Masks)):
-
-        Mid = np.where(av*Masks[I] == np.nanmax(av*Masks[I]))
-        if len(Mid[0]) == 1:
-            Coord = pix2coord(Mid[1],Mid[0],WCS)
-        elif len(Mid[0]) > 1:
-            Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
-
-        c = coordinates.SkyCoord(ra=Coord[0], dec=Coord[1],unit=(u.deg, u.deg), frame='icrs')
-        Ob = 'Unknown'
-        objtype = 'Unknown'
-        try:
-            result_table = Ned.query_region(c, radius = 6*u.arcsec, equinox='J2000')
-            if len(result_table.colnames) > 0:
-                if len(result_table['No.']) > 0:
-                    Ob = np.asarray(result_table['Object Name'])[0].decode("utf-8") 
-                    objtype = result_table['Type'][0].decode("utf-8") 
-
-                    if '*' in objtype:
-                        objtype = objtype.replace('*','Star')
-                    if '!' in objtype:
-                        objtype = objtype.replace('!','Gal') # Galactic sources
-                    if objtype == 'G':
-                        try:
-                            result_table = Simbad.query_region(c,radius = 6*u.arcsec)
-                            if len(result_table.colnames) > 0:
-                                if len(result_table['MAIN_ID']) > 0:
-                                    objtype = objtype + 'Simbad'
-                        except (AttributeError,ExpatError,TableParseError,ValueError,EOFError) as e:
-                            pass
-                
-        except (RemoteServiceError,ExpatError,TableParseError,ValueError,EOFError) as e:
-            try:
-                result_table = Simbad.query_region(c,radius = 6*u.arcsec)
-                if len(result_table.colnames) > 0:
-                    if len(result_table['MAIN_ID']) > 0:
-                        Ob = np.asarray(result_table['MAIN_ID'])[0].decode("utf-8") 
-                        objtype = 'Simbad'
-            except (AttributeError,ExpatError,TableParseError,ValueError,EOFError) as e:
-                pass
-        Objects.append(Ob)
-        Objtype.append(objtype)
-
-    return Objects, Objtype
-
-
-
-def Local_check_mask(Datacube,Thrusters,Masks,WCS,File):
-    """
-    Checks Ned and Simbad to find the object name and type in the mask.
-    This uses the mask set created by Identify_masks.
-    """
-    Objects = []
-    Objtype = []
-    av = np.nanmedian(Datacube[Thrusters+1],axis = 0)
-
-    Database_location = '/avatar/ryanr/Data/Catalog/NED/' 
-    Campaign = File.split('-')[1].split('_')[0].split('c')[1]
-
-    result_table = pd.read_csv(Database_location + 'NED_' + Campaign + '.csv').values
-    NED_RA = np.zeros(len(result_table[:,1]))
-    NED_DEC = np.zeros(len(result_table[:,1]))
-    for i in range(len(result_table[:,1])):
-        NED_RA[i] = result_table[i,1]
-        NED_DEC[i] = result_table[i,2]
-
-    for I in range(len(Masks)):
-
-        Mid = np.where(av*Masks[I] == np.nanmax(av*Masks[I]))
-        if len(Mid[0]) == 1:
-            Coord = pix2coord(Mid[1],Mid[0],WCS)
-        elif len(Mid[0]) > 1:
-            Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
-
-        c = coordinates.SkyCoord(ra=Coord[0], dec=Coord[1],unit=(u.deg, u.deg), frame='icrs')
-        ra = c.ra.deg
-        dec = c.dec.deg
-
-        Ob = 'Unknown'
-        objtype = 'Unknown'
-
-        dist = np.sqrt((NED_RA - ra)**2 + (NED_DEC - dec)**2)
-        radius = 2/3600 # Convert arcsec to deg 
-        if (dist <= radius).any():
-            ind = np.where(np.nanmin(dist))
-
-            Ob = result_table[ind,0][2:-1]
-            objtype = result_table[ind,3][2:-1]
-
-            if '*' in objtype:
-                objtype = objtype.replace('*','Star')
-            if '!' in objtype:
-                objtype = objtype.replace('!','Gal') # Galactic sources
-
-        Objects.append(Ob)
-        Objtype.append(objtype)
-
-    return Objects, Objtype
-
-def Local_Gal_Check(Datacube,Obj,Objmasks,Objtype,Limit,WCS,File,Save):
-    """
-    Checks each pixel outside of objects and the objects to see if they coincide with a galaxy.
-    If there is a coincidence with NED then galaxy properties and limit of the pixel are saved
-    to file in a Gal directory.
+    Checks every pixel for coincidence with the Pan-STARRS galaxy cataloge. 
     """
     Database_location = '/avatar/ryanr/Data/Catalog/PS/' 
     Campaign = File.split('-')[1].split('_')[0].split('c')[1]
@@ -368,34 +229,9 @@ def Save_space(Save):
     except FileExistsError:
         pass
 
-def Lightcurve(Data,Mask):
-    Mask = Mask*1.0
-    Mask[Mask == 0.0] = np.nan
-    LC = np.nansum(Data*Mask, axis = (1,2))
-    for k in range(len(LC)):
-        if np.isnan(Data[k]*Mask).all(): # np.isnan(np.sum(Data[k]*Mask)) & (np.nansum(Data[k]*Mask) == 0):
-            LC[k] = np.nan
-
-    return LC
 
 
 
-def SixMedian(LC):
-    '''
-    Creates a lightcurve using a 6 hour median average.
-    '''
-    lc6 = []
-    x = []
-    for i in range(int(len(LC)/12)):
-        if np.isnan(LC[i*12:(i*12)+12]).all():
-            lc6.append(np.nan)
-            x.append(i*12+6)
-        else:
-            lc6.append(np.nanmedian(LC[i*12:(i*12)+12]))
-            x.append(i*12+6)
-    lc6 = np.array(lc6)
-    x = np.array(x)
-    return lc6, x
 
 def Long_events_limit(Data, Time, Mask, Dist, Save, File):
     '''
@@ -570,17 +406,7 @@ def K2TranPix_limit(pixelfile,save):
             Save_space(Save + '/Field/')
             np.savez(Fieldsave, Fieldprop)
 
-
-            # Find all spatially seperate objects in the event mask.
-            Objmasks = Identify_masks(obj)
-            Objmasks = np.array(Objmasks)
-
-            if len(Objmasks.shape) < 3:
-                Objmasks = np.zeros((1,datacube.shape[1],datacube.shape[2]))
-            	
-            ObjName, ObjType = Local_check_mask(datacube,thrusters,Objmasks,mywcs,pixelfile)
-            #Gal_pixel_check(Mask,ObjName,Objmasks,ObjType,limit,mywcs,pixelfile,Save)
-            Local_Gal_Check(Mask,ObjName,Objmasks,ObjType,limit,mywcs,pixelfile,Save)
+            Local_Gal_Check(Mask,limit,mywcs,pixelfile,Save)
 
             Long_events_limit(Maskdata,time,Mask,distdrif,Save,pixelfile)
         	
