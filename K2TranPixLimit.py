@@ -169,53 +169,56 @@ def Local_Gal_Check(Datacube,Limit,WCS,File,Save):
     Database_location = '/avatar/ryanr/Data/Catalog/PS/' 
     Campaign = File.split('-')[1].split('_')[0].split('c')[1]
     valid_pix = np.nansum(abs(Datacube),axis=(0)) > 0
-    Y, X = np.where(valid_pix)
+    if np.nansum(valid_pix) > 0:
+	    Y, X = np.where(valid_pix)
 
-    result_table = pd.read_csv(Database_location + 'Gal_c' + Campaign + '_Cheerful.csv').values
-    keys = pd.read_csv(Database_location + 'Gal_c' + Campaign + '_Cheerful.csv').key
-    header = []
-    for k in keys:
-        header.append(k)
-    header.append('Maglim')
-    footprint = WCS.calc_footprint()
-    padding = 4/3600
-    min_ra = np.nanmin(footprint[:,0]) - padding
-    max_ra = np.nanmax(footprint[:,0]) + padding
-    min_dec = np.nanmin(footprint[:,1]) - padding
-    max_dec = np.nanmax(footprint[:,1]) + padding
+	    result_table = pd.read_csv(Database_location + 'Gal_c' + Campaign + '_Cheerful.csv').values
+	    keys = pd.read_csv(Database_location + 'Gal_c' + Campaign + '_Cheerful.csv').key
+	    header = []
+	    for k in keys:
+	        header.append(k)
+	    header.append('Maglim')
+	    footprint = WCS.calc_footprint()
+	    padding = 4/3600
+	    min_ra = np.nanmin(footprint[:,0]) - padding
+	    max_ra = np.nanmax(footprint[:,0]) + padding
+	    min_dec = np.nanmin(footprint[:,1]) - padding
+	    max_dec = np.nanmax(footprint[:,1]) + padding
 
-    ind1 = np.where((result_table[:,1] >= min_ra) & (result_table[:,1] <= max_ra))
-    temp = result_table[ind1,:]
-    ind2 = np.where((temp[:,1] >= min_dec) & (temp[:,2] <= max_dec))
-    gals = temp[ind2,:]
+	    ind1 = np.where((result_table[:,1] >= min_ra) & (result_table[:,1] <= max_ra))
+	    temp = result_table[ind1,:]
+	    ind2 = np.where((temp[:,1] >= min_dec) & (temp[:,2] <= max_dec))
+	    gals = temp[ind2,:]
 
-    for i in range(len(X)):
-        coord = pix2coord(X[i],Y[i],WCS)
+	    for i in range(len(X)):
+	        coord = pix2coord(X[i],Y[i],WCS)
 
-        c = coordinates.SkyCoord(ra=coord[0], dec=coord[1],unit=(u.deg, u.deg), frame='icrs')
-        ra = c.ra.deg
-        dec = c.dec.deg
-        dist = np.sqrt((gals[:,1] - ra)**2 + (gals[:,2] - dec)**2)
-        radius = 2/3600 # Convert arcsec to deg 
-        short_list = gals[dist <= radius]
-        for item in short_list:
-            CVSstring = []
-            for ele in item:
-                CVSstring.append(ele)
-            CVSstring.append(Limit[Y[i],X[i]])
+	        c = coordinates.SkyCoord(ra=coord[0], dec=coord[1],unit=(u.deg, u.deg), frame='icrs')
+	        ra = c.ra.deg
+	        dec = c.dec.deg
+	        dist = np.sqrt((gals[:,1] - ra)**2 + (gals[:,2] - dec)**2)
+	        radius = 2/3600 # Convert arcsec to deg 
+	        short_list = gals[dist <= radius]
+	        for item in short_list:
+	            CVSstring = []
+	            for ele in item:
+	                CVSstring.append(ele)
+	            CVSstring.append(Limit[Y[i],X[i]])
 
-            Save_space(Save+'/Gals/')
-            Path = Save + '/Gals/' + File.split('/')[-1].split('-')[0] + '_Gs.csv'
-            
-            if os.path.isfile(Path):
-                with open(Path, 'a') as csvfile:
-                    spamwriter = csv.writer(csvfile, delimiter=',')
-                    spamwriter.writerow(CVSstring)
-            else:
-                with open(Path, 'w') as csvfile:
-                    spamwriter = csv.writer(csvfile, delimiter=',')
-                    spamwriter.writerow(header)
-                    spamwriter.writerow(CVSstring)
+	            Save_space(Save+'/Gals/')
+	            Path = Save + '/Gals/' + File.split('/')[-1].split('-')[0] + '_Gs.csv'
+	            
+	            if os.path.isfile(Path):
+	                with open(Path, 'a') as csvfile:
+	                    spamwriter = csv.writer(csvfile, delimiter=',')
+	                    spamwriter.writerow(CVSstring)
+	            else:
+	                with open(Path, 'w') as csvfile:
+	                    spamwriter = csv.writer(csvfile, delimiter=',')
+	                    spamwriter.writerow(header)
+	                    spamwriter.writerow(CVSstring)	
+        else:
+        	print('Corrupt file')
     return
 
 
