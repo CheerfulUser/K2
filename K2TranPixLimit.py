@@ -179,6 +179,7 @@ def Local_Gal_Check(Datacube,Limit,WCS,File,Save):
 		    header.append(k)
 		header.append('Maglim')
 		footprint = WCS.calc_footprint()
+		print(footprint)
 		padding = 4/3600
 		min_ra = np.nanmin(footprint[:,0]) - padding
 		max_ra = np.nanmax(footprint[:,0]) + padding
