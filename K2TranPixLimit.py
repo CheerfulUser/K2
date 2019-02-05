@@ -217,8 +217,8 @@ def Local_Gal_Check(Datacube,Limit,WCS,File,Save):
 	                    spamwriter = csv.writer(csvfile, delimiter=',')
 	                    spamwriter.writerow(header)
 	                    spamwriter.writerow(CVSstring)	
-        else:
-        	print('Corrupt file')
+		else:
+			print('Corrupt file')
     return
 
 
