@@ -173,7 +173,7 @@ def Local_Gal_Check(Datacube,Limit,WCS,File,Save):
 		Y, X = np.where(valid_pix)
 
 		result_table = pd.read_csv(Database_location + 'Gal_c' + Campaign + '_Cheerful.csv').values
-		keys = pd.read_csv(Database_location + 'Gal_c' + Campaign + '_Cheerful.csv').key
+		keys = pd.read_csv(Database_location + 'Gal_c' + Campaign + '_Cheerful.csv').keys()
 		header = []
 		for k in keys:
 		    header.append(k)
