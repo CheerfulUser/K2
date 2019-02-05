@@ -409,9 +409,9 @@ def K2TranPix_limit(pixelfile,save):
             Save_space(Save + '/Field/')
             np.savez(Fieldsave, Fieldprop)
 
-            Local_Gal_Check(Mask,limit,mywcs,pixelfile,Save)
+            Local_Gal_Check(Maskdata, limit, mywcs, pixelfile, Save)
 
-            Long_events_limit(Maskdata,time,Mask,distdrif,Save,pixelfile)
+            Long_events_limit(Maskdata, time, Mask, distdrif, Save, pixelfile)
         	
         else:
             print('Small ', pixelfile)
