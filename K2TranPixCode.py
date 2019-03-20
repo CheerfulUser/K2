@@ -1,9 +1,8 @@
-import matplotlib 
+import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import matplotlib.gridspec as gridspec
-import imageio
 import numpy as np
 import pandas as pd
 
@@ -15,6 +14,10 @@ from astropy.io import fits
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.wcs import WCS
+
+from scipy import ndimage as ndi
+from skimage.morphology import watershed
+from skimage.feature import peak_local_max
 
 from astroquery.simbad import Simbad
 from astroquery.ned import Ned
@@ -529,9 +532,9 @@ def Motion_correction(Data,Mask,Thrusters,Dist):
                 for index in ind:
                     if (index < len(datrange) - 1) & (index > 0):
                         datrange[index] = np.nanmedian([datrange[index-1],datrange[index+1]])
-                    elif index == 0:
+                    elif (index == 0):
                         datrange[index] = datrange[index+1]
-                    elif index >= len(datrange):
+                    elif (index >= len(datrange)-1):
                         datrange[index] = datrange[index-1]
                         
 
@@ -578,10 +581,12 @@ def Motion_correction(Data,Mask,Thrusters,Dist):
                         if (len(x[ind]) > 3) & (len(x[ind])/len(x) > 0.6):
                             polyfit, resid, _, _, _  = np.polyfit(x[ind], Section[ind], 3, full = True)
                             p3 = np.poly1d(polyfit)
+                            original_data = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]])
+                            reduced_data = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) 
 
-                            #if np.abs(resid/len(x[ind])) < 10:
-                            temp[x+Thrusters[i]+2] = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) 
-                            temp[Thrusters[i]:Thrusters[i]+2] = np.nan
+                            if abs(np.nanmedian(original_data) - np.nanmedian(reduced_data))/np.nanstd(original_data) < 2:
+                                temp[x+Thrusters[i]+2] = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) 
+                                temp[Thrusters[i]:Thrusters[i]+2] = np.nan
                         # This should kill all instances of uncorrected data due to drift systematically being > 0.3 pix
                         if (np.isnan(Spline[Thrusters[i]+2:Thrusters[i+1]])).all():
                             temp[x+Thrusters[i]+2] = np.nan
@@ -634,6 +639,26 @@ def Identify_masks(Obj):
                     mask1[np.where(objsub==1)[0][0],np.where(objsub==1)[1][0]] = 1
     return Objmasks
 
+def Watershed_object_sep(obj):
+    """
+    Uses the watershed method to identify components in the object mask. 
+    """
+    obj = obj*1
+    distance = ndi.distance_transform_edt(obj)
+    local_maxi = peak_local_max(distance, indices=False, footprint=np.ones((3, 3)),labels=obj)
+    markers = ndi.label(local_maxi)[0]
+    labels = watershed(-distance, markers, mask=obj)
+
+    temp = np.nanmax(labels)
+    Objmasks = []
+    for i in range(temp):
+        i += 1
+        #print(i)
+        Objmasks += [(labels == i)*1]
+
+    Objmasks = np.array(Objmasks)
+    return Objmasks
+
 def Database_event_check(Data,Eventtime,Eventmask,WCS):
     """
     Checks Ned and Simbad to check the event position against known objects.
@@ -650,6 +675,9 @@ def Database_event_check(Data,Eventtime,Eventmask,WCS):
             Coord = pix2coord(Mid[1],Mid[0],WCS)
         elif len(Mid[0]) > 1:
             Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
+        else:
+            print('something not right')
+            print(len(Mid[0]))
         
         c = coordinates.SkyCoord(ra=Coord[0], dec=Coord[1],unit=(u.deg, u.deg), frame='icrs')
 
@@ -947,7 +975,10 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
             nonanind = np.isfinite(lcpos)
             temp = sorted(lcpos[nonanind].flatten())
             temp = np.array(temp)
-            temp  = temp[-3] # get 3rd brightest point
+            if len(temp) > 10:
+                temp  = temp[-3] # get 3rd brightest point
+            else:
+                temp  = temp[-1] # get 3rd brightest point
             if temp > maxcolor:
                 maxcolor = temp
                 Mid = ([position[0][j]],[position[1][j]])
@@ -992,19 +1023,19 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
             plt.axvline(Time[Quality[0]]-np.floor(Time[0]),color = 'red', linestyle='dashed',label = 'Quality', alpha = 0.5)
             for j in range(Quality.shape[0]-1):
                 j = j+1 
-                plt.axvline(Time[Quality[j]]-np.floor(Time[0]), linestyle='dashed', color = 'red', alpha = 0.5)
+                plt.axvline(Time[Quality[j]]-np.floor(Time[0]), linestyle='dashed', color = 'red', alpha = 0.5, rasterized=True)
             # plot Thurster firings 
-            plt.axvline(Time[Thrusters[0]]-np.floor(Time[0]),color = 'red',label = 'Thruster', alpha = 0.5)
+            plt.axvline(Time[Thrusters[0]]-np.floor(Time[0]),color = 'red',label = 'Thruster', alpha = 0.5, rasterized=True)
             for j in range(Thrusters.shape[0]-1):
                 j = j+1 
-                plt.axvline(Time[Thrusters[j]]-np.floor(Time[0]),color = 'red', alpha = 0.5)
+                plt.axvline(Time[Thrusters[j]]-np.floor(Time[0]),color = 'red', alpha = 0.5, rasterized=True)
             
         
 
-        plt.plot(Time - np.floor(Time[0]), BGLC,'k.', label = 'Background LC')
-        plt.plot(Time - np.floor(Time[0]), ObjLC,'kx', label = 'Scaled object LC')
-        plt.plot(Time - np.floor(Time[0]), OrigLC,'m+',alpha=0.9, label = 'Original data')
-        plt.plot(Time - np.floor(Time[0]), LC,'.', label = 'Event LC',alpha=0.5)
+        plt.plot(Time - np.floor(Time[0]), BGLC,'k.', label = 'Background LC', rasterized=True)
+        plt.plot(Time - np.floor(Time[0]), ObjLC,'kx', label = 'Scaled object LC', rasterized=True)
+        plt.plot(Time - np.floor(Time[0]), OrigLC,'m+',alpha=0.9, label = 'Original data', rasterized=True)
+        plt.plot(Time - np.floor(Time[0]), LC,'.', label = 'Event LC',alpha=0.5, rasterized=True)
         
         xmin = Time[Eventtime[i][0]]-np.floor(Time[0])-(Eventtime[i][-1]-Eventtime[i][0])/10
         if Eventtime[i][-1] < len(Time):
@@ -1022,11 +1053,19 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
 
         temp = sorted(lclim[np.isfinite(lclim)].flatten())
         temp = np.array(temp)
-        maxy  = temp[-5] # get 8th brightest point
+        if len(temp) > 6:
+            maxy = temp[-5] # get 8th brightest point
+        else:
+            maxy = temp[-1]
 
-        temp = sorted(LC[np.isfinite(LC)].flatten())
+        temp_LC = np.copy(LC)
+        temp_LC[temp_LC == 0] = np.nan
+        temp = sorted(temp_LC[np.isfinite(temp_LC)].flatten())
         temp = np.array(temp)
-        miny  = temp[10] # get 10th faintest point
+        if len(temp) > 100:
+            miny  = temp[10] # get 10th faintest point
+        else: 
+            miny  = temp[0] # get 10th faintest point
 
         ymin = miny - 0.1*miny
         ymax = maxy + 0.1*maxy
@@ -1045,7 +1084,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         current_cmap = plt.cm.get_cmap()
         current_cmap.set_bad(color='black')
         plt.colorbar(fraction=0.046, pad=0.04)
-        plt.plot(position[1],position[0],'r.',ms = 15)
+        plt.plot(position[1],position[0],'r.',ms = 15, rasterized=True)
         plt.minorticks_on()
         ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
         ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
@@ -1058,7 +1097,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         current_cmap = plt.cm.get_cmap()
         current_cmap.set_bad(color='black')
         plt.colorbar(fraction=0.046, pad=0.04)
-        plt.plot(position[1],position[0],'r.',ms = 15)
+        plt.plot(position[1],position[0],'r.',ms = 15, rasterized=True)
         plt.minorticks_on()
         ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
         ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
@@ -1172,7 +1211,10 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save
             nonanind = np.isfinite(lcpos)
             temp = sorted(lcpos[nonanind].flatten())
             temp = np.array(temp)
-            temp  = temp[-3] # get 3rd brightest point
+            if len(temp) > 10:
+                temp  = temp[-3] # get 3rd brightest point
+            else:
+                temp  = temp[-1] # get 3rd brightest point
 
             if temp > maxcolor:
                 maxcolor = temp
@@ -1200,11 +1242,18 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save
 
         temp = sorted(lclim[np.isfinite(lclim)].flatten())
         temp = np.array(temp)
-        maxy  = temp[-5] # get 8th brightest point
-
-        temp = sorted(LC[np.isfinite(LC)].flatten())
+        if len(temp) > 10:
+            maxy  = temp[-5] # get 5th brightest point
+        else:
+            maxy  = temp[0]
+        temp_LC = np.copy(LC)
+        temp_LC[temp_LC == 0] = np.nan
+        temp = sorted(temp_LC[np.isfinite(temp_LC)].flatten())
         temp = np.array(temp)
-        miny  = temp[10] # get 10th faintest point
+        if len(temp) > 100:
+            miny  = temp[10] # get 10th faintest point
+        else: 
+            miny  = temp[0] # get 10th faintest point
 
         ymin = miny - 0.1*miny
         ymax = maxy + 0.1*maxy
@@ -1305,7 +1354,10 @@ def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Zoo_Save, D
             temp = sorted(Data[Eventtime[i][0]:Eventtime[i][-1],position[0][j],position[1][j]].flatten())
             temp = np.array(temp)
             temp = temp[np.isfinite(temp)]
-            temp  = temp[-3] # get 3rd brightest point
+            if len(temp) > 10:
+                temp  = temp[-3] # get 3rd brightest point
+            else:
+                temp  = temp[-1] # get 3rd brightest point # get 3rd brightest point
             if temp > maxcolor:
                 maxcolor = temp
                 Mid = ([position[0][j]],[position[1][j]])
@@ -1531,7 +1583,10 @@ def Long_figure(Long,Eventtime,Data,WCS,Time,Save,File,Source,SourceType,ObjMask
             nonanind = np.isfinite(Data[:,position[0][j],position[1][j]])
             temp = sorted(Data[nonanind,position[0][j],position[1][j]].flatten())
             temp = np.array(temp)
-            temp  = temp[-3] # get 3rd brightest point
+            if len(temp) > 10:
+                temp  = temp[-3] # get 3rd brightest point
+            else:
+                temp  = temp[-1] # get 3rd brightest point # get 3rd brightest point
             if temp > maxcolor:
                 maxcolor = temp
                 Mid = ([position[0][j]],[position[1][j]])
@@ -1582,10 +1637,10 @@ def Long_figure(Long,Eventtime,Data,WCS,Time,Save,File,Source,SourceType,ObjMask
         plt.xlabel('Time (+'+str(int(np.floor(Time[0])))+' BJD)')
         plt.ylabel('Counts')
         
-        plt.plot(Time - np.floor(Time[0]), BGLC,'k.', label = 'Background LC')
-        plt.plot(Time - np.floor(Time[0]), ObjLC,'kx', label = 'Scaled object LC')
-        plt.plot(Time - np.floor(Time[0]), LC,'.', label = 'Event LC',alpha=0.5)
-        plt.plot(Time[ind] - np.floor(Time[0]), Six_LC,'m.', label = '6hr average',alpha=1)
+        plt.plot(Time - np.floor(Time[0]), BGLC,'k.', label = 'Background LC', rasterized=True)
+        plt.plot(Time - np.floor(Time[0]), ObjLC,'kx', label = 'Scaled object LC', rasterized=True)
+        plt.plot(Time - np.floor(Time[0]), LC,'.', label = 'Event LC',alpha=0.5, rasterized=True)
+        plt.plot(Time[ind] - np.floor(Time[0]), Six_LC,'m.', label = '6hr average',alpha=1, rasterized=True)
         if Eventtime[i][-1] < len(Time):
             plt.axvspan(Time[Eventtime[i][0]]-np.floor(Time[0]),Time[Eventtime[i][-1]]-np.floor(Time[0]), color = 'orange',alpha = 0.5, label = 'Event duration')
         else:
@@ -1611,7 +1666,7 @@ def Long_figure(Long,Eventtime,Data,WCS,Time,Save,File,Source,SourceType,ObjMask
         current_cmap.set_bad(color='black')
         plt.colorbar(fraction=0.046, pad=0.04)
         
-        plt.plot(position[1],position[0],'r.',ms = 12)
+        plt.plot(position[1],position[0],'r.',ms = 12, rasterized=True)
         plt.minorticks_on()
         ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
         ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
@@ -1626,7 +1681,7 @@ def Long_figure(Long,Eventtime,Data,WCS,Time,Save,File,Source,SourceType,ObjMask
         current_cmap.set_bad(color='black')
         plt.colorbar(fraction=0.046, pad=0.04)
         
-        plt.plot(position[1],position[0],'r.',ms = 12)
+        plt.plot(position[1],position[0],'r.',ms = 12, rasterized=True)
         plt.minorticks_on()
         ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
         ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
@@ -1655,7 +1710,10 @@ def LongK2TranPixZoo(Long,Eventtime,Source,SourceType,Data,Time,wcs,Save,File):
             nonanind = np.isfinite(Data[:,position[0][j],position[1][j]])
             temp = sorted(Data[nonanind,position[0][j],position[1][j]].flatten())
             temp = np.array(temp)
-            temp  = temp[-3] # get 3rd brightest point
+            if len(temp) > 10:
+                temp  = temp[-3] # get 3rd brightest point
+            else:
+                temp  = temp[-1] # get 3rd brightest point # get 3rd brightest point
             if temp > maxcolor:
                 maxcolor = temp
                 Mid = ([position[0][j]],[position[1][j]])
@@ -1764,9 +1822,9 @@ def Write_long_event(Pixelfile, Long, Eventtime, Source, Sourcetype, Long_Save, 
     for i in range(len(Long)):
         mask = Long[i]
 
-        start = 0
-        duration = Data.shape[0]
-        maxlc = np.nanmax(Lightcurve(Data, mask))
+        start = Eventtime[i][0]
+        duration = Eventtime[i][1] - Eventtime[i][0]
+        maxlc = np.nanmax(Lightcurve(Data[Eventtime[i][0]:Eventtime[i][1]], mask))
 
         position = np.where(mask)
         Mid = ([position[0][0]],[position[1][0]])
@@ -1775,7 +1833,10 @@ def Write_long_event(Pixelfile, Long, Eventtime, Source, Sourcetype, Long_Save, 
             temp = sorted(Data[:,position[0][j],position[1][j]].flatten())
             temp = np.array(temp)
             temp = temp[np.isfinite(temp)]
-            temp  = temp[-3] # get 3rd brightest point
+            if len(temp) > 10:
+                temp  = temp[-3] # get 3rd brightest point
+            else:
+                temp  = temp[-1] # get 3rd brightest point
             if temp > maxcolor:
                 maxcolor = temp
                 Mid = ([position[0][j]],[position[1][j]])
@@ -1855,6 +1916,7 @@ def Find_Long_Events(Data,Time,Eventmask,Objmasks,Mask,Thrusters,Dist,Quality,WC
         Long_figure(long_mask, long_time, Data, WCS, Time, Save, File, Long_Source, Long_Type, Long_Maskobj, Eventmask)
         long_saves = LongK2TranPixZoo(long_mask, long_time, Long_Source, Long_Type, Data, Time, WCS, Save, File)
         Write_long_event(File, long_mask, long_time, Long_Source, Long_Type,long_saves, Data, Quality, WCS, HDU, Save)
+    return
 
 def Rank_brightness(Eventtime,Eventmask,Data,Quality):
     Rank = np.zeros(len(Eventtime))
@@ -2040,8 +2102,9 @@ def K2TranPix(pixelfile,save):
 
 
             # Find all spatially seperate objects in the event mask.
-            Objmasks = Identify_masks(obj)
-            Objmasks = np.array(Objmasks)
+            #Objmasks = Identify_masks(obj)
+            #Objmasks = np.array(Objmasks)
+            Objmasks = Watershed_object_sep(obj)
 
             if len(Objmasks.shape) < 3:
                 Objmasks = np.zeros((1,datacube.shape[1],datacube.shape[2]))
