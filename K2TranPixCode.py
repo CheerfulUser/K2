@@ -239,7 +239,7 @@ def Smoothmax(interval,Lightcurve,qual):
     return maxpos
 
 
-def Vet_brightness(Event, Eventtime, Eventmask, Data, Quality):
+def Vet_brightness(Event, Eventtime, Eventmask, Data, Quality,pixelfile):
     good_ind = np.zeros(len(Event))
     
     for i in range(len(Eventtime)):
@@ -2084,11 +2084,11 @@ def K2TranPix(pixelfile,save):
 
             events, eventtime, eventmask = Event_ID(Eventmask,Mask,8)
             # Make sure the detected events are actually significant, not just a product of smoothing.
-            events, eventtime, eventmask = Vet_brightness(events,eventtime,eventmask,Maskdata,quality)
+            events, eventtime, eventmask = Vet_brightness(events,eventtime,eventmask,Maskdata,quality,pixelfile)
             # Eliminate events that do not meet thruster firing conditions
             events, eventtime, eventmask, asteroid, asttime, astmask = ThrusterElim(events,eventtime,eventmask,thrusters,quality,Qual,Maskdata)
 
-            events, eventtime, eventmask = Vet_brightness(events,eventtime,eventmask,Maskdata,quality)
+            events, eventtime, eventmask = Vet_brightness(events,eventtime,eventmask,Maskdata,quality,pixelfile)
             
             events, eventtime, eventmask = Match_events(events,eventtime,eventmask)
             
