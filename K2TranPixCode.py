@@ -272,15 +272,15 @@ def Vet_brightness(Event, Eventtime, Eventmask, Data, Quality,pixelfile):
                     good_ind[i] = 1
     
     good_ind = good_ind > 0
-
     event_bright = Event[good_ind] 
     eventtime_bright = Eventtime[good_ind] 
-    mask_ind = np.where(good_ind)[0]
+    mask_ind = np.where(~good_ind)[0]
     for i in range(len(mask_ind)):
-        rev = len(mask_ind) - i
+        rev = len(mask_ind) -1 - i
         del Eventmask[rev]
     if len(Eventmask) != len(event_bright):
         raise ValueError('Arrays are different lengths, check whats happening in {}'.format(pixelfile))
+    
     return event_bright, eventtime_bright, Eventmask
 
 def ThrusterElim(Events,Times,Masks,Firings,Quality,qual,Data):
