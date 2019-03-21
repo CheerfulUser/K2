@@ -238,6 +238,44 @@ def Smoothmax(interval,Lightcurve,qual):
         maxpos = 0
     return maxpos
 
+
+def Vet_brightness(Event, Eventtime, Eventmask, Data, Quality):
+    i = 0
+    
+    while i < len(Eventtime):
+        mask = np.zeros(Data.shape[1:])
+        mask[Eventmask[i]] = 1
+        mask = mask > 0
+        LC = Lightcurve(Data,mask)
+        outside_mask = np.ones(len(LC))
+        lower = Eventtime[i][0] - 2*48
+        upper = Eventtime[i][1] + 10*48
+        if lower < 0:
+            lower = 0
+        if upper > len(LC):
+            upper = -1
+
+        outside_mask[lower:upper] = 0
+        outside_mask = outside_mask > 0
+
+        median = np.nanmedian(LC[outside_mask])
+        std = np.nanstd(LC[outside_mask])
+        event_max = Smoothmax(Eventtime[i],LC,Quality)
+        if len(event_max) > 0:
+            bright = np.round((LC[event_max[0]]-median)/std,1)
+            if bright < 3:
+                del Eventmask[i]
+                Event = np.delete(Event,i, axis=0)
+                Eventtime = np.delete(Eventtime,i, axis=0)
+        else:
+            del Eventmask[i]
+            Event = np.delete(Event,i, axis=0)
+            Eventtime = np.delete(Eventtime,i, axis=0)
+        
+        i += 1
+        
+    return Event, Eventtime, Eventmask
+
 def ThrusterElim(Events,Times,Masks,Firings,Quality,qual,Data):
     """
     Eliminates events that are likely to be produced by telescope motion.
@@ -2038,7 +2076,8 @@ def K2TranPix(pixelfile,save):
 
 
             events, eventtime, eventmask = Event_ID(Eventmask,Mask,8)
-
+            # Make sure the detected events are actually significant, not just a product of smoothing.
+            events, eventtime, eventmask = Vet_brightness(events,eventtime,eventmask,Maskdata,quality)
             # Eliminate events that do not meet thruster firing conditions
             events, eventtime, eventmask, asteroid, asttime, astmask = ThrusterElim(events,eventtime,eventmask,thrusters,quality,Qual,Maskdata)
             
