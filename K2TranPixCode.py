@@ -280,7 +280,7 @@ def Vet_brightness(Event, Eventtime, Eventmask, Data, Quality,pixelfile):
         del Eventmask[rev]
     if len(Eventmask) != len(event_bright):
         raise ValueError('Arrays are different lengths, check whats happening in {}'.format(pixelfile))
-    
+
     return event_bright, eventtime_bright, Eventmask
 
 def ThrusterElim(Events,Times,Masks,Firings,Quality,qual,Data):
@@ -2192,17 +2192,24 @@ def K2TranPix(pixelfile,save):
                 Source, SourceType = Probable_host(eventtime,eventmask,Source,SourceType,Objmasks,ObjName,ObjType,Maskdata)
                 SourceType = Isolation(eventtime,eventmask,Maskdata,SourceType)
                 # Remove all the stars! 
-                i = 0
-                while i < len(events):
-                    if (SourceType[i] == 'Near: Star') | (SourceType[i] == 'In: Star') | (SourceType[i] == 'Prob: Star'):
-                        events = np.delete(events,i)
-                        eventtime = np.delete(eventtime,i,axis=0)
-                        del eventmask[i]
-                        
-                        Source = np.delete(Source,i)
-                        SourceType = np.delete(SourceType,i)
+                good_ind = np.ones(len(events))
+                for i in range(len(events)):
+                    if 'Star' in SourceType[i]:
+                        good_ind[i] = 0
                     i += 1
                 
+                good_ind = good_ind > 0
+                events = events[good_ind] 
+                eventtime = eventtime[good_ind] 
+                Source = Source[good_ind]
+                SourceType = SourceType[good_ind]
+
+                mask_ind = np.where(~good_ind)[0]
+                for i in range(len(eventmask)):
+                    rev = len(eventmask) -1 - i
+                    del eventmask[rev]
+                if len(eventmask) != len(events):
+                    raise ValueError('Arrays are different lengths, check whats happening in {}'.format(pixelfile))
                 
                 # Print figures
                 K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType,Maskobj)
