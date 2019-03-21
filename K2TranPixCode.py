@@ -262,14 +262,15 @@ def Vet_brightness(Event, Eventtime, Eventmask, Data, Quality):
         std = np.nanstd(LC[outside_mask])
         event_max = Smoothmax(Eventtime[i],LC,Quality)
         if type(event_max) == int:
-            bright = np.round((LC[event_max-median])/std,1)
+            bright = np.round((LC[event_max]-median)/std,1)
             
         else:
             if len(event_max) > 0:
                 bright = np.round((LC[event_max[0]]-median)/std,1)
             
-            if bright > 3:
-                good_ind[i] = 1
+                if bright > 3:
+                    good_ind[i] = 1
+    
     good_ind = good_ind > 0
 
     event_bright = Event[good_ind] 
@@ -278,7 +279,8 @@ def Vet_brightness(Event, Eventtime, Eventmask, Data, Quality):
     for i in range(len(mask_ind)):
         rev = len(mask_ind) - i
         del Eventmask[rev]
-    
+    if len(Eventmask) != len(event_bright):
+        raise ValueError('Arrays are different lengths, check whats happening in {}'.format(pixelfile))
     return event_bright, eventtime_bright, Eventmask
 
 def ThrusterElim(Events,Times,Masks,Firings,Quality,qual,Data):
