@@ -261,8 +261,12 @@ def Vet_brightness(Event, Eventtime, Eventmask, Data, Quality):
         median = np.nanmedian(LC[outside_mask])
         std = np.nanstd(LC[outside_mask])
         event_max = Smoothmax(Eventtime[i],LC,Quality)
-        if len(event_max) > 0:
-            bright = np.round((LC[event_max[0]]-median)/std,1)
+        if type(event_max) == int:
+            bright = np.round((LC[event_max-median])/std,1)
+            
+        else:
+            if len(event_max) > 0:
+                bright = np.round((LC[event_max[0]]-median)/std,1)
             
             if bright > 3:
                 good_ind[i] = 1
