@@ -240,9 +240,9 @@ def Smoothmax(interval,Lightcurve,qual):
 
 
 def Vet_brightness(Event, Eventtime, Eventmask, Data, Quality):
-    i = 0
+    good_ind = np.zeros(len(Event))
     
-    while i < len(Eventtime):
+    for i in range(len(Eventtime)):
         mask = np.zeros(Data.shape[1:])
         mask[Eventmask[i]] = 1
         mask = mask > 0
@@ -263,18 +263,19 @@ def Vet_brightness(Event, Eventtime, Eventmask, Data, Quality):
         event_max = Smoothmax(Eventtime[i],LC,Quality)
         if len(event_max) > 0:
             bright = np.round((LC[event_max[0]]-median)/std,1)
-            if bright < 3:
-                del Eventmask[i]
-                Event = np.delete(Event,i, axis=0)
-                Eventtime = np.delete(Eventtime,i, axis=0)
-        else:
-            del Eventmask[i]
-            Event = np.delete(Event,i, axis=0)
-            Eventtime = np.delete(Eventtime,i, axis=0)
-        
-        i += 1
-        
-    return Event, Eventtime, Eventmask
+            
+            if bright > 3:
+                good_ind[i] = 1
+    good_ind = good_ind > 0
+
+    event_bright = Event[good_ind] 
+    eventtime_bright = Eventtime[good_ind] 
+    mask_ind = np.where(good_ind)[0]
+    for i in range(len(mask_ind)):
+        rev = len(mask_ind) - i
+        del Eventmask[rev]
+    
+    return event_bright, eventtime_bright, Eventmask
 
 def ThrusterElim(Events,Times,Masks,Firings,Quality,qual,Data):
     """
@@ -1886,7 +1887,7 @@ def Write_long_event(Pixelfile, Long, Eventtime, Source, Sourcetype, Long_Save, 
 
         size = np.nansum(Long[i])
         Zoo_fig = Long_Save[i]
-        CVSstring = [str(feild), str(ID), str(i), Sourcetype[i], str(start), 
+        CVSstring = [str(feild), str(ID), 'L'+str(i), Sourcetype[i], str(start), 
                      str(duration), str(maxlc), str(size), str(Coord[0]), str(Coord[1]), 
                      Source[i], str(hdu[0].header['CHANNEL']), str(hdu[0].header['MODULE']), 
                      str(hdu[0].header['OUTPUT']), str(rank_brightness[i]), str(rank_duration[i]),
@@ -2080,6 +2081,8 @@ def K2TranPix(pixelfile,save):
             events, eventtime, eventmask = Vet_brightness(events,eventtime,eventmask,Maskdata,quality)
             # Eliminate events that do not meet thruster firing conditions
             events, eventtime, eventmask, asteroid, asttime, astmask = ThrusterElim(events,eventtime,eventmask,thrusters,quality,Qual,Maskdata)
+
+            events, eventtime, eventmask = Vet_brightness(events,eventtime,eventmask,Maskdata,quality)
             
             events, eventtime, eventmask = Match_events(events,eventtime,eventmask)
             
