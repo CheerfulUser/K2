@@ -213,11 +213,12 @@ def Smoothmax(interval,Lightcurve,qual):
     """
     Calculates the time for the maximum value of a light curve, after smoothing the data.
     """
+    nanind = np.where(qual[interval[0]:interval[1]]!=0)[0]
     x = np.arange(interval[0],interval[1],1.)
-    x[qual[interval[0]:interval[-1]]!=0] = np.nan 
+    x[nanind] = np.nan 
     nbins = int(len(x)/5)
-    y = np.copy(Lightcurve[interval[0]:interval[-1]])
-    y[qual[interval[0]:interval[-1]]!=0] = np.nan
+    y = np.copy(Lightcurve[interval[0]:interval[1]])
+    y[nanind] = np.nan
     
     if np.nansum(x) > 0:
         n, _ = np.histogram(x, bins=nbins,range=(np.nanmin(x),np.nanmax(x)))
@@ -263,7 +264,8 @@ def Vet_brightness(Event, Eventtime, Eventmask, Data, Quality,pixelfile):
         event_max = Smoothmax(Eventtime[i],LC,Quality)
         if type(event_max) == int:
             bright = np.round((LC[event_max]-median)/std,1)
-            
+            if bright > 3:
+                good_ind[i] = 1
         else:
             if len(event_max) > 0:
                 bright = np.round((LC[event_max[0]]-median)/std,1)
@@ -1984,7 +1986,7 @@ def Rank_brightness(Eventtime,Eventmask,Data,Quality):
         median = np.nanmedian(LC[outside_mask])
         std = np.nanstd(LC[outside_mask])
         event_max = Smoothmax(Eventtime[i],LC,Quality)
-        
+        print('Event max, ', event_max)
         if len(event_max) > 0:
             Rank[i] = np.round((LC[event_max[0]]-median)/std,1)
         else:
@@ -2083,15 +2085,13 @@ def K2TranPix(pixelfile,save):
 
 
             events, eventtime, eventmask = Event_ID(Eventmask,Mask,8)
-            # Make sure the detected events are actually significant, not just a product of smoothing.
-            events, eventtime, eventmask = Vet_brightness(events,eventtime,eventmask,Maskdata,quality,pixelfile)
             # Eliminate events that do not meet thruster firing conditions
             events, eventtime, eventmask, asteroid, asttime, astmask = ThrusterElim(events,eventtime,eventmask,thrusters,quality,Qual,Maskdata)
-
-            events, eventtime, eventmask = Vet_brightness(events,eventtime,eventmask,Maskdata,quality,pixelfile)
             
             events, eventtime, eventmask = Match_events(events,eventtime,eventmask)
-            
+            # Make sure the detected events are actually significant, not just a product of smoothing.
+            events, eventtime, eventmask = Vet_brightness(events,eventtime,eventmask,Maskdata,Qual,pixelfile)
+
             temp = []
             for i in range(len(events)):
                 if len(np.where(datacube[eventtime[i][0]:eventtime[i][-1],eventmask[i][0],eventmask[i][1]] > 100000)[0]) == 0:
@@ -2200,15 +2200,17 @@ def K2TranPix(pixelfile,save):
                 
                 good_ind = good_ind > 0
                 events = events[good_ind] 
-                eventtime = eventtime[good_ind] 
-                Source = Source[good_ind]
-                SourceType = SourceType[good_ind]
+                eventtime = eventtime[good_ind]
 
                 mask_ind = np.where(~good_ind)[0]
-                for i in range(len(eventmask)):
-                    rev = len(eventmask) -1 - i
+                for i in range(len(mask_ind)):
+                    rev = len(mask_ind) -1 - i
                     del eventmask[rev]
+                    del Source[rev]
+                    del SourceType[rev]
                 if len(eventmask) != len(events):
+                    print('eventmask, ', len(eventmask))
+                    print('events, ', len(events))
                     raise ValueError('Arrays are different lengths, check whats happening in {}'.format(pixelfile))
                 
                 # Print figures
@@ -2220,7 +2222,7 @@ def K2TranPix(pixelfile,save):
             Find_Long_Events(Maskdata,time,Eventmask,Objmasks,Mask,thrusters,distdrif,Qual,mywcs,hdu,pixelfile,Save)
         else:
             print('Small ', pixelfile)
-    except (OSError):
-        print('OSError ',pixelfile)
+    except:
+        print('Error ',pixelfile)
         traceback.print_exc()
         pass  
