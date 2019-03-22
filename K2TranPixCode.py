@@ -1986,7 +1986,7 @@ def Rank_brightness(Eventtime,Eventmask,Data,Quality):
         median = np.nanmedian(LC[outside_mask])
         std = np.nanstd(LC[outside_mask])
         event_max = Smoothmax(Eventtime[i],LC,Quality)
-        print('Event max, ', event_max)
+        
         if len(event_max) > 0:
             Rank[i] = np.round((LC[event_max[0]]-median)/std,1)
         else:
@@ -2223,6 +2223,6 @@ def K2TranPix(pixelfile,save):
         else:
             print('Small ', pixelfile)
     except:
-        print('Error ',pixelfile)
+        print('Error ', pixelfile)
         traceback.print_exc()
         pass  
