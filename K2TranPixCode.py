@@ -247,6 +247,7 @@ def Vet_brightness(Event, Eventtime, Eventmask, Data, Quality,pixelfile):
         mask = np.zeros(Data.shape[1:])
         mask[Eventmask[i]] = 1
         mask = mask > 0
+        
         LC = Lightcurve(Data,mask)
         outside_mask = np.ones(len(LC))
         lower = Eventtime[i][0] - 2*48
@@ -266,12 +267,12 @@ def Vet_brightness(Event, Eventtime, Eventmask, Data, Quality,pixelfile):
             bright = np.round((LC[event_max]-median)/std,1)
             if bright > 3:
                 good_ind[i] = 1
-        else:
-            if len(event_max) > 0:
-                bright = np.round((LC[event_max[0]]-median)/std,1)
-            
-                if bright > 3:
-                    good_ind[i] = 1
+
+        elif len(event_max) > 0:
+            bright = np.round((LC[event_max[0]]-median)/std,1)
+        
+            if bright > 3:
+                good_ind[i] = 1
     
     good_ind = good_ind > 0
     event_bright = Event[good_ind] 
@@ -279,7 +280,8 @@ def Vet_brightness(Event, Eventtime, Eventmask, Data, Quality,pixelfile):
     mask_ind = np.where(~good_ind)[0]
     for i in range(len(mask_ind)):
         rev = len(mask_ind) -1 - i
-        del Eventmask[rev]
+        del Eventmask[mask_ind[rev]]
+
     if len(Eventmask) != len(event_bright):
         raise ValueError('Arrays are different lengths, check whats happening in {}'.format(pixelfile))
 
@@ -1239,8 +1241,8 @@ def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType
         ffmpegcall = 'ffmpeg -y -nostats -loglevel 0 -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4'
         os.system(ffmpegcall);
 
-        os.system('sleep 1')
-        os.system('rm -r ' + FrameSave)
+        #os.system('sleep 1')
+        #os.system('rm -r ' + FrameSave)
 
 def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save,File):
     """
@@ -1369,8 +1371,8 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save
 
         saves.append('./Figures' + directory.split('Figures')[-1] + 'Zoo-' + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4')
 
-        os.system('sleep 1')
-        os.system('rm -r ' + FrameSave)
+        #os.system('sleep 1')
+        #os.system('rm -r ' + FrameSave)
 
     return saves
 
@@ -1380,7 +1382,7 @@ def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Zoo_Save, D
     """
     feild = Pixelfile.split('-')[1].split('_')[0]
     ID = Pixelfile.split('ktwo')[1].split('-')[0]
-    
+
     rank_brightness = Rank_brightness(Eventtime,Eventmask,Data,Quality)
     rank_duration = Rank_duration(Eventtime)
     rank_mask = Rank_mask(Eventmask,Data)
@@ -1842,8 +1844,8 @@ def LongK2TranPixZoo(Long,Eventtime,Source,SourceType,Data,Time,wcs,Save,File):
 
         saves.append('./Figures' + directory.split('Figures')[-1] + 'Zoo-' + File.split('/')[-1].split('-')[0] + '_L' + str(i) + '.mp4') 
 
-        os.system('sleep 1')
-        os.system('rm -r ' + FrameSave)
+        #os.system('sleep 1')
+        #os.system('rm -r ' + FrameSave)
 
     return saves
 
@@ -1852,7 +1854,6 @@ def Write_long_event(Pixelfile, Long, Eventtime, Source, Sourcetype, Long_Save, 
     """
     Saves the event and field properties to a csv file.
     """
-    
     feild = Pixelfile.split('-')[1].split('_')[0]
     ID = Pixelfile.split('ktwo')[1].split('-')[0]
     mask = []
@@ -1971,6 +1972,7 @@ def Rank_brightness(Eventtime,Eventmask,Data,Quality):
         mask = np.zeros(Data.shape[1:])
         mask[Eventmask[i]] = 1
         mask = mask > 0
+        
         LC = Lightcurve(Data,mask)
         outside_mask = np.ones(len(LC))
         lower = Eventtime[i][0] - 2*48
@@ -1986,9 +1988,12 @@ def Rank_brightness(Eventtime,Eventmask,Data,Quality):
         median = np.nanmedian(LC[outside_mask])
         std = np.nanstd(LC[outside_mask])
         event_max = Smoothmax(Eventtime[i],LC,Quality)
-        
-        if len(event_max) > 0:
-            Rank[i] = np.round((LC[event_max[0]]-median)/std,1)
+        if type(event_max) == int:
+            Rank[i] = np.round((LC[event_max]-median)/std,1)
+            
+        elif len(event_max) > 0:
+            Rank[i] = np.round((LC[event_max]-median)/std,1)
+            
         else:
             Rank[i] = 0
     
@@ -2090,7 +2095,8 @@ def K2TranPix(pixelfile,save):
             
             events, eventtime, eventmask = Match_events(events,eventtime,eventmask)
             # Make sure the detected events are actually significant, not just a product of smoothing.
-            events, eventtime, eventmask = Vet_brightness(events,eventtime,eventmask,Maskdata,Qual,pixelfile)
+            events, eventtime, eventmask = Vet_brightness(np.copy(events),np.copy(eventtime),eventmask,np.copy(Maskdata),Qual,pixelfile)
+            
 
             temp = []
             for i in range(len(events)):
@@ -2192,6 +2198,7 @@ def K2TranPix(pixelfile,save):
                 Source, SourceType = Probable_host(eventtime,eventmask,Source,SourceType,Objmasks,ObjName,ObjType,Maskdata)
                 SourceType = Isolation(eventtime,eventmask,Maskdata,SourceType)
                 # Remove all the stars! 
+                
                 good_ind = np.ones(len(events))
                 for i in range(len(events)):
                     if 'Star' in SourceType[i]:
@@ -2214,9 +2221,10 @@ def K2TranPix(pixelfile,save):
                     raise ValueError('Arrays are different lengths, check whats happening in {}'.format(pixelfile))
                 
                 # Print figures
-                K2TranPixFig(events,eventtime,eventmask,Maskdata,time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,datacube,Source,SourceType,Maskobj)
+                K2TranPixFig(events,eventtime,eventmask,np.copy(Maskdata),time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,(datacube),Source,SourceType,Maskobj)
                 #K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
-                Zoo_saves = K2TranPixZoo(events,eventtime,eventmask,Source,SourceType,Maskdata,time,mywcs,Save,pixelfile)
+                Zoo_saves = K2TranPixZoo(events,eventtime,eventmask,Source,SourceType,np.copy(Maskdata),time,mywcs,Save,pixelfile)
+                
                 Write_event(pixelfile,eventtime,eventmask,Source,SourceType,Zoo_saves,Maskdata,Qual,mywcs,hdu,Save)
 
             Find_Long_Events(Maskdata,time,Eventmask,Objmasks,Mask,thrusters,distdrif,Qual,mywcs,hdu,pixelfile,Save)
