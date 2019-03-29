@@ -133,6 +133,8 @@ for n in range(my_start, my_end+1):
     mytime = mytimestop-mytimestart
 
 print_mpi('Done allocation')
+delet_name = save + '/{camp}/Frames/'.format(camp = camp)
+os.system('rm -r {}'.format(delet_name))
 # MPI collective communication (all reduce)
 
 stop = sys_time.time()
