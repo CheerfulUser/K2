@@ -1948,19 +1948,27 @@ def Find_Long_Events(Data,Time,Eventmask,Objmasks,Mask,Thrusters,Dist,Quality,WC
             Long_Type[ind] = 'In: ' + ObjType[In[ind]]
             Long_Maskobj[ind] = Objmasks[In[ind]]
             
-        i = 0
-        ind = []
-        while i < len(long_mask):
-            if (Long_Type[i] == 'In: Star'):
-                ind.append(i)
-            i += 1
-        ind.sort(reverse = True)
-        for i in ind:
-            del long_mask[i]
-            Long_Source = np.delete(Long_Source,i)
-            Long_Type = np.delete(Long_Type,i)
-            
-    
+        good_ind = np.ones(len(long_time))
+        for i in range(len(long_time)):
+            if 'Star' in Long_Source[i]:
+                good_ind[i] = 0
+        
+        good_ind = good_ind > 0
+
+        long_time = long_time[good_ind]
+
+        mask_ind = np.where(~good_ind)[0]
+        for i in range(len(mask_ind)):
+            rev = len(mask_ind) -1 - i
+            del long_mask[rev]
+            del Long_Source[rev]
+            del Long_Type[rev]
+
+        if len(long_mask) != len(long_time):
+            print('long event masks, ', len(long_mask))
+            print('long events, ', len(long_time))
+            raise ValueError('Arrays are different lengths, check whats happening in {}'.format(pixelfile))
+
         Long_figure(long_mask, long_time, Data, WCS, Time, Save, File, Long_Source, Long_Type, Long_Maskobj, Eventmask)
         long_saves = LongK2TranPixZoo(long_mask, long_time, Long_Source, Long_Type, Data, Time, WCS, Save, File)
         Write_long_event(File, long_mask, long_time, Long_Source, Long_Type,long_saves, Data, Quality, WCS, HDU, Save)
@@ -2039,7 +2047,7 @@ def K2TranPix(pixelfile,save):
         else:
             print('Broken file ', pixelfile)
             return
-        datacube = fits.ImageHDU(hdu[1].data.field('FLUX')[:]).data#np.copy(testdata)#
+        datacube = fits.ImageHDU(hdu[1].data.field('FLUX')[:]).data
         if datacube.shape[1] > 1 and datacube.shape[2] > 1:
             datacube = Clip_cube(datacube)
 
@@ -2053,6 +2061,10 @@ def K2TranPix(pixelfile,save):
             xdrif = dat['pos_corr1']
             ydrif = dat['pos_corr2']
             distdrif = np.sqrt(xdrif**2 + ydrif**2)
+            if len(distdrif) != len(datacube):
+                err_string = 'Distance arr is too short for {file}: len = {leng}'.format(file = pixelfile, leng = len(distdrif))
+                raise ValueError(err_string) 
+                
             goodthrust = thrusters[np.where(distdrif[thrusters]<0.2)]
             #calculate the reference frame
             if len(goodthrust) > 4:
@@ -2069,7 +2081,7 @@ def K2TranPix(pixelfile,save):
             allMask = np.ones((datacube.shape[1],datacube.shape[2]))
             Maskdata, Motion_flag = Motion_correction(Maskdata,allMask,thrusters,distdrif)
             Maskdata = Clip_cube(Maskdata)
-
+            #Maskdata[Motion_flag] = np.nan
             # Make a mask for the object to use as a test to eliminate very bad pointings
             obj = np.ma.masked_invalid(Mask).mask
             objmed = np.nanmedian(datacube[thrusters+1]*obj,axis=(0))
@@ -2083,10 +2095,10 @@ def K2TranPix(pixelfile,save):
             framemask[:,np.where(Maskdata > 100000)[1],np.where(Maskdata > 100000)[2]] = 0
 
             # Identify if there is a sequence of consecutive or near consecutive frames that meet condtition 
-
-            Eventmask = np.copy(framemask)
-            Eventmask[~np.where((convolve(framemask,np.ones((5,1,1)), mode='constant', cval=0.0) >= 4))[0]] = 0
+            Eventmask = np.copy(framemask) > 0
+            #Eventmask[~np.where((convolve(framemask,np.ones((5,1,1)), mode='constant', cval=0.0) >= 4))[0]] = 0
             Eventmask[Qual!=0,:,:] = False
+            Eventmask[Motion_flag] = False
 
 
             events, eventtime, eventmask = Event_ID(Eventmask,Mask,8)
