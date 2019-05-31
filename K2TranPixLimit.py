@@ -166,18 +166,21 @@ def Local_Gal_Check(Datacube,Limit,WCS,File,Save):
 	"""
 	Checks every pixel for coincidence with the Pan-STARRS galaxy cataloge. 
 	"""
-	Database_location = '/avatar/ryanr/Data/Catalog/PS/' 
+	Database_location = '/Users/ryanr/Documents/PhD/coding/Kepler/Data/galdatabase/'#'/avatar/ryanr/Data/Catalog/PS/' 
 	Campaign = File.split('-')[1].split('_')[0].split('c')[1]
 	valid_pix = np.nansum(abs(Datacube),axis=(0)) > 0
 	if np.nansum(valid_pix) > 0:
 		Y, X = np.where(valid_pix)
 
 		result_table = pd.read_csv(Database_location + 'Gal_c' + Campaign + '_Cheerful.csv').values
+		print(Database_location + 'Gal_c' + Campaign + '_Cheerful.csv')
 		keys = pd.read_csv(Database_location + 'Gal_c' + Campaign + '_Cheerful.csv').keys()
+		
 		header = []
 		for k in keys:
 		    header.append(k)
 		header.append('Maglim')
+
 		footprint = WCS.calc_footprint()
 		print(footprint)
 		padding = 4/3600
@@ -186,40 +189,44 @@ def Local_Gal_Check(Datacube,Limit,WCS,File,Save):
 		min_dec = np.nanmin(footprint[:,1]) - padding
 		max_dec = np.nanmax(footprint[:,1]) + padding
 
-		ind1 = np.where((result_table[:,1] >= min_ra) & (result_table[:,1] <= max_ra))
+		ind1 = np.where((result_table[:,1] >= min_ra) & (result_table[:,1] <= max_ra))[0]
 		temp = result_table[ind1,:]
-		ind2 = np.where((temp[:,1] >= min_dec) & (temp[:,2] <= max_dec))
+		ind2 = np.where((temp[:,2] >= min_dec) & (temp[:,2] <= max_dec))[0]
 		gals = temp[ind2,:]
+		print('Gals in field ',len(gals))
+		if len(gals) > 0:
+			for i in range(len(X)):
+			    coord = pix2coord(X[i],Y[i],WCS)
 
-		for i in range(len(X)):
-		    coord = pix2coord(X[i],Y[i],WCS)
+			    c = coordinates.SkyCoord(ra=coord[0], dec=coord[1],unit=(u.deg, u.deg), frame='icrs')
+			    ra = c.ra.deg
+			    dec = c.dec.deg
+			    print(ra,dec)
+			    dist = np.sqrt((gals[:,1] - ra)**2 + (gals[:,2] - dec)**2)
+			    print('dsitance min',np.nanmin(dist))
+			    radius = 2/3600 # Convert arcsec to deg 
+			    short_list = gals[dist <= radius]
+			    #print('gals in pixel ',short_list)
+			    for item in short_list:
+			        CVSstring = []
+			        for ele in item:
+			            CVSstring.append(ele)
+			        CVSstring.append(Limit[Y[i],X[i]])
 
-		    c = coordinates.SkyCoord(ra=coord[0], dec=coord[1],unit=(u.deg, u.deg), frame='icrs')
-		    ra = c.ra.deg
-		    dec = c.dec.deg
-		    dist = np.sqrt((gals[:,1] - ra)**2 + (gals[:,2] - dec)**2)
-		    radius = 2/3600 # Convert arcsec to deg 
-		    short_list = gals[dist <= radius]
-		    for item in short_list:
-		        CVSstring = []
-		        for ele in item:
-		            CVSstring.append(ele)
-		        CVSstring.append(Limit[Y[i],X[i]])
-
-		        Save_space(Save+'/Gals/')
-		        Path = Save + '/Gals/' + File.split('/')[-1].split('-')[0] + '_Gs.csv'
-		        
-		        if os.path.isfile(Path):
-		            with open(Path, 'a') as csvfile:
-		                spamwriter = csv.writer(csvfile, delimiter=',')
-		                spamwriter.writerow(CVSstring)
-		        else:
-		            with open(Path, 'w') as csvfile:
-		                spamwriter = csv.writer(csvfile, delimiter=',')
-		                spamwriter.writerow(header)
-		                spamwriter.writerow(CVSstring)
-	#else:
-	#	print('Corrupt file')
+			        Save_space(Save+'/Gals/')
+			        Path = Save + '/Gals/' + File.split('/')[-1].split('-')[0] + '_Gs.csv'
+			        
+			        if os.path.isfile(Path):
+			            with open(Path, 'a') as csvfile:
+			                spamwriter = csv.writer(csvfile, delimiter=',')
+			                spamwriter.writerow(CVSstring)
+			        else:
+			            with open(Path, 'w') as csvfile:
+			                spamwriter = csv.writer(csvfile, delimiter=',')
+			                spamwriter.writerow(header)
+			                spamwriter.writerow(CVSstring)
+	else:
+		print('Corrupt file')
 	return
 
 
@@ -410,7 +417,7 @@ def K2TranPix_limit(pixelfile,save):
             Save_space(Save + '/Field/')
             np.savez(Fieldsave, Fieldprop)
 
-            Local_Gal_Check(Maskdata, limit, mywcs, pixelfile, Save)
+            #Local_Gal_Check(Maskdata, limit, mywcs, pixelfile, Save)
 
             Long_events_limit(Maskdata, time, Mask, distdrif, Save, pixelfile)
         	
