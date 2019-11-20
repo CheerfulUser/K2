@@ -48,21 +48,21 @@ comm.Barrier()
 field = camp
 print_mpi('Campaign ' + camp)
 
-path = '/avatar/ryanr/Data/'+field+'/'
+path = '/avatar/ryanr/kepler/Data/'+field+'/'
 Files = np.asarray(glob(path+'*.gz'))
 
-save = '/avatar/ryanr/Results/'
+save = '/avatar/ryanr/kepler/Results/'
 
 Files = np.asarray(glob(path+'*.gz'))
 # Code to remove files from the list that have already been calculated
 
 try:
-    Log = open('/avatar/ryanr/Code/shell' + field + '.out')
+    Log = open('/avatar/ryanr/kepler/Code/shell' + field + '.out')
     log = Log.read()
     lines  = log.split('n')
     files = []
     for line in lines:
-        if '/avatar/ryanr/Data/' in line:
+        if '/avatar/ryanr/kepler/Data/' in line:
             print_mpi(line)
             files.append(line)
     for i in range(len(files)):
