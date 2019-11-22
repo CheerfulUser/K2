@@ -30,6 +30,11 @@ from astropy.visualization import (SqrtStretch, ImageNormalize)
 
 from astropy import convolution 
 
+
+from requests.exceptions import ConnectionError
+from requests.exceptions import ReadTimeout
+from requests.exceptions import ChunkedEncodingError
+
 import csv
 
 from glob import glob
@@ -782,14 +787,14 @@ def Database_event_check(Data, Eventtime, Eventmask, WCS):
     return Objects, Objtype
 
 
-def Database_check_mask(Datacube, Quality, Masks, WCS):
+def Database_check_mask(Datacube, Thrusters, Masks, WCS):
     """
     Checks Ned and Simbad to find the object name and type in the mask.
     This uses the mask set created by Identify_masks.
     """
     Objects = []
     Objtype = []
-    av = np.nanmedian(Datacube[Quality == 0, :, :], axis=0)
+    av = np.nanmedian(Datacube[Thrusters+1],axis = 0)
     for I in range(len(Masks)):
 
         Mid = np.where(av*Masks[I] == np.nanmax(av*Masks[I]))
@@ -2196,18 +2201,18 @@ def K2TranPix(pixelfile,save):
 
         limit = med+3*(np.nanstd(Maskdata[Qual == 0], axis = (0)))
         limit[limit<22] = 22
-        framemask = ((Maskdata/limit) >= 1)
+        framemask = (Maskdata/limit)
         framemask[:,np.where(Maskdata > 100000)[1],np.where(Maskdata > 100000)[2]] = 0
 
         # Identify if there is a sequence of consecutive or near consecutive frames that meet condtition 
-        Eventmask = np.copy(framemask) > 0
+        Eventmask = np.copy(framemask)
         #Eventmask[~np.where((convolve(framemask,np.ones((5,1,1)), mode='constant', cval=0.0) >= 4))[0]] = 0
-        Eventmask[Qual!=0,:,:] = False
-        Eventmask[Motion_flag > 0] = False
+        Eventmask[Qual!=0,:,:] = 0
+        Eventmask[Motion_flag > 0] = 0
         print('did')
 
 
-        events, eventtime, eventmask = Event_ID(Eventmask, 1, 5)
+        events, eventtime, eventmask = Event_ID(Eventmask, 2, 5)
         # Eliminate events that do not meet thruster firing conditions
         events, eventtime, eventmask, asteroid, asttime, astmask = ThrusterElim(events,eventtime,eventmask,thrusters,quality,Qual,Maskdata)
         
@@ -2215,19 +2220,19 @@ def K2TranPix(pixelfile,save):
         # Make sure the detected events are actually significant, not just a product of smoothing.
         events, eventtime, eventmask = Vet_brightness(np.copy(events),np.copy(eventtime),eventmask,np.copy(Maskdata),Qual,pixelfile)
 
-        events2, eventtime2, eventmask2 = Event_ID(Maskdata/limit,0.3,2*48)
-        events2, eventtime2, eventmask2 = Vet_long(events2, eventtime2, eventmask2, Maskdata, Qual)
-        events2, eventtime2, eventmask2 = Match_events(events2,eventtime2,eventmask2,30)
+        #events2, eventtime2, eventmask2 = Event_ID(Maskdata/limit,0.3,2*48)
+        #events2, eventtime2, eventmask2 = Vet_long(events2, eventtime2, eventmask2, Maskdata, Qual)
+        #events2, eventtime2, eventmask2 = Match_events(events2,eventtime2,eventmask2,30)
 
-        if len(events) > 0:
-            for i in range(len(events2)):
-                events = np.append(events, events2[i])
-                eventtime = np.append(eventtime, [eventtime2[i]],axis=0)
-                eventmask += [eventmask2[i]]
-        else:
-            events = events2
-            eventtime = eventtime2
-            eventmask = eventmask2
+        #if len(events) > 0:
+        #    for i in range(len(events2)):
+        #        events = np.append(events, events2[i])
+        #        eventtime = np.append(eventtime, [eventtime2[i]],axis=0)
+        #        eventmask += [eventmask2[i]]
+        #else:
+        #    events = events2
+        #    eventtime = eventtime2
+        #    eventmask = eventmask2
         
 
         temp = []
@@ -2352,13 +2357,13 @@ def K2TranPix(pixelfile,save):
                 raise ValueError('Arrays are different lengths, check whats happening in {}'.format(pixelfile))
             
             # Print figures
-            K2TranPixFig(events,eventtime,eventmask,np.copy(Maskdata),time,Eventmask,mywcs,Save,pixelfile,quality,thrusters,Framemin,(datacube),Source,SourceType,Maskobj)
+            K2TranPixFig(events,eventtime,eventmask,np.copy(Maskdata),time,(Eventmask >= 0),mywcs,Save,pixelfile,quality,thrusters,Framemin,(datacube),Source,SourceType,Maskobj)
             #K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
             Zoo_saves = K2TranPixZoo(events,eventtime,eventmask,Source,SourceType,np.copy(Maskdata),time,mywcs,Save,pixelfile)
             
             Write_event(pixelfile,eventtime,eventmask,Source,SourceType,Zoo_saves,Maskdata,Qual,mywcs,hdu,Save)
 
-        #Find_Long_Events(Maskdata,time,Eventmask,Objmasks,Mask,thrusters,np.copy(distdrif),Qual,mywcs,hdu,pixelfile,Save)
+        #Find_Long_Events(Maskdata,time,(Eventmask >= 0),Objmasks,Mask,thrusters,np.copy(distdrif),Qual,mywcs,hdu,pixelfile,Save)
     else:
         print('Small ', pixelfile)
 
