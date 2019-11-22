@@ -210,7 +210,7 @@ def Smoothmax(interval,Lightcurve,qual):
     nanind = np.where(qual[interval[0]:interval[1]]!=0)[0]
     x = np.arange(interval[0],interval[1],1.)
     x[nanind] = np.nan 
-    print(x)
+    #print(x)
     nbins = int(len(x)/5)
     if nbins > 0:
         y = np.copy(Lightcurve[interval[0]:interval[1]])
@@ -720,111 +720,120 @@ def Watershed_object_sep(obj):
     Objmasks = np.array(Objmasks)
     return Objmasks
 
-def Database_event_check(Data,Eventtime,Eventmask,WCS):
+def Database_event_check(Data, Eventtime, Eventmask, WCS):
     """
     Checks Ned and Simbad to check the event position against known objects.
     """
     Objects = []
     Objtype = []
     for I in range(len(Eventtime)):
-        mask = np.zeros((Data.shape[1],Data.shape[2]))
-        mask[Eventmask[I][0],Eventmask[I][1]] = 1
-        maxcolor = np.nanmax(Data[Eventtime[I][0]:Eventtime[I][-1]]*(mask==1))
+        mask = np.zeros((Data.shape[1], Data.shape[2]))
+        mask[Eventmask[I][0], Eventmask[I][1]] = 1
+        maxcolor = np.nanmax(
+            Data[Eventtime[I][0]:Eventtime[I][-1]]*(mask == 1))
 
-        Mid = np.where(Data[Eventtime[I][0]:Eventtime[I][-1]]*(mask==1) == maxcolor)
+        Mid = np.where(Data[Eventtime[I][0]:Eventtime[I][-1]]
+                       * (mask == 1) == maxcolor)
         if len(Mid[0]) == 1:
-            Coord = pix2coord(Mid[1],Mid[0],WCS)
+            Coord = pix2coord(Mid[1], Mid[0], WCS)
         elif len(Mid[0]) > 1:
-            Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
-        else:
-            print('something not right')
-            print(len(Mid[0]))
-        
-        c = coordinates.SkyCoord(ra=Coord[0], dec=Coord[1],unit=(u.deg, u.deg), frame='icrs')
+            Coord = pix2coord(Mid[1][0], Mid[0][0], WCS)
+
+        c = SkyCoord(ra=Coord[0], dec=Coord[1],
+                     unit=(u.deg, u.deg), frame='icrs')
 
         Ob = 'Unknown'
         objtype = 'Unknown'
         try:
-            result_table = Ned.query_region(c, radius = 2*u.arcsec, equinox='J2000')
-            if len(result_table.colnames) > 0:
-                if len(result_table['No.']) > 0:
-                    Ob = np.asarray(result_table['Object Name'])[0].decode("utf-8") 
-                    objtype = result_table['Type'][0].decode("utf-8") 
+            result_table = Ned.query_region(
+                c, radius=4*u.arcsec, equinox='J2000')
+            Ob = np.asarray(result_table['Object Name'])[0].decode("utf-8")
+            objtype = result_table['Type'][0].decode("utf-8")
 
-                    if '*' in objtype:
-                        objtype = objtype.replace('*','Star')
-                    if '!' in objtype:
-                        objtype = objtype.replace('!','Gal') # Galactic sources
-                    if objtype == 'G':
-                        try:
-                            result_table = Simbad.query_region(c,radius = 2*u.arcsec)
-                            if len(result_table.colnames) > 0:
-                                if len(result_table['MAIN_ID']) > 0:
-                                    objtype = objtype + 'Simbad'
-                        except (AttributeError,ExpatError,TableParseError,ValueError,EOFError) as e:
-                            pass
-                
-        except (RemoteServiceError,ExpatError,TableParseError,ValueError,EOFError) as e:
+            if '*' in objtype:
+                objtype = objtype.replace('*', 'Star')
+            if '!' in objtype:
+                objtype = objtype.replace('!', 'Gal')  # Galactic sources
+            if objtype == 'G':
+                try:
+                    result_table = Simbad.query_region(c, radius=4*u.arcsec)
+                    if len(result_table.colnames) > 0:
+                        objtype = objtype + 'Simbad'
+                except (AttributeError, ExpatError, TableParseError, ValueError, 
+                    EOFError, IndexError, ConnectionError,ReadTimeout,ChunkedEncodingError) as e:
+                    #print('Simbad fail event')
+                    pass
+
+        except (RemoteServiceError, ExpatError, TableParseError, ValueError, 
+            EOFError, IndexError, ConnectionError,ReadTimeout, ChunkedEncodingError) as e:
+            #print('Ned fail event')
             try:
-                result_table = Simbad.query_region(c,radius = 2*u.arcsec)
+                result_table = Simbad.query_region(c, radius=4*u.arcsec)
                 if len(result_table.colnames) > 0:
-                    if len(result_table['MAIN_ID']) > 0:
-                        Ob = np.asarray(result_table['MAIN_ID'])[0].decode("utf-8") 
-                        objtype = 'Simbad'
-            except (AttributeError,ExpatError,TableParseError,ValueError,EOFError) as e:
+                    Ob = np.asarray(result_table['MAIN_ID'])[0].decode("utf-8")
+                    objtype = 'Simbad'
+            except (AttributeError, ExpatError, TableParseError, ValueError, 
+                EOFError, IndexError, ConnectionError,ReadTimeout,ChunkedEncodingError) as e:
+                #print('Simbad fail event')
                 pass
         Objects.append(Ob)
         Objtype.append(objtype)
-        
+
     return Objects, Objtype
 
-def Database_check_mask(Datacube,Thrusters,Masks,WCS):
+
+def Database_check_mask(Datacube, Quality, Masks, WCS):
     """
     Checks Ned and Simbad to find the object name and type in the mask.
     This uses the mask set created by Identify_masks.
     """
     Objects = []
     Objtype = []
-    av = np.nanmedian(Datacube[Thrusters+1],axis = 0)
+    av = np.nanmedian(Datacube[Quality == 0, :, :], axis=0)
     for I in range(len(Masks)):
 
         Mid = np.where(av*Masks[I] == np.nanmax(av*Masks[I]))
         if len(Mid[0]) == 1:
-            Coord = pix2coord(Mid[1],Mid[0],WCS)
+            Coord = pix2coord(Mid[1], Mid[0], WCS)
         elif len(Mid[0]) > 1:
-            Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
+            Coord = pix2coord(Mid[1][0], Mid[0][0], WCS)
 
-        c = coordinates.SkyCoord(ra=Coord[0], dec=Coord[1],unit=(u.deg, u.deg), frame='icrs')
+        c = coordinates.SkyCoord(
+            ra=Coord[0], dec=Coord[1], unit=(u.deg, u.deg), frame='icrs')
         Ob = 'Unknown'
         objtype = 'Unknown'
         try:
-            result_table = Ned.query_region(c, radius = 6*u.arcsec, equinox='J2000')
-            if len(result_table.colnames) > 0:
-                if len(result_table['No.']) > 0:
-                    Ob = np.asarray(result_table['Object Name'])[0].decode("utf-8") 
-                    objtype = result_table['Type'][0].decode("utf-8") 
+            result_table = Ned.query_region(
+                c, radius=6*u.arcsec, equinox='J2000')
+            Ob = np.asarray(result_table['Object Name'])[0].decode("utf-8")
+            objtype = result_table['Type'][0].decode("utf-8")
 
-                    if '*' in objtype:
-                        objtype = objtype.replace('*','Star')
-                    if '!' in objtype:
-                        objtype = objtype.replace('!','Gal') # Galactic sources
-                    if objtype == 'G':
-                        try:
-                            result_table = Simbad.query_region(c,radius = 6*u.arcsec)
-                            if len(result_table.colnames) > 0:
-                                if len(result_table['MAIN_ID']) > 0:
-                                    objtype = objtype + 'Simbad'
-                        except (AttributeError,ExpatError,TableParseError,ValueError,EOFError) as e:
-                            pass
-                
-        except (RemoteServiceError,ExpatError,TableParseError,ValueError,EOFError) as e:
+            if '*' in objtype:
+                objtype = objtype.replace('*', 'Star')
+            if '!' in objtype:
+                objtype = objtype.replace('!', 'Gal')  # Galactic sources
+            if objtype == 'G':
+                try:
+                    result_table = Simbad.query_region(c, radius=6*u.arcsec)
+                    if len(result_table.colnames) > 0:
+                        objtype = objtype + 'Simbad'
+                except (AttributeError, ExpatError, TableParseError, ValueError, 
+                    EOFError, IndexError, ConnectionError,ReadTimeout,ChunkedEncodingError) as e:
+                    #print('Simbad fail mask')
+                    pass
+
+        except (RemoteServiceError, ExpatError, TableParseError, ValueError, 
+            EOFError, IndexError, ConnectionError,ReadTimeout,ChunkedEncodingError) as e:
+            #print('Ned fail mask')
             try:
-                result_table = Simbad.query_region(c,radius = 6*u.arcsec)
+                result_table = Simbad.query_region(c, radius=6*u.arcsec)
                 if len(result_table.colnames) > 0:
-                    if len(result_table['MAIN_ID']) > 0:
-                        Ob = np.asarray(result_table['MAIN_ID'])[0].decode("utf-8") 
-                        objtype = 'Simbad'
-            except (AttributeError,ExpatError,TableParseError,ValueError,EOFError) as e:
+                    Ob = np.asarray(result_table['MAIN_ID'])[0].decode("utf-8")
+                    objtype = 'Simbad'
+
+            except (AttributeError,ExpatError,TableParseError,ValueError,
+                EOFError,IndexError,ConnectionError,ReadTimeout,ChunkedEncodingError) as e:
+                #print('Simbad fail mask')
                 pass
         Objects.append(Ob)
         Objtype.append(objtype)
@@ -1470,10 +1479,13 @@ def Probable_host(Eventtime,Eventmask,Source,SourceType,Objmasks,ObjName,ObjType
                         distance = np.sqrt((np.where(Objmasks==1)[1] - Mid[1])**2 + (np.where(Objmasks==1)[2] - Mid[2])**2)
                     elif len(Mid[0]) > 1:
                         distance = np.sqrt((np.where(Objmasks==1)[1] - Mid[1][0])**2 + (np.where(Objmasks==1)[2] - Mid[2][0])**2)
-                    minind = np.where((np.nanmin(distance) == distance))[0][0]
-                    minind = np.where(Objmasks==1)[0][minind]
-                    SourceType[i] = 'Prob: ' + ObjType[minind]
-                    Source[i] = 'Prob: ' + ObjName[minind]
+                    try:
+                        minind = np.where((np.nanmin(distance) == distance))[0][0]
+                        minind = np.where(Objmasks==1)[0][minind]
+                        SourceType[i] = 'Prob: ' + ObjType[minind]
+                        Source[i] = 'Prob: ' + ObjName[minind]
+                    except ValueError:
+                        pass
     return Source, SourceType
 
 def SixMedian(LC):
