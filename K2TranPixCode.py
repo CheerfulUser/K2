@@ -2186,7 +2186,7 @@ def K2TranPix(pixelfile,save):
         #Maskdata, ast = First_pass(np.copy(datacube),Qual,quality,thrusters,pixelfile)
         Maskdata = np.copy(datacube)
         allMask = np.ones((datacube.shape[1],datacube.shape[2]))
-        Maskdata, Motion_flag = Motion_correction(Maskdata,allMask,thrusters,np.copy(distdrif))
+        #Maskdata, Motion_flag = Motion_correction(Maskdata,allMask,thrusters,np.copy(distdrif))
         #Maskdata = Clip_cube(Maskdata)
         #Maskdata[Motion_flag] = np.nan
         # Make a mask for the object to use as a test to eliminate very bad pointings
