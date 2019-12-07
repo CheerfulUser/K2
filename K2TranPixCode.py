@@ -2208,7 +2208,7 @@ def K2TranPix(pixelfile,save):
         Eventmask = np.copy(framemask)
         #Eventmask[~np.where((convolve(framemask,np.ones((5,1,1)), mode='constant', cval=0.0) >= 4))[0]] = 0
         Eventmask[Qual!=0,:,:] = 0
-        Eventmask[Motion_flag > 0] = 0
+        #Eventmask[Motion_flag > 0] = 0
         print('did')
 
 
