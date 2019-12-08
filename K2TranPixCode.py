@@ -2212,27 +2212,27 @@ def K2TranPix(pixelfile,save):
         print('did')
 
 
-        events, eventtime, eventmask = Event_ID(Eventmask, 2, 5)
+        events, eventtime, eventmask = Event_ID(Eventmask, 1, 5)
         # Eliminate events that do not meet thruster firing conditions
         events, eventtime, eventmask, asteroid, asttime, astmask = ThrusterElim(events,eventtime,eventmask,thrusters,quality,Qual,Maskdata)
         
         events, eventtime, eventmask = Match_events(events,eventtime,eventmask)
         # Make sure the detected events are actually significant, not just a product of smoothing.
         events, eventtime, eventmask = Vet_brightness(np.copy(events),np.copy(eventtime),eventmask,np.copy(Maskdata),Qual,pixelfile)
+        if False:
+            events2, eventtime2, eventmask2 = Event_ID(Maskdata/limit,0.3,2*48)
+            events2, eventtime2, eventmask2 = Vet_long(events2, eventtime2, eventmask2, Maskdata, Qual)
+            events2, eventtime2, eventmask2 = Match_events(events2,eventtime2,eventmask2,30)
 
-        #events2, eventtime2, eventmask2 = Event_ID(Maskdata/limit,0.3,2*48)
-        #events2, eventtime2, eventmask2 = Vet_long(events2, eventtime2, eventmask2, Maskdata, Qual)
-        #events2, eventtime2, eventmask2 = Match_events(events2,eventtime2,eventmask2,30)
-
-        #if len(events) > 0:
-        #    for i in range(len(events2)):
-        #        events = np.append(events, events2[i])
-        #        eventtime = np.append(eventtime, [eventtime2[i]],axis=0)
-        #        eventmask += [eventmask2[i]]
-        #else:
-        #    events = events2
-        #    eventtime = eventtime2
-        #    eventmask = eventmask2
+            if len(events) > 0:
+                for i in range(len(events2)):
+                    events = np.append(events, events2[i])
+                    eventtime = np.append(eventtime, [eventtime2[i]],axis=0)
+                    eventmask += [eventmask2[i]]
+            else:
+                events = events2
+                eventtime = eventtime2
+                eventmask = eventmask2
         
 
         temp = []
