@@ -1,5 +1,5 @@
 import matplotlib
-matplotlib.use('Agg')
+#matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import matplotlib.gridspec as gridspec
@@ -1295,14 +1295,22 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save
                 maxcolor = temp
                 Mid = ([position[0][j]],[position[1][j]])
 
-        xmin = Eventtime[i][0] - 2*(Eventtime[i][1]-Eventtime[i][0])
-        xmax = Eventtime[i][1] + 2*(Eventtime[i][1]-Eventtime[i][0])
+
+        xmin = Eventtime[i][0] - 2 * (Eventtime[i][-1] - Eventtime[i][0])    
+        xmax = Eventtime[i][-1] + 2*(Eventtime[i][-1]-Eventtime[i][0])
+        
         if xmin < 0:
             xmin = 0
-        if xmax > len(Data):
-            xmax = len(Data)-1
+        if xmax > len(Time) - 1:
+            xmax = len(Time) - 1 
+        if ~np.isfinite(xmin):
+            xmin = 0
+        if ~np.isfinite(xmax):
+            xmax = len(Time) - 1 
         
         step = int((xmax - xmin)*.05) # Make a step so that only 5% of the frames are produced 
+        if step <= 0:
+            step = 1
         Section = np.arange(int(xmin),int(xmax),step)
 
         FrameSave = Save + '/Figures/Frames/' + File.split('/')[-1].split('-')[0] + '/Event_' + str(int(i)) + '/'
@@ -2209,7 +2217,7 @@ def K2TranPix(pixelfile,save):
         #Eventmask[~np.where((convolve(framemask,np.ones((5,1,1)), mode='constant', cval=0.0) >= 4))[0]] = 0
         Eventmask[Qual!=0,:,:] = 0
         #Eventmask[Motion_flag > 0] = 0
-        print('did')
+        #print('did')
 
 
         events, eventtime, eventmask = Event_ID(Eventmask, 1, 5)
@@ -2219,6 +2227,7 @@ def K2TranPix(pixelfile,save):
         events, eventtime, eventmask = Match_events(events,eventtime,eventmask)
         # Make sure the detected events are actually significant, not just a product of smoothing.
         events, eventtime, eventmask = Vet_brightness(np.copy(events),np.copy(eventtime),eventmask,np.copy(Maskdata),Qual,pixelfile)
+        print(pixelfile, '# of events: ', len(events))
         if False:
             events2, eventtime2, eventmask2 = Event_ID(Maskdata/limit,0.3,2*48)
             events2, eventtime2, eventmask2 = Vet_long(events2, eventtime2, eventmask2, Maskdata, Qual)
