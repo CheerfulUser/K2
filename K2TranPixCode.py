@@ -1,5 +1,5 @@
 import matplotlib
-#matplotlib.use('Agg')
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import matplotlib.gridspec as gridspec
@@ -43,8 +43,10 @@ import time as t
 
 
 import warnings
-warnings.filterwarnings("ignore",category = RuntimeWarning)
-warnings.filterwarnings("ignore",category = UserWarning)
+#warnings.filterwarnings("ignore",category = RuntimeWarning)
+#warnings.filterwarnings("ignore",category = UserWarning)
+
+warnings.filterwarnings("ignore")
 
 import traceback
 
@@ -166,7 +168,7 @@ def Event_ID(Sigmask, Significance, Minlength):
 
 
 
-def Asteroid_fitter(Mask,Time,Data, plot = True):
+def Asteroid_fitter(Mask,Time,Data, plot = False):
     """
     Simple method to remove asteroids. This opperates under the assumption that asteroids travel through the field, 
     and pixel, at a uniform velocity, thus creating a parabolic light curve. If the event fits a parabola, then it 
@@ -1556,9 +1558,9 @@ def Long_events(Data, Time, Mask, Dist, Save, File):
                 sub[i,j] = abs(1-(np.nanmean(lc2) / np.nanmedian(lc2)))
                 
     
-    cutbkg = np.nanmedian(sub*Mask) + 2*np.nanstd(sub*Mask)
+    cutbkg = np.nanmedian(sub*Mask) + 3*np.nanstd(sub*Mask)
     ob = np.ma.masked_invalid(Mask).mask
-    cutobj = np.nanmedian(sub*ob) + 2*np.nanstd(sub*ob)
+    cutobj = np.nanmedian(sub*ob) + 3*np.nanstd(sub*ob)
     ob = ob*1.
     ob[ob == 0] = np.nan
 
@@ -2372,7 +2374,7 @@ def K2TranPix(pixelfile,save):
             
             Write_event(pixelfile,eventtime,eventmask,Source,SourceType,Zoo_saves,Maskdata,Qual,mywcs,hdu,Save)
 
-        #Find_Long_Events(Maskdata,time,(Eventmask >= 0),Objmasks,Mask,thrusters,np.copy(distdrif),Qual,mywcs,hdu,pixelfile,Save)
+        Find_Long_Events(Maskdata,time,(Eventmask >= 0),Objmasks,Mask,thrusters,np.copy(distdrif),Qual,mywcs,hdu,pixelfile,Save)
     else:
         print('Small ', pixelfile)
 
