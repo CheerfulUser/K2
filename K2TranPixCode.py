@@ -2374,7 +2374,7 @@ def K2TranPix(pixelfile,save):
             
             Write_event(pixelfile,eventtime,eventmask,Source,SourceType,Zoo_saves,Maskdata,Qual,mywcs,hdu,Save)
 
-        Find_Long_Events(Maskdata,time,(Eventmask >= 0),Objmasks,Mask,thrusters,np.copy(distdrif),Qual,mywcs,hdu,pixelfile,Save)
+        #Find_Long_Events(Maskdata,time,(Eventmask >= 0),Objmasks,Mask,thrusters,np.copy(distdrif),Qual,mywcs,hdu,pixelfile,Save)
     else:
         print('Small ', pixelfile)
 
