@@ -1,7 +1,7 @@
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import matplotlib.animation as animation
+#import matplotlib.animation as animation
 import matplotlib.gridspec as gridspec
 import numpy as np
 import pandas as pd
@@ -29,6 +29,14 @@ import astropy.units as u
 from astropy.visualization import (SqrtStretch, ImageNormalize)
 
 from astropy import convolution 
+
+from pywt import wavedec
+from scipy.signal import find_peaks
+from scipy.interpolate import PchipInterpolator
+
+import operator
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures
 
 
 from requests.exceptions import ConnectionError
@@ -98,7 +106,7 @@ def ThrustObjectMask(data,thrust):
 
     EndMask = np.ones((data.shape[1],data.shape[2]))
     for i in range(2):
-        End = data[thrust[-3:]+1]*EndMask/(np.nanmedian(data[thrust[-3:]+1]*EndMask, axis = (1,2))+np.nanstd(data[thrust[-3:]+1]*EndMask, axis = (1,2)))[:,None,None]
+        End = data[thrust[-5:-2]+1]*EndMask/(np.nanmedian(data[thrust[-5:-2]+1]*EndMask, axis = (1,2))+np.nanstd(data[thrust[-5:-2]+1]*EndMask, axis = (1,2)))[:,None,None]
         End = End >= 1
         temp = (np.nansum(End*1, axis = 0) >=1)*1.0
         temp[temp>=1] = np.nan
@@ -556,111 +564,108 @@ def First_pass(Datacube,Qual,Quality,Thrusters,Pixelfile):
 
     return Cleandata, ast
 
-def Motion_correction(Data,Mask,Thrusters,Dist):
-    """
-    Atempts to correct for telescope motion between individual thruster firings.
-    A spline is first fitted to the stable points, and subtracted from the data.
-    Next a cubic is fitted into a thruster firing interval and subtracted from the
-    original data. 
-    There is a check on the second derivative to ientify points that appear to not
-    follow the general trend and so should not be used in fitting the cubic.
+def Get_all_resets(Data, Quality):
+    allflux = np.nansum(Data,axis=0)
+    ind1, ind2 = np.where(np.nanmax(allflux) == allflux)
 
-    This method still has some issues, for instance it doesn't seem to work on 
-    C03 or C10.
-    """
-    Corrected = np.zeros((Data.shape[0],Data.shape[1],Data.shape[2]))
-    Motion_flag = np.zeros(Data.shape[0])
-    fit = np.zeros(len(Data))
-    X = np.where(Mask == 1)[0]
-    Y = np.where(Mask == 1)[1]
+    nonan = Data[np.isfinite(Data[:,ind1[0],ind2[0]]),ind1[0],ind2[0]]
+    nonaninds = np.where(np.isfinite(Data[:,ind1[0],ind2[0]]))[0]
+    coeffs = wavedec(nonan, 'db2',level=20)
+    eh = abs(coeffs[-1][:-1])# / nonan[::2]
+    eh_x = np.arange(0,len(coeffs[-1])*2,2)
+    peaks = find_peaks(eh,distance=4,prominence=np.mean(eh))[0]
+
+    peaks = nonaninds[eh_x[peaks]]
+
+    realt = np.where((Quality==1048576) | (Quality==524288) | (Quality==1081376))[0]
+    for p in peaks:
+        if ~np.isclose(p, realt, atol=3).any():
+            realt = np.append(realt, p)
+
+    realt = np.sort(realt)
+    
+    return realt
+
+def Regress_fit(Data):
+    ind = np.where(np.isfinite(Data))[0]
+    x = np.arange(0,len(Data))
+    x = x[ind]
+    y = Data[ind]
+    if len(y) >= 3:
+        x = x[:, np.newaxis]
+        y = y[:, np.newaxis]
+
+        polynomial_features= PolynomialFeatures(degree=3)
+        x_poly = polynomial_features.fit_transform(x)
+
+        model = LinearRegression()
+        model.fit(x_poly, y)
+        y_poly_pred = model.predict(x_poly)
+
+        sort_axis = operator.itemgetter(0)
+        sorted_zip = sorted(zip(x,y_poly_pred), key=sort_axis)
+        x, y_poly_pred = zip(*sorted_zip)
+
+        mod = np.zeros_like(y)
+        for i in range(len(mod)):
+            mod[i] = y_poly_pred[i][0]
+    else:
+        mod = np.zeros_like(y)
+        mod[:] = np.nan
+    fit = Data.copy()
+
+    fit[ind] = np.squeeze(mod)
+
+    return fit
+
+def Correct_motion(Data, Distance, Thrust):
+    data = Data.copy()
+    data[Thrust] = np.nan
+    data[Thrust[:-1]+1] = np.nan
+    data[Thrust[:-1]+2] = np.nan
+    data[Thrust[1:]-1] = np.nan
+    X, Y = np.where(np.nansum(data,axis=0) != 0)
+    
+    fitting = data.copy()
+    spline = data.copy()
+    x = np.arange(data.shape[0])
     for j in range(len(X)):
-        temp = np.copy(Data[:,X[j],Y[j]])
-        zz = np.arange(0,len(Data))
-        AvSplineind = []
-        for i in range(len(Thrusters)-1):
-            beep = []
-            beep = Dist[Thrusters[i]+1:Thrusters[i+1]-1]
-            if (beep < 0.3).any():
-                datrange = Data[Thrusters[i]+1:Thrusters[i+1]-1,X[j],Y[j]]
-                # Need to make sure most stable frame isnt skewed by a cosmic ray or asteroid. 
-                # make a standard deviation cut on all points in the thruster interval,
-                # then reset all values which exceed by either the average of its neighbours, 
-                # or neigbour value for frings cases.
-                lim = np.nanmedian(datrange)+3*np.nanstd(datrange)
-                ind = np.where(datrange > lim)[0]
-                for index in ind:
-                    if (index < len(datrange) - 1) & (index > 0):
-                        datrange[index] = np.nanmedian([datrange[index-1],datrange[index+1]])
-                    elif (index == 0):
-                        datrange[index] = datrange[index+1]
-                    elif (index >= len(datrange)-1):
-                        datrange[index] = datrange[index-1]
-                        
-
-                val = Data[np.where(beep == np.nanmin(beep))[0][0]+Thrusters[i]+1,X[j],Y[j]]
-                #if val < np.nanmedian(datrange) + 2*np.nanstd(datrange):
-                AvSplineind.append(np.where(beep == np.nanmin(beep))[0][0]+Thrusters[i]+1)
-            else:
-                Motion_flag[Thrusters[i]+1:Thrusters[i+1]-1] = 1
-        AvSplineind = np.array(AvSplineind)
-
-        if len(AvSplineind) > 1:
-            AvSplinepoints = np.copy(Data[AvSplineind,X[j],Y[j]])
-            Splinef = interp1d(AvSplineind, AvSplinepoints, kind='linear', fill_value=np.nan, bounds_error = False)
-            Spline = Splinef(zz)
-
-            for i in range(len(Thrusters)-1):
-
-                if abs(Thrusters[i]-Thrusters[i+1]) > 5:
-                    try:
-                        Section = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - Spline[Thrusters[i]+2:Thrusters[i+1]]
-                        temp2 = np.copy(Section)
-                        #temp2[Spline[Thrusters[i]+2:Thrusters[i+1]] == -1e10] = np.nan
-                        x = np.arange(0,len(Section))
-                        limit =np.nanmedian(np.diff(np.diff(Section)))+2.5*np.nanstd(np.diff(np.diff(Section)))
-                        yo = np.where(np.diff(np.diff(Section))>limit)[0]
-                        
-                        if len(yo)/2 == int(len(yo)/2):
-                            z = 0
-                            while z + 1 < len(yo):
-                                yoarr = np.arange(yo[z],yo[z+1])
-                                temp2[yoarr] = np.nan
-                                yo = np.delete(yo,[0,1])
-                        else:
-                            z = 0
-                            while z + 2 < len(yo):
-                                yoarr = np.arange(yo[z],yo[z+1])
-                                temp2[yoarr] = np.nan
-                                yo = np.delete(yo,[0,1])
-                        if len(yo) == 1:
-                            temp2[yo] = np.nan
-                        
-                        ind = np.where(~np.isnan(temp2))[0]
-
-                        if (len(x[ind]) > 3) & (len(x[ind])/len(x) > 0.6):
-                            polyfit, resid, _, _, _  = np.polyfit(x[ind], Section[ind], 3, full = True)
-                            p3 = np.poly1d(polyfit)
-                            original_data = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]])
-                            reduced_data = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) 
-
-                            #chi = np.nansum((original_data-(p3(x)))**2/())
-                            #chir = chi/(len(Flux)-2)
-                            #pval = 1 - stats.chi2.cdf(chir,1)
-                            #if pval > 0.6:
-
-                            if abs(np.nanmedian(original_data) - np.nanmedian(reduced_data))/np.nanstd(original_data) < 2:
-                                temp[x+Thrusters[i]+2] = np.copy(Data[Thrusters[i]+2:Thrusters[i+1],X[j],Y[j]]) - p3(x) 
-                                temp[Thrusters[i]:Thrusters[i]+2] = np.nan
-                        # This should kill all instances of uncorrected data due to drift systematically being > 0.3 pix
-                        if (np.isnan(Spline[Thrusters[i]+2:Thrusters[i+1]])).all():
-                            temp[x+Thrusters[i]+2] = np.nan
-                    except RuntimeError:
-                        pass
-
-        Corrected[:,X[j],Y[j]] = temp                    
-    return Corrected, Motion_flag
+        trend = []
+        for i in range(len(Thrust)-1):
+            section = data[Thrust[i]:Thrust[i+1]-1,X[j],Y[j]].copy()
+            if len(section) > 3:
+                nanmask = sigma_clip(section,masked=True).mask
+                section[nanmask] = np.nan
 
 
+                fitting[Thrust[i]:Thrust[i+1]-1,X[j],Y[j]] = Regress_fit(section)
+
+                d = Distance[Thrust[i]:Thrust[i+1]-1]
+                ind = np.where(np.isfinite(section))[0]
+                
+                #if (d[ind] <=0.1).any():
+                #    inds = np.where(d[ind] <=0.1)[0]
+                #    for k in inds:
+                #        trend += [[ind[k]+Thrust[i],section[ind[k]]]]
+                    
+                if (d[ind] <= 0.3).any():
+                    mind = np.nanmin(d[ind])
+                    ind2 = np.where(d[ind] == mind)[0][0]
+                    trend += [[ind[ind2]+Thrust[i],section[ind[ind2]]]]
+                    
+
+        trend = np.array(trend)
+        trend = trend[trend[:,0].argsort()]
+        #return trend
+        #spl = PchipInterpolator(trend[:,0], trend[:,1],extrapolate=False)
+        spl = interp1d(trend[:,0], trend[:,1], kind = 'linear',bounds_error=False)
+        x = np.arange(data.shape[0])
+        spl = spl(x)
+        
+        spline[:,X[j],Y[j]] = spl
+    data = data - (fitting ) + spline
+    
+    return data #, fitting, spline
 
 
 
@@ -796,7 +801,7 @@ def Database_check_mask(Datacube, Thrusters, Masks, WCS):
     """
     Objects = []
     Objtype = []
-    av = np.nanmedian(Datacube[Thrusters+1],axis = 0)
+    av = np.nanmedian(Datacube[Thrusters[:-1]+3],axis = 0)
     for I in range(len(Masks)):
 
         Mid = np.where(av*Masks[I] == np.nanmax(av*Masks[I]))
@@ -2145,7 +2150,79 @@ def Vet_long(Events, Eventtime, Eventmask, Data, Quality):
     return events, eventtime, eventmask
 
 
+def Identify_masks(Data, Position):
+    """
+    Uses an iterrative process to find spacially seperated masks in the object mask.
+    """
+    
+    p1 = Position[0]
+    p2 = Position[1]
+    
+    events = np.copy(Data)
+    masktemp = np.zeros_like(events)
 
+    masktemp[p1,p2] = 1
+    size = 0
+    while np.nansum(masktemp) != size:
+        size = np.nansum(masktemp)
+        conv = ((convolve(masktemp*1,np.ones((3,3)),mode='constant', cval=0.0)) > 0)*1.0
+        masktemp[(conv*events) > 0] = 1
+    
+    x,y = np.where(masktemp)
+    return [x,y]
+
+def Match_events(Events, Eventtime, Eventmask, Data):
+    """
+    Matches flagged pixels that have coincident event times of +-5 cadences and are closer than 4 pix
+    seperation.
+    """
+    eventpos = np.zeros((len(Events),Data.shape[1],Data.shape[2]))
+
+    for i in range(len(Eventmask)):
+        eventpos[i,Eventmask[i][0],Eventmask[i][1]] = 1 
+
+    for i in range(len(Events)):
+        if (Events[i] >= 0):
+            duration = Eventtime[i,1]- Eventtime[i,0]
+            start = Eventtime[i,0] - duration
+            if start < 0:
+                start = 0
+            end = Eventtime[i,1] + 2*duration
+            if end >= len(Data) - 1:
+                end = len(Data) - 1
+            
+            t_coinc = np.where((Eventtime[:,0] >= start) & (Eventtime[:,1] <= end))[0]
+
+            if len(t_coinc) > 1:
+                summed_events = np.nansum(eventpos[t_coinc,:,:], axis = 0)
+                combined_mask = Identify_masks(summed_events,Eventmask[i])
+                
+                newmask = np.zeros_like(Data[0])
+                newmask[combined_mask] = 1
+
+                ind = []
+                for t in t_coinc:
+                    if np.nansum(newmask * eventpos[t]) > 0:
+                        ind += [t]
+                ind = np.array(ind,dtype='int')
+                
+                if len(ind[ind>0]) > 0:
+                    Eventmask[i] = combined_mask
+                    new_start = np.nanmin(Eventtime[ind[ind>0],0])
+                    new_end = np.nanmax(Eventtime[ind[ind>0],1])
+                    temp = Events[i]
+                    Events[ind[:]] = -10
+                    Events[i] = temp
+                    temp = [new_start,new_end]
+                    Eventtime[ind[:]] = -10
+                    Eventtime[i] = temp
+
+            
+    eh = np.where(Events > 0)[0]            
+    Events = Events[eh]
+    Eventtime = Eventtime[eh]
+    Eventmask = np.array(Eventmask)[eh].tolist()
+    return Events, Eventtime, Eventmask
 
 
 def K2TranPix(pixelfile,save): 
@@ -2170,14 +2247,14 @@ def K2TranPix(pixelfile,save):
 
         time = dat["TIME"] + 2454833.0
         Qual = hdu[1].data.field('QUALITY')
-        thrusters = np.where((Qual == 1048576) | (Qual == 1089568) | (Qual == 1056768) | (Qual == 1064960) | (Qual == 1081376) | (Qual == 10240) | (Qual == 32768) | (Qual == 1097760) | (Qual == 1048580) | (Qual == 1081348))[0]
-        thrusters = np.insert(thrusters,0,-1)
-        thrusters = np.append(thrusters,len(datacube)-2)
+        thrusters = Get_all_resets(datacube, Qual)
+
         quality = np.where(Qual != 0)[0]
         
         xdrif = dat['pos_corr1']
         ydrif = dat['pos_corr2']
         distdrif = np.sqrt(xdrif**2 + ydrif**2)
+
         if len(distdrif) != len(datacube):
             err_string = 'Distance arr is too short for {file}: len = {leng}'.format(file = pixelfile, leng = len(distdrif))
             raise ValueError(err_string) 
@@ -2194,17 +2271,15 @@ def K2TranPix(pixelfile,save):
         Mask = ThrustObjectMask(datacube,goodthrust)
 
         #Maskdata, ast = First_pass(np.copy(datacube),Qual,quality,thrusters,pixelfile)
-        Maskdata = np.copy(datacube)
-        allMask = np.ones((datacube.shape[1],datacube.shape[2]))
-        #Maskdata, Motion_flag = Motion_correction(Maskdata,allMask,thrusters,np.copy(distdrif))
+        Maskdata = Correct_motion(datacube, distdrif, thrusters)
         #Maskdata = Clip_cube(Maskdata)
         #Maskdata[Motion_flag] = np.nan
         # Make a mask for the object to use as a test to eliminate very bad pointings
         obj = np.ma.masked_invalid(Mask).mask
-        objmed = np.nanmedian(datacube[thrusters+1]*obj,axis=(0))
-        objstd = np.nanstd(datacube[thrusters+1]*obj,axis=(0))
+        objmed = np.nanmedian(datacube[thrusters[:-1]+4]*obj,axis=(0))
+        objstd = np.nanstd(datacube[thrusters[:-1]+4]*obj,axis=(0))
 
-        framemask = np.zeros(Maskdata.shape)
+        framemask = np.zeros_like(Maskdata)
 
         med = np.nanmedian(Maskdata[Qual == 0], axis = (0))
         med[med < 0] = 0
@@ -2224,11 +2299,11 @@ def K2TranPix(pixelfile,save):
 
         events, eventtime, eventmask = Event_ID(Eventmask, 1, 5)
         # Eliminate events that do not meet thruster firing conditions
-        events, eventtime, eventmask, asteroid, asttime, astmask = ThrusterElim(events,eventtime,eventmask,thrusters,quality,Qual,Maskdata)
-        
-        events, eventtime, eventmask = Match_events(events,eventtime,eventmask)
-        # Make sure the detected events are actually significant, not just a product of smoothing.
+        #events, eventtime, eventmask, asteroid, asttime, astmask = ThrusterElim(events,eventtime,eventmask,thrusters,quality,Qual,Maskdata)
         events, eventtime, eventmask = Vet_brightness(np.copy(events),np.copy(eventtime),eventmask,np.copy(Maskdata),Qual,pixelfile)
+        events, eventtime, eventmask = Match_events(events,eventtime,eventmask,datacube)
+        # Make sure the detected events are actually significant, not just a product of smoothing.
+        
         print(pixelfile, '# of events: ', len(events))
         if False:
             events2, eventtime2, eventmask2 = Event_ID(Maskdata/limit,0.3,2*48)
@@ -2346,26 +2421,26 @@ def K2TranPix(pixelfile,save):
             Source, SourceType = Probable_host(eventtime,eventmask,Source,SourceType,Objmasks,ObjName,ObjType,Maskdata)
             SourceType = Isolation(eventtime,eventmask,Maskdata,SourceType)
             # Remove all the stars! 
-            good_ind = np.ones(len(events))
-            for i in range(len(events)):
-                if 'Star' in SourceType[i]:
-                    good_ind[i] = 0
-                i += 1
+            #good_ind = np.ones(len(events))
+            #for i in range(len(events)):
+            #    if 'Star' in SourceType[i]:
+            #        good_ind[i] = 0
+            #    i += 1
             
-            good_ind = good_ind > 0
-            events = events[good_ind] 
-            eventtime = eventtime[good_ind]
+            #good_ind = good_ind > 0
+            #events = events[good_ind] 
+            #eventtime = eventtime[good_ind]
 
-            mask_ind = np.where(~good_ind)[0]
-            for i in range(len(mask_ind)):
-                rev = len(mask_ind) -1 - i
-                del eventmask[rev]
-                del Source[rev]
-                del SourceType[rev]
-            if len(eventmask) != len(events):
-                print('eventmask, ', len(eventmask))
-                print('events, ', len(events))
-                raise ValueError('Arrays are different lengths, check whats happening in {}'.format(pixelfile))
+            #mask_ind = np.where(~good_ind)[0]
+            #for i in range(len(mask_ind)):
+            #    rev = len(mask_ind) -1 - i
+            #    del eventmask[rev]
+            #    del Source[rev]
+            #    del SourceType[rev]
+            #if len(eventmask) != len(events):
+            #    print('eventmask, ', len(eventmask))
+            #    print('events, ', len(events))
+            #    raise ValueError('Arrays are different lengths, check whats happening in {}'.format(pixelfile))
             
             # Print figures
             K2TranPixFig(events,eventtime,eventmask,np.copy(Maskdata),time,(Eventmask >= 0),mywcs,Save,pixelfile,quality,thrusters,Framemin,(datacube),Source,SourceType,Maskobj)
