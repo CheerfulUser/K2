@@ -1,5 +1,5 @@
 import matplotlib
-matplotlib.use('Agg')
+#matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 #import matplotlib.animation as animation
 import matplotlib.gridspec as gridspec
@@ -33,6 +33,7 @@ from astropy import convolution
 from pywt import wavedec
 from scipy.signal import find_peaks
 from scipy.interpolate import PchipInterpolator
+from scipy.signal import savgol_filter
 
 import operator
 from sklearn.linear_model import LinearRegression
@@ -402,55 +403,78 @@ def Asteroid_identifier(Events,Times,Masks,Firings,Quality,qual,Data):
     return asteroid, asttime, astmask
 
 
-def Match_events(Events, Eventtime, Eventmask, Seperation = 5):
+def Identify_event(Data, Position):
     """
-    Matches flagged pixels that have coincident event times of +-5 cadences and are closer than 4 pix
-    seperation.
+    Uses an iterrative process to find spacially seperated masks in the object mask.
     """
-    i = 0
-    eventmask2 = []
-    while len(Events) > i:
-        coincident = (np.isclose(Eventtime[i, 0], Eventtime[i:, 0], atol = Seperation) + np.isclose(
-            Eventtime[i, 1], Eventtime[i:, 1], atol = Seperation))
-        dist = np.sqrt((np.array(Eventmask)[i, 0]-np.array(Eventmask)[i:, 0])**2 + (
-            np.array(Eventmask)[i, 1]-np.array(Eventmask)[i:, 1])**2)
-        dist = dist < 5
+    
+    p1 = Position[0]
+    p2 = Position[1]
+    
+    events = np.copy(Data)
+    masktemp = np.zeros_like(events)
 
-        coincident = coincident * dist
-        if sum(coincident*1) > 1:
-            newmask = Eventmask[i].copy()
+    masktemp[p1,p2] = 1
+    size = 0
+    while np.nansum(masktemp) != size:
+        size = np.nansum(masktemp)
+        conv = ((convolve(masktemp*1,np.ones((3,3)),mode='constant', cval=0.0)) > 0)*1.0
+        masktemp[(conv*events) > 0] = 1
+    
+    x,y = np.where(masktemp)
+    return [x,y]
 
-            for j in (np.where(coincident)[0][1:] + i):
-                newmask[0] = np.append(newmask[0], Eventmask[j][0])
-                newmask[1] = np.append(newmask[1], Eventmask[j][1])
-            eventmask2.append(newmask)
-            Events = np.delete(Events, np.where(coincident)[0][1:]+i)
-            Eventtime = np.delete(Eventtime, np.where(
-                coincident)[0][1:]+i, axis=(0))
-            killer = sorted(
-                (np.where(coincident)[0][1:]+i), key=int, reverse=True)
-            for kill in killer:
-                del Eventmask[kill]
-        else:
-            eventmask2.append(Eventmask[i])
-        i += 1
-    return Events, Eventtime, eventmask2
+def Match_events(Events, Eventtime, Eventmask, Data):
+    """
+    Matches flagged pixels that have concurrent event times and are nieghbouring.
+    """
+    eventpos = np.zeros((len(Events),Data.shape[1],Data.shape[2]))
 
-def Match_asteroids(Events,Eventtime,Eventmask):
-    i = 0
-    while i < len(Events):
-        coincident = ((Eventtime[:,0] >= Eventtime[i,0]-3) & (Eventtime[:,0] <= Eventtime[i,0]+3) & (Eventtime[:,1] >= Eventtime[i,1]-3) & (Eventtime[:,1] <= Eventtime[i,1]+3))       
-        if sum(coincident*1) > 1:
-            newmask = (np.nansum(Eventmask[coincident],axis = (0)) > 0)*1 
+    for i in range(len(Eventmask)):
+        eventpos[i,Eventmask[i][0],Eventmask[i][1]] = 1 
 
-            Events = np.delete(Events,np.where(coincident)[0][1:])
-            Eventtime = np.delete(Eventtime,np.where(coincident)[0][1:], axis = (0))
-            Eventmask = np.delete(Eventmask,np.where(coincident)[0][1:], axis = (0))
-            Eventmask[i] = newmask
+    for i in range(len(Events)):
+        if (Events[i] >= 0):
+            duration = Eventtime[i,1]- Eventtime[i,0]
+            start = Eventtime[i,0] - duration
+            if start < 0:
+                start = 0
+            end = Eventtime[i,1] + 2*duration
+            if end >= len(Data) - 1:
+                end = len(Data) - 1
+            
+            t_coinc = np.where((Eventtime[:,0] >= start) & (Eventtime[:,1] <= end))[0]
 
-        i +=1
-        
-    return Events, Eventtime,Eventmask
+            if len(t_coinc) > 1:
+                summed_events = np.nansum(eventpos[t_coinc,:,:], axis = 0)
+                combined_mask = Identify_event(summed_events,Eventmask[i])
+                
+                newmask = np.zeros_like(Data[0])
+                newmask[combined_mask] = 1
+
+                ind = []
+                for t in t_coinc:
+                    if np.nansum(newmask * eventpos[t]) > 0:
+                        ind += [t]
+                ind = np.array(ind,dtype='int')
+                
+                if len(ind[ind>0]) > 0:
+                    Eventmask[i] = combined_mask
+                    new_start = np.nanmin(Eventtime[ind[ind>0],0])
+                    new_end = np.nanmax(Eventtime[ind[ind>0],1])
+                    temp = Events[i]
+                    Events[ind[:]] = -10 # flag for identification later
+                    Events[i] = temp
+                    temp = [new_start,new_end]
+                    Eventtime[ind[:]] = -10
+                    Eventtime[i] = temp
+
+            
+    eh = np.where(Events > 0)[0]            
+    Events = Events[eh]
+    Eventtime = Eventtime[eh]
+    Eventmask = np.array(Eventmask)[eh].tolist()
+    return Events, Eventtime, Eventmask
 
 def Remove_asteroids(Asteroid,Asttime,Astmask,Maskdata):
     dataclean = np.copy(Maskdata)
@@ -577,7 +601,8 @@ def Get_all_resets(Data, Quality):
 
     peaks = nonaninds[eh_x[peaks]]
 
-    realt = np.where((Quality==1048576) | (Quality==524288) | (Quality==1081376))[0]
+    realt = np.where((Quality==1048576) | (Quality==524288) | 
+                     (Quality==1081376) | (Quality==1056768))[0]
     for p in peaks:
         if ~np.isclose(p, realt, atol=3).any():
             realt = np.append(realt, p)
@@ -643,27 +668,25 @@ def Correct_motion(Data, Distance, Thrust):
                 d = Distance[Thrust[i]:Thrust[i+1]-1]
                 ind = np.where(np.isfinite(section))[0]
                 
-                #if (d[ind] <=0.1).any():
-                #    inds = np.where(d[ind] <=0.1)[0]
-                #    for k in inds:
-                #        trend += [[ind[k]+Thrust[i],section[ind[k]]]]
                     
                 if (d[ind] <= 0.3).any():
-                    mind = np.nanmin(d[ind])
-                    ind2 = np.where(d[ind] == mind)[0][0]
-                    trend += [[ind[ind2]+Thrust[i],section[ind[ind2]]]]
+                    gi = np.where(d[ind] <= 0.3)[0]
+                    p = np.average(ind[gi],weights=1-d[ind[gi]])
+                    val = np.average(section[ind[gi]],weights=1-d[ind[gi]])
+                    trend += [[p+Thrust[i],val]]
+
                     
 
         trend = np.array(trend)
         trend = trend[trend[:,0].argsort()]
         #return trend
-        #spl = PchipInterpolator(trend[:,0], trend[:,1],extrapolate=False)
-        spl = interp1d(trend[:,0], trend[:,1], kind = 'linear',bounds_error=False)
+        spl = PchipInterpolator(trend[:,0], trend[:,1],extrapolate=False)
+        #spl = interp1d(trend[:,0], trend[:,1], kind = 'linear',bounds_error=False)
         x = np.arange(data.shape[0])
         spl = spl(x)
         
         spline[:,X[j],Y[j]] = spl
-    data = data - (fitting ) + spline
+    data = data - fitting + spline
     
     return data #, fitting, spline
 
@@ -954,14 +977,19 @@ def Save_environment(Eventtime,maxcolor,Source,SourceType,Save):
     Save_space(directory)
     return directory
 
-def Lightcurve(Data,Mask):
-    Mask = Mask*1.0
+
+def Lightcurve(Data, Mask, Normalise = False):
+    if type(Mask) == list:
+        mask = np.zeros((Data.shape[1],Data.shape[2]))
+        mask[Mask[0],Mask[1]] = 1
+        Mask = mask*1.0
     Mask[Mask == 0.0] = np.nan
     LC = np.nansum(Data*Mask, axis = (1,2))
     for k in range(len(LC)):
         if np.isnan(Data[k]*Mask).all(): # np.isnan(np.sum(Data[k]*Mask)) & (np.nansum(Data[k]*Mask) == 0):
             LC[k] = np.nan
-
+    if Normalise:
+        LC = LC / np.nanmedian(LC)
     return LC
 
 def Thumbnail(LC,BGLC,Eventtime,Time,Xlim,Ylim,Eventnum,File,Direct):
@@ -1437,17 +1465,21 @@ def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Zoo_Save, D
         duration = Eventtime[i][1] - Eventtime[i][0]
         maxlc = np.nanmax(Lightcurve(Data[Eventtime[i][0]:Eventtime[i][-1]], mask))
 
+        #Find Coords of transient
         position = np.where(mask)
+        if len(position[0]) == 0:
+            print(Broken)
         Mid = ([position[0][0]],[position[1][0]])
         maxcolor = -1000 # Set a bad value for error identification
         for j in range(len(position[0])):
-            temp = sorted(Data[Eventtime[i][0]:Eventtime[i][-1],position[0][j],position[1][j]].flatten())
+            lcpos = np.copy(Data[Eventtime[i][0]:Eventtime[i][-1],position[0][j],position[1][j]])
+            lcpos[np.isnan(lcpos)] = 0.0
+            temp = sorted(lcpos.flatten())
             temp = np.array(temp)
-            temp = temp[np.isfinite(temp)]
             if len(temp) > 10:
                 temp  = temp[-3] # get 3rd brightest point
             else:
-                temp  = temp[-1] # get 3rd brightest point # get 3rd brightest point
+                temp  = temp[-1] # get 3rd brightest point
             if temp > maxcolor:
                 maxcolor = temp
                 Mid = ([position[0][j]],[position[1][j]])
@@ -1456,6 +1488,7 @@ def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Zoo_Save, D
             Coord = pix2coord(Mid[1],Mid[0],WCS)
         elif len(Mid[0]) > 1:
             Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
+
 
         size = np.nansum(Eventmask[i])
         Zoo_fig = Zoo_Save[i]
@@ -2077,7 +2110,55 @@ def Rank_host(Type):
             if rank_system[j,0] in Type[i]:
                 Rank[i] = int(rank_system[j,1])
     return Rank
+
+def Vet_peaks(Events, Eventtime, Eventmask, Data):
+    good_ind = []
+    lcs = []
+    peaks = []
+    for i in Eventmask:
+        lcs += [Lightcurve(Data,i)]
+    lcs = np.array(lcs)
+    
+    for e in range(len(lcs)):
+        x = np.arange(0,len(lcs[e]))
+        ind = np.isfinite(lcs[e])
+        fun = interp1d(x[ind],lcs[e][ind],bounds_error = False,fill_value='extrapolate')
+        nonan = fun(x)
+        width = ((Eventtime[e,1] - Eventtime[e,0]) * 2) - 1
         
+        sm = savgol_filter(nonan,width,2,mode='nearest')
+        pea = find_peaks(sm)[0]
+        
+        ev_ind = np.where((pea >= Eventtime[e,0]) & (pea <= Eventtime[e,1]))[0]
+        max_ind = np.where(np.nanmax(sm[pea])== sm[pea])[0]
+        
+        if (ev_ind == max_ind).any():
+            stat_ind = pea[pea!=pea[max_ind]]  
+            std = np.nanstd(sm[stat_ind])
+            med = np.nanmedian(sm[stat_ind])
+            sig = (sm[pea[max_ind]] - med) / std
+            if sig >= 5:
+                tstart = Eventtime[e,0] - (width * 10)
+                if tstart < 0:
+                    tstart = 0 
+                tend = Eventtime[e,1] + (width * 10)
+                if tend >= len(Data):
+                    tend = len(Data) - 1
+                    near_peaks = pea[(pea < Eventtime[e,0]) & (pea >= tstart)
+                                     | (pea > Eventtime[e,1]) & (pea <= tend)]
+                    if ((sm[near_peaks] / sm[pea[max_ind]]) < 0.8).all(): 
+                        good_ind += [e]
+    good_ind = np.array(good_ind,dtype=int)
+    if len(good_ind) > 0:
+        Events = Events[good_ind]
+        Eventtime = Eventtime[good_ind]
+        Eventmask = np.array(Eventmask)[good_ind].tolist()
+    else:
+        Events = np.array([])
+        Eventtime = np.array([])
+        Eventmask = []
+    return Events, Eventtime, Eventmask 
+
 
 # Testing this function 
 def Vet_long(Events, Eventtime, Eventmask, Data, Quality):
@@ -2150,79 +2231,7 @@ def Vet_long(Events, Eventtime, Eventmask, Data, Quality):
     return events, eventtime, eventmask
 
 
-def Identify_masks(Data, Position):
-    """
-    Uses an iterrative process to find spacially seperated masks in the object mask.
-    """
-    
-    p1 = Position[0]
-    p2 = Position[1]
-    
-    events = np.copy(Data)
-    masktemp = np.zeros_like(events)
 
-    masktemp[p1,p2] = 1
-    size = 0
-    while np.nansum(masktemp) != size:
-        size = np.nansum(masktemp)
-        conv = ((convolve(masktemp*1,np.ones((3,3)),mode='constant', cval=0.0)) > 0)*1.0
-        masktemp[(conv*events) > 0] = 1
-    
-    x,y = np.where(masktemp)
-    return [x,y]
-
-def Match_events(Events, Eventtime, Eventmask, Data):
-    """
-    Matches flagged pixels that have coincident event times of +-5 cadences and are closer than 4 pix
-    seperation.
-    """
-    eventpos = np.zeros((len(Events),Data.shape[1],Data.shape[2]))
-
-    for i in range(len(Eventmask)):
-        eventpos[i,Eventmask[i][0],Eventmask[i][1]] = 1 
-
-    for i in range(len(Events)):
-        if (Events[i] >= 0):
-            duration = Eventtime[i,1]- Eventtime[i,0]
-            start = Eventtime[i,0] - duration
-            if start < 0:
-                start = 0
-            end = Eventtime[i,1] + 2*duration
-            if end >= len(Data) - 1:
-                end = len(Data) - 1
-            
-            t_coinc = np.where((Eventtime[:,0] >= start) & (Eventtime[:,1] <= end))[0]
-
-            if len(t_coinc) > 1:
-                summed_events = np.nansum(eventpos[t_coinc,:,:], axis = 0)
-                combined_mask = Identify_masks(summed_events,Eventmask[i])
-                
-                newmask = np.zeros_like(Data[0])
-                newmask[combined_mask] = 1
-
-                ind = []
-                for t in t_coinc:
-                    if np.nansum(newmask * eventpos[t]) > 0:
-                        ind += [t]
-                ind = np.array(ind,dtype='int')
-                
-                if len(ind[ind>0]) > 0:
-                    Eventmask[i] = combined_mask
-                    new_start = np.nanmin(Eventtime[ind[ind>0],0])
-                    new_end = np.nanmax(Eventtime[ind[ind>0],1])
-                    temp = Events[i]
-                    Events[ind[:]] = -10
-                    Events[i] = temp
-                    temp = [new_start,new_end]
-                    Eventtime[ind[:]] = -10
-                    Eventtime[i] = temp
-
-            
-    eh = np.where(Events > 0)[0]            
-    Events = Events[eh]
-    Eventtime = Eventtime[eh]
-    Eventmask = np.array(Eventmask)[eh].tolist()
-    return Events, Eventtime, Eventmask
 
 
 def K2TranPix(pixelfile,save): 
@@ -2269,7 +2278,7 @@ def K2TranPix(pixelfile,save):
             Framemin = 100 # Arbitrarily chosen, Data is probably screwed anway if there are no thruster firings.
         # Apply object mask to data
         Mask = ThrustObjectMask(datacube,goodthrust)
-
+        #datacube[:48 * 2,:,:] = np.nan
         #Maskdata, ast = First_pass(np.copy(datacube),Qual,quality,thrusters,pixelfile)
         Maskdata = Correct_motion(datacube, distdrif, thrusters)
         #Maskdata = Clip_cube(Maskdata)
@@ -2298,10 +2307,12 @@ def K2TranPix(pixelfile,save):
 
 
         events, eventtime, eventmask = Event_ID(Eventmask, 1, 5)
-        # Eliminate events that do not meet thruster firing conditions
-        #events, eventtime, eventmask, asteroid, asttime, astmask = ThrusterElim(events,eventtime,eventmask,thrusters,quality,Qual,Maskdata)
-        events, eventtime, eventmask = Vet_brightness(np.copy(events),np.copy(eventtime),eventmask,np.copy(Maskdata),Qual,pixelfile)
+        
+        
+        
+        #events, eventtime, eventmask = Vet_brightness(np.copy(events),np.copy(eventtime),eventmask,np.copy(Maskdata),Qual,pixelfile)
         events, eventtime, eventmask = Match_events(events,eventtime,eventmask,datacube)
+        events, eventtime, eventmask = Vet_peaks(events, eventtime, eventmask, Maskdata)
         # Make sure the detected events are actually significant, not just a product of smoothing.
         
         print(pixelfile, '# of events: ', len(events))
