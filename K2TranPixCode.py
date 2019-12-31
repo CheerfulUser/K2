@@ -1,5 +1,5 @@
 import matplotlib
-matplotlib.use('Agg')
+#matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 #import matplotlib.animation as animation
 import matplotlib.gridspec as gridspec
@@ -1071,6 +1071,41 @@ def Fig_cut(Datacube,Eventmask):
         ylims = [-0.5,y]
     return xlims, ylims
 
+
+def Cutout(Data,Position):
+    """
+    Limit the imshow dimensions to 20 square.
+    Inputs:
+    -------
+    Data        - 3d array
+    Position    - list
+
+    Output:
+    -------
+    cutout_dims - 2x2 array 
+    """
+    cutout_dims = np.array([[0, Data.shape[1]],[0, Data.shape[2]]])
+    for i in range(2):
+        if (Data.shape[i] > 19):
+            dim0 = [Position[i][0] - 6, Position[i][0] + 6]
+
+            bound = [(dim0[0] < 0), (dim0[1] > Data.shape[1])]
+
+            if any(bound):
+                if bound[0]:
+                    diff = abs(dim0[0])
+                    dim0[0] = 0
+                    dim0[1] += diff
+
+                if bound[1]:
+                    diff = abs(dim0[1] - Data.shape[1])
+                    dim0[1] = Data.shape[1]
+                    dim0[0] -= diff
+
+            cutout_dims[i,0] = dim0[0]
+            cutout_dims[i,1] = dim0[1]
+    return cutout_dims - 0.5
+
 def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quality,Thrusters,Framemin,Datacube,Source,SourceType,ObjMask):
     """
     Makes the main K2:BS pipeline figure. Contains light curve with diagnostics, alongside event info.
@@ -1197,7 +1232,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
             plt.ylim(ymin,ymax)
         plt.legend(loc = 1)
         plt.minorticks_on()
-        ylims, xlims = Fig_cut(Datacube,Mid)
+        ylims, xlims = Cutout(Datacube,Mid)
 
         # small subplot 1 Reference image plot
         ax = plt.subplot2grid((2,3), (0,2))
@@ -1221,7 +1256,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         current_cmap = plt.cm.get_cmap()
         current_cmap.set_bad(color='black')
         plt.colorbar(fraction=0.046, pad=0.04)
-        plt.plot(position[1],position[0],'r.',ms = 15, rasterized=True)
+        plt.plot(position[1],position[0],'r.',ms = 12, rasterized=True)
         plt.minorticks_on()
         ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
         ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
@@ -1285,7 +1320,7 @@ def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType
 
         Save_space(FrameSave)
 
-        ylims, xlims = Fig_cut(Data,Mid)
+        ylims, xlims = Cutout(Data,Mid)
 
         for j in range(Section.shape[0]):
             filename = FrameSave + 'Frame_' + str(int(j)).zfill(4)+".png"
@@ -2144,7 +2179,9 @@ def Vet_peaks(Events, Eventtime, Eventmask, Data):
         ind = np.isfinite(lcs[e])
         fun = interp1d(x[ind],lcs[e][ind],bounds_error = False,fill_value='extrapolate')
         nonan = fun(x)
-        width = ((Eventtime[e,1] - Eventtime[e,0]) * 2) - 1
+        width = ((Eventtime[e,1] - Eventtime[e,0]) * 3) 
+        if (width/2) == int(width/2):
+            width -= 1
         
         sm = savgol_filter(nonan,width,2,mode='nearest')
         pea = find_peaks(sm)[0]
