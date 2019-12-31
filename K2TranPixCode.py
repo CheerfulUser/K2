@@ -160,11 +160,11 @@ def Event_ID(Sigmask, Significance, Minlength):
                 if abs((indf[testf>Minlength][j] + testf[testf>Minlength][j]-1) - indf[testf>Minlength][j]) < 48: # Condition on events shorter than a day 
                     start = indf[testf>Minlength][j]
                     end = (indf[testf>Minlength][j] + testf[testf>Minlength][j]-1)
-                    #if np.nansum(Eventmask[start:end,X[i],Y[i]]) / abs(end-start) > 0.5:
-                    events.append(indf[testf>Minlength][j])
-                    eventtime.append([indf[testf>Minlength][j], (indf[testf>Minlength][j] + testf[testf>Minlength][j]-1)])
-                    masky = [np.array(X[i]), np.array(Y[i])]
-                    eventmask.append(masky)    
+                    if np.nansum(binary[start:end,X[i],Y[i]]) / abs(end-start) > 0.5:
+                        events.append(indf[testf>Minlength][j])
+                        eventtime.append([indf[testf>Minlength][j], (indf[testf>Minlength][j] + testf[testf>Minlength][j]-1)])
+                        masky = [np.array(X[i]), np.array(Y[i])]
+                        eventmask.append(masky)    
                 else:
                     events.append(indf[testf>Minlength][j])
                     eventtime.append([indf[testf>Minlength][j], (indf[testf>Minlength][j] + testf[testf>Minlength][j]-1)])
@@ -664,10 +664,11 @@ def Correct_motion(Data, Distance, Thrust):
         for i in range(len(Thrust)-1):
             section = data[Thrust[i]:Thrust[i+1]-1,X[j],Y[j]].copy()
             if len(section) > 3:
-                #section[0] = np.nan
-                #section[1] = np.nan
-                #section[-1] = np.nan
-                nanmask = sigma_clip(section,sigma=2.5,masked=True).mask
+
+                nanmask = sigma_clip(section,sigma=2,masked=True,maxiters=1).mask
+                if np.nansum(nanmask) > 2:
+                    nanmask = sigma_clip(section,sigma=3,masked=True,maxiters=1).mask
+
                 section[nanmask] = np.nan
 
 
@@ -679,6 +680,13 @@ def Correct_motion(Data, Distance, Thrust):
                     
                 if (d[ind] <= 0.3).any():
                     gi = np.where(d[ind] <= 0.3)[0]
+                    p = np.average(ind[gi],weights=1-d[ind[gi]])
+                    val = np.average(section[ind[gi]],weights=1-d[ind[gi]])
+                    trend += [[p+Thrust[i],val]]
+                elif (np.abs(np.nanmedian(section)) <= 5) & \
+                     (np.nansum(np.abs(section)) > 0) & \
+                     (d[ind] < 1).any():
+                    gi = np.where(d[ind] < 1)[0]
                     p = np.average(ind[gi],weights=1-d[ind[gi]])
                     val = np.average(section[ind[gi]],weights=1-d[ind[gi]])
                     trend += [[p+Thrust[i],val]]
@@ -1226,13 +1234,13 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
             miny = 0
 
         ymin = miny - 0.5*np.abs(miny)
-        ymax = 2*maxy #+ 0.5*np.abs(maxy)
+        ymax = 1.5*maxy #+ 0.5*np.abs(maxy)
 
         if np.isfinite(ymin) & np.isfinite(ymax):
             plt.ylim(ymin,ymax)
         plt.legend(loc = 1)
         plt.minorticks_on()
-        ylims, xlims = Cutout(Datacube,Mid)
+        ylims, xlims = Fig_cut(Datacube,Mid)
 
         # small subplot 1 Reference image plot
         ax = plt.subplot2grid((2,3), (0,2))
@@ -2373,15 +2381,16 @@ def K2TranPix(pixelfile,save):
         
         
         #events, eventtime, eventmask = Vet_brightness(np.copy(events),np.copy(eventtime),eventmask,np.copy(Maskdata),Qual,pixelfile)
-        events, eventtime, eventmask = Match_events(events,eventtime,eventmask,datacube)
+        events, eventtime, eventmask = Match_events(events,eventtime,eventmask,Maskdata)
         events, eventtime, eventmask = Vet_peaks(events, eventtime, eventmask, Maskdata)
         # Make sure the detected events are actually significant, not just a product of smoothing.
         
         print(pixelfile, '# of events: ', len(events))
         if False:
-            events2, eventtime2, eventmask2 = Event_ID(Maskdata/limit,0.3,2*48)
-            events2, eventtime2, eventmask2 = Vet_long(events2, eventtime2, eventmask2, Maskdata, Qual)
-            events2, eventtime2, eventmask2 = Match_events(events2,eventtime2,eventmask2,30)
+            events2, eventtime2, eventmask2 = Event_ID(Maskdata/limit,0.3,4*48)
+            #events2, eventtime2, eventmask2 = Vet_long(events2, eventtime2, eventmask2, Maskdata, Qual)
+            events2, eventtime2, eventmask2 = Match_events(events2,eventtime2,eventmask2,Maskdata)
+            events2, eventtime2, eventmask2 = Vet_peaks(events, eventtime, eventmask, Maskdata)
 
             if len(events) > 0:
                 for i in range(len(events2)):
@@ -2392,7 +2401,7 @@ def K2TranPix(pixelfile,save):
                 events = events2
                 eventtime = eventtime2
                 eventmask = eventmask2
-        
+            print(pixelfile, '# of events: ', len(events))
 
         temp = []
         for i in range(len(events)):
