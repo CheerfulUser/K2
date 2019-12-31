@@ -631,23 +631,28 @@ def Regress_fit(Data):
         sorted_zip = sorted(zip(x,y_poly_pred), key=sort_axis)
         x, y_poly_pred = zip(*sorted_zip)
 
-        mod = np.zeros_like(y)
+        mod = np.zeros_like(Data[ind])
+        xx = np.zeros_like(Data[ind])
         for i in range(len(mod)):
             mod[i] = y_poly_pred[i][0]
+            xx[i] = x[i][0]
+        temp = interp1d(xx,mod,bounds_error = False,fill_value='extrapolate')
+        mod = temp(np.arange(0,len(Data)))
+        
     else:
-        mod = np.zeros_like(y)
+        mod = np.zeros_like(Data)
         mod[:] = np.nan
     fit = Data.copy()
 
-    fit[ind] = np.squeeze(mod)
-
+    fit = np.squeeze(mod)
+    
     return fit
 
 def Correct_motion(Data, Distance, Thrust):
     data = Data.copy()
     data[Thrust] = np.nan
     data[Thrust[:-1]+1] = np.nan
-    data[Thrust[:-1]+2] = np.nan
+    #data[Thrust[:-1]+2] = np.nan
     data[Thrust[1:]-1] = np.nan
     X, Y = np.where(np.nansum(data,axis=0) != 0)
     
@@ -659,7 +664,10 @@ def Correct_motion(Data, Distance, Thrust):
         for i in range(len(Thrust)-1):
             section = data[Thrust[i]:Thrust[i+1]-1,X[j],Y[j]].copy()
             if len(section) > 3:
-                nanmask = sigma_clip(section,masked=True).mask
+                #section[0] = np.nan
+                #section[1] = np.nan
+                #section[-1] = np.nan
+                nanmask = sigma_clip(section,sigma=2.5,masked=True).mask
                 section[nanmask] = np.nan
 
 
@@ -1159,29 +1167,35 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         if np.isfinite(xmin) & np.isfinite(xmax):
             plt.xlim(xmin,xmax) 
 
-        lclim = np.copy(LC[Eventtime[i,0]:Eventtime[i,1]])
+        lclim = LC.copy()
 
-        temp = sorted(lclim[np.isfinite(lclim)].flatten())
-        temp = np.array(temp)
-        if len(temp) > 6:
-            maxy = temp[-5] # get 8th brightest point
-        else:
-            maxy = temp[-1]
+        x = np.arange(0,len(lclim))
+        ind = np.isfinite(lclim)
+        fun = interp1d(x[ind],lclim[ind],bounds_error = False,fill_value='extrapolate')
+        nonan = fun(x)
+        width = ((Eventtime[i,1] - Eventtime[i,0]) * 2) - 1
+        
+        sm = savgol_filter(nonan,width,2,mode='nearest')
+        maxy = np.nanmax(sm[Eventtime[i,0]:Eventtime[i,1]])
+        
 
-        temp_LC = np.copy(LC)
-        temp_LC[temp_LC == 0] = np.nan
-        temp = sorted(temp_LC[np.isfinite(temp_LC)].flatten())
-        temp = np.array(temp)
-        if len(temp) > 100:
-            miny  = temp[10] # get 10th faintest point
-        else: 
-            miny  = temp[0] # get 10th faintest point
+        minind_lower = np.array([Eventtime[i,0] - (5 * width), Eventtime[i,0] - width])
+        minind_lower[minind_lower < 0] = 0 
+        minind_upper = np.array([Eventtime[i,1] + (2 * width), Eventtime[i,1] + (5 * width)])
+        minind_upper[minind_upper >= len(Time)] = len(Time) -1
 
-        ymin = miny - 0.1*miny
-        ymax = maxy + 0.1*maxy
+        lower = np.nanmedian(LC[minind_lower[0]:minind_lower[1]])
+        upper = np.nanmedian(LC[minind_upper[0]:minind_upper[1]])
+        miny = np.nanmedian([lower,upper])
+        if np.isnan(miny):
+            miny = 0
 
-        plt.ylim(ymin,ymax)
-        plt.legend()#loc = 1)
+        ymin = miny - 0.5*np.abs(miny)
+        ymax = 2*maxy #+ 0.5*np.abs(maxy)
+
+        if np.isfinite(ymin) & np.isfinite(ymax):
+            plt.ylim(ymin,ymax)
+        plt.legend(loc = 1)
         plt.minorticks_on()
         ylims, xlims = Fig_cut(Datacube,Mid)
 
@@ -1356,25 +1370,31 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save
 
         LC = Lightcurve(Data, mask)
 
-        lclim = np.copy(LC[Eventtime[i,0]:Eventtime[i,1]])
+        lclim = LC.copy()
 
-        temp = sorted(lclim[np.isfinite(lclim)].flatten())
-        temp = np.array(temp)
-        if len(temp) > 10:
-            maxy  = temp[-5] # get 5th brightest point
-        else:
-            maxy  = temp[0]
-        temp_LC = np.copy(LC)
-        temp_LC[temp_LC == 0] = np.nan
-        temp = sorted(temp_LC[np.isfinite(temp_LC)].flatten())
-        temp = np.array(temp)
-        if len(temp) > 100:
-            miny  = temp[10] # get 10th faintest point
-        else: 
-            miny  = temp[0] # get 10th faintest point
+        x = np.arange(0,len(lclim))
+        ind = np.isfinite(lclim)
+        fun = interp1d(x[ind],lclim[ind],bounds_error = False,fill_value='extrapolate')
+        nonan = fun(x)
+        width = ((Eventtime[i,1] - Eventtime[i,0]) * 2) - 1
+        
+        sm = savgol_filter(nonan,width,2,mode='nearest')
+        maxy = np.nanmax(sm[Eventtime[i,0]:Eventtime[i,1]])
+        
 
-        ymin = miny - 0.1*miny
-        ymax = maxy + 0.1*maxy
+        minind_lower = np.array([Eventtime[i,0] - (5 * width), Eventtime[i,0] - width])
+        minind_lower[minind_lower < 0] = 0 
+        minind_upper = np.array([Eventtime[i,1] + (2 * width), Eventtime[i,1] + (5 * width)])
+        minind_upper[minind_upper >= len(Time)] = len(Time) -1
+
+        lower = np.nanmedian(LC[minind_lower[0]:minind_lower[1]])
+        upper = np.nanmedian(LC[minind_upper[0]:minind_upper[1]])
+        miny = np.nanmedian([lower,upper])
+        if np.isnan(miny):
+            miny = 0
+
+        ymin = miny - 0.5*np.abs(miny)
+        ymax = 2*maxy #+ 0.5*np.abs(maxy)
 
         # Create an ImageNormalize object using a SqrtStretch object
         norm = ImageNormalize(vmin=ymin/len(position[0]), vmax=maxcolor, stretch=SqrtStretch())
@@ -2138,17 +2158,22 @@ def Vet_peaks(Events, Eventtime, Eventmask, Data):
             med = np.nanmedian(sm[stat_ind])
             sig = (sm[pea[max_ind]] - med) / std
             if sig >= 5:
-                tstart = Eventtime[e,0] - (width * 10)
+                if (width * 10) > 48 * 10:
+                    check_range = width * 10
+                else:
+                    check_range = 48 * 10
+                tstart = Eventtime[e,0] - check_range
                 if tstart < 0:
                     tstart = 0 
-                tend = Eventtime[e,1] + (width * 10)
+                tend = Eventtime[e,1] + check_range
                 if tend >= len(Data):
                     tend = len(Data) - 1
-                    near_peaks = pea[(pea < Eventtime[e,0]) & (pea >= tstart)
-                                     | (pea > Eventtime[e,1]) & (pea <= tend)]
-                    if ((sm[near_peaks] / sm[pea[max_ind]]) < 0.8).all(): 
-                        good_ind += [e]
-    good_ind = np.array(good_ind,dtype=int)
+                near_peaks = pea[(pea < Eventtime[e,0]) & (pea >= tstart)
+                                 | (pea > Eventtime[e,1]) & (pea <= tend)]
+                if ((sm[near_peaks] / sm[pea[max_ind]]) < 0.7).all(): 
+                    good_ind += [e]
+    good_ind = np.array(good_ind)
+    
     if len(good_ind) > 0:
         Events = Events[good_ind]
         Eventtime = Eventtime[good_ind]
@@ -2157,7 +2182,7 @@ def Vet_peaks(Events, Eventtime, Eventmask, Data):
         Events = np.array([])
         Eventtime = np.array([])
         Eventmask = []
-    return Events, Eventtime, Eventmask 
+    return Events, Eventtime, Eventmask
 
 
 # Testing this function 
@@ -2306,7 +2331,7 @@ def K2TranPix(pixelfile,save):
         #print('did')
 
 
-        events, eventtime, eventmask = Event_ID(Eventmask, 1, 5)
+        events, eventtime, eventmask = Event_ID(Eventmask, 1, 3)
         
         
         
