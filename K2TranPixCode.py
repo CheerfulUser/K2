@@ -1274,6 +1274,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
             
 
         plt.savefig(directory+File.split('/')[-1].split('-')[0]+'_'+str(i)+'.pdf', bbox_inches = 'tight')
+
         
         plt.close()
         Thumbnail(LC,BGLC,Eventtime[i],Time,[xmin,xmax],[ymin,ymax],i,File,directory);
@@ -1522,7 +1523,7 @@ def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Zoo_Save, D
     rank_duration = Rank_duration(Eventtime)
     rank_mask = Rank_mask(Eventmask,Data)
     rank_host = Rank_host(Sourcetype)
-    
+
     rank_total = rank_brightness + rank_duration + rank_mask + rank_host 
     for i in range(len(Eventtime)):
         mask = np.zeros((Data.shape[1],Data.shape[2]))
@@ -2120,8 +2121,9 @@ def Find_Long_Events(Data,Time,Eventmask,Objmasks,Mask,Thrusters,Dist,Quality,WC
 def Rank_brightness(Eventtime,Eventmask,Data,Quality):
     Rank = np.zeros(len(Eventtime))
     for i in range(len(Eventtime)):
-        mask = np.zeros(Data.shape[1:])
-        mask[Eventmask[i]] = 1
+
+        mask = np.zeros((Data.shape[1],Data.shape[2]))
+        mask[Eventmask[i][0],Eventmask[i][1]] = 1
         mask = mask > 0
         
         LC = Lightcurve(Data,mask)
@@ -2159,8 +2161,8 @@ def Rank_duration(Eventtime):
 def Rank_mask(Eventmask,Data):
     Rank = np.zeros(len(Eventmask))
     for i in range(len(Eventmask)):
-        mask = np.zeros(Data.shape[1:])
-        mask[Eventmask[i]] = 1
+        mask = np.zeros((Data.shape[1],Data.shape[2]))
+        mask[Eventmask[i][0],Eventmask[i][1]] = 1
         mask = mask > 0
         Rank[i] = np.round(np.nansum(mask)/3,1)
     Rank[Rank > 1] = 1
@@ -2528,12 +2530,12 @@ def K2TranPix(pixelfile,save):
             #    raise ValueError('Arrays are different lengths, check whats happening in {}'.format(pixelfile))
             
             # Print figures
-            K2TranPixFig(events.copy(),eventtime.copy(),eventmask.copy(),np.copy(Maskdata),time.copy(),
+            K2TranPixFig(events.copy(),eventtime.copy(),eventmask.copy(),Maskdata.copy(),time.copy(),
                         (Eventmask.copy() >= 0),mywcs,Save,pixelfile,quality,thrusters,Framemin,(datacube),
                         Source,SourceType,Maskobj)
             #K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
             Zoo_saves = K2TranPixZoo(events.copy(),eventtime.copy(),eventmask.copy(),Source.copy(),
-                                    SourceType.copy(),np.copy(Maskdata),time,mywcs,Save,pixelfile)
+                                    SourceType.copy(),Maskdata.copy(),time,mywcs,Save,pixelfile)
             
             Write_event(pixelfile,eventtime.copy(),eventmask.copy(),Source,SourceType,Zoo_saves,Maskdata.copy(),Qual,mywcs,hdu,Save)
 
