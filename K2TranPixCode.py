@@ -666,7 +666,7 @@ def Correct_motion(Data, Distance, Thrust):
             if len(section) > 3:
 
                 nanmask = sigma_clip(section,sigma=2,masked=True,maxiters=1).mask
-                if np.nansum(nanmask) > 2:
+                if np.nansum(nanmask) > 3:
                     nanmask = sigma_clip(section,sigma=3,masked=True,maxiters=1).mask
 
                 section[nanmask] = np.nan
@@ -1514,8 +1514,11 @@ def Write_event(Pixelfile, Eventtime, Eventmask, Source, Sourcetype, Zoo_Save, D
     """
     feild = Pixelfile.split('-')[1].split('_')[0]
     ID = Pixelfile.split('ktwo')[1].split('-')[0]
-
-    rank_brightness = Rank_brightness(Eventtime,Eventmask,Data,Quality)
+    try:
+        rank_brightness = Rank_brightness(Eventtime,Eventmask,Data,Quality)
+    except IndexError:
+        error_str = 'event lengths broken in {}'.format(Pixelfile)
+        raise IndexError(error_str)
     rank_duration = Rank_duration(Eventtime)
     rank_mask = Rank_mask(Eventmask,Data)
     rank_host = Rank_host(Sourcetype)
@@ -2525,11 +2528,14 @@ def K2TranPix(pixelfile,save):
             #    raise ValueError('Arrays are different lengths, check whats happening in {}'.format(pixelfile))
             
             # Print figures
-            K2TranPixFig(events,eventtime,eventmask,np.copy(Maskdata),time,(Eventmask >= 0),mywcs,Save,pixelfile,quality,thrusters,Framemin,(datacube),Source,SourceType,Maskobj)
+            K2TranPixFig(events.copy(),eventtime.copy(),eventmask.copy(),np.copy(Maskdata),time.copy(),
+                        (Eventmask.copy() >= 0),mywcs,Save,pixelfile,quality,thrusters,Framemin,(datacube),
+                        Source,SourceType,Maskobj)
             #K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
-            Zoo_saves = K2TranPixZoo(events,eventtime,eventmask,Source,SourceType,np.copy(Maskdata),time,mywcs,Save,pixelfile)
+            Zoo_saves = K2TranPixZoo(events.copy(),eventtime.copy(),eventmask.copy(),Source.copy(),
+                                    SourceType.copy(),np.copy(Maskdata),time,mywcs,Save,pixelfile)
             
-            Write_event(pixelfile,eventtime,eventmask,Source,SourceType,Zoo_saves,Maskdata,Qual,mywcs,hdu,Save)
+            Write_event(pixelfile,eventtime.copy(),eventmask.copy(),Source,SourceType,Zoo_saves,Maskdata.copy(),Qual,mywcs,hdu,Save)
 
         #Find_Long_Events(Maskdata,time,(Eventmask >= 0),Objmasks,Mask,thrusters,np.copy(distdrif),Qual,mywcs,hdu,pixelfile,Save)
     else:
