@@ -678,8 +678,8 @@ def Correct_motion(Data, Distance, Thrust):
                 ind = np.where(np.isfinite(section))[0]
                 
                     
-                if (d[ind] <= 0.3).any():
-                    gi = np.where(d[ind] <= 0.3)[0]
+                if (d[ind] <= 0.2).any():
+                    gi = np.where(d[ind] <= 0.2)[0]
                     p = np.average(ind[gi],weights=1-d[ind[gi]])
                     val = np.average(section[ind[gi]],weights=1-d[ind[gi]])
                     trend += [[p+Thrust[i],val]]
