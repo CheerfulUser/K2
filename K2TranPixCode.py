@@ -35,10 +35,11 @@ from scipy.signal import find_peaks
 from scipy.interpolate import PchipInterpolator
 from scipy.signal import savgol_filter
 
+
 import operator
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
-
+from sklearn.metrics import r2_score
 
 from requests.exceptions import ConnectionError
 from requests.exceptions import ReadTimeout
@@ -74,30 +75,22 @@ def Clip_cube(Data):
         data[sigma_clip(lc,sigma=5.).mask,ind[0][i],ind[1][i]] = np.nan
     return data
 
-def ObjectMask(datacube,Framemin):
-    """
-    This function isnt used anymore
-    Make a mask of the target object, using the reference frame 
-    """
-    Mask = datacube[Framemin,:,:]/(np.nanmedian(datacube[Framemin,:,:])+np.nanstd(datacube[Framemin,:,:]))
-    Mask[Mask>=1] = np.nan
-    Mask[Mask<1] = 1
-    # Generate a second mask from remainder of the first. This grabs the fainter pixels around known sources
-    Maskv2 = datacube[Framemin,:,:]*Mask/(np.nanmedian(datacube[Framemin,:,:]*Mask)+np.nanstd(datacube[Framemin,:,:]*Mask))
-    Maskv2[Maskv2>=1] = np.nan
-    Maskv2[Maskv2<1] = 1
-    return Maskv2
 
-def ThrustObjectMask(data,thrust):
+def ObjectMask(Data,Dist):
     """
     Creates a sceince target mask through standard deviation cuts on an average of stable frames. 
     To avoid masking out an event, a comparison of two masks, at the begining and end of the campaign are used.
     Points that appear in both masks are used in the final mask.
     This method has issues when the pointing completely breaks down during the campaign, such as in C10.
     """
+    data = Data[Dist < 0.1]
+    if len(data) < 6:
+        data = Data[Dist < 0.2]
+
     StartMask = np.ones((data.shape[1],data.shape[2]))
     for i in range(2):
-        Start = data[thrust[:3]+1]*StartMask/(np.nanmedian(data[thrust[:3]+1]*StartMask, axis = (1,2))+np.nanstd(data[thrust[:3]+1]*StartMask, axis = (1,2)))[:,None,None]
+        Start = data[:3]*StartMask/(np.nanmedian(data[:3]*StartMask, 
+                axis = (1,2)))[:,None,None]
         Start = Start >= 1
         temp = (np.nansum(Start*1, axis = 0) >=1)*1.0
         temp[temp>=1] = np.nan
@@ -107,7 +100,8 @@ def ThrustObjectMask(data,thrust):
 
     EndMask = np.ones((data.shape[1],data.shape[2]))
     for i in range(2):
-        End = data[thrust[-5:-2]+1]*EndMask/(np.nanmedian(data[thrust[-5:-2]+1]*EndMask, axis = (1,2))+np.nanstd(data[thrust[-5:-2]+1]*EndMask, axis = (1,2)))[:,None,None]
+        End = data[-3:]*EndMask/(np.nanmedian(data[-3:]*EndMask, 
+              axis = (1,2)))[:,None,None]
         End = End >= 1
         temp = (np.nansum(End*1, axis = 0) >=1)*1.0
         temp[temp>=1] = np.nan
@@ -120,7 +114,7 @@ def ThrustObjectMask(data,thrust):
     Mask[Mask==2] = np.nan
     return Mask
 
-def Event_ID(Sigmask, Significance, Minlength):
+def Event_ID(Sigmask, Significance, Minlength, Smoothing = True):
     """
     Identifies events in a datacube, with a primary input of a boolean array for where pixels are 3std above background.
     Event duration is calculated by differencing the positions of False values in the boolean array.
@@ -135,7 +129,7 @@ def Event_ID(Sigmask, Significance, Minlength):
     X = np.where(summed_binary >= Minlength)[0]
     Y = np.where(summed_binary >= Minlength)[1]
 
-    if True:
+    if Smoothing:
         for i in range(leng-2):
             kern = np.zeros((leng, 1, 1))
             kern[[0, -1]] = 1
@@ -302,105 +296,6 @@ def Vet_brightness(Event, Eventtime, Eventmask, Data, Quality,pixelfile):
 
     return event_bright, eventtime_bright, Eventmask
 
-def ThrusterElim(Events,Times,Masks,Firings,Quality,qual,Data):
-    """
-    Eliminates events that are likely to be produced by telescope motion.
-    There are two time regimes, short and long, which are concidered with different criteria.
-    This seems to do a reasonable job for long events, but short events could use improvement.
-    """
-    temp = []
-    temp2 = []
-    temp3 = []
-    asteroid = []
-    asttime = []
-    astmask = []
-    for i in range(len(Events)):
-        mask = np.zeros((Data.shape[1],Data.shape[2]))
-        mask[Masks[i][0],Masks[i][1]] = 1
-        Range = Times[i][-1] - Times[i][0]
-        if (Range > 0) & (Range/Data.shape[0] < 0.8): 
-            begining = Firings[(Firings >= Times[i][0]-2) & (Firings <= Times[i][0]+1)]
-            if len(begining) == 0:
-                begining = Quality[(Quality == Times[i][0])] #& (Quality <= Times[i][0]+1)]
-            end = Firings[(Firings >= Times[i][-1]-1) & (Firings <= Times[i][-1]+2)]
-            if len(end) == 0:
-                end = Quality[(Quality == Times[i][-1])] #& (Quality <= Times[i][-1]+1)]
-            eventthrust = Firings[(Firings >= Times[i][0]) & (Firings <= Times[i][-1])]
-
-            if (~begining.any() & ~end.any()) & (Range < 48): # Change to the nominal cadences  for a day 
-                
-                if Asteroid_fitter(mask,Times[i],Data):
-                    asteroid.append(Events[i])
-                    asttime.append(Times[i])
-                    astmask.append(Masks[i])
-                else:
-                    LC = Data[Times[i][0]:Times[i][-1]+3,Masks[i][0],Masks[i][1]]
-                    if (np.where(np.nanmax(LC) == LC)[0] < Range).all():
-                    
-                        temp.append(Events[i])
-                        temp2.append(Times[i])
-                        temp3.append(Masks[i])
-
-            elif Range >= 48:
-
-                if begining.shape[0] == 0:
-                    begining = 0
-                else:
-                    begining = begining[0]   
-                if end.shape[0] == 0:
-                    end = Times[i][-1] + 10
-                else:
-                    end = end[0]
-                LC = Data[:,Masks[i][0],Masks[i][1]]
-                #print(Masks[i])
-                #print(LC.shape)
-                maxloc = Smoothmax(Times[i],LC,qual)
-
-                #if ((maxloc > begining).all() & (maxloc < end)).all(): 
-                premean = np.nanmean(LC[eventthrust-2]) 
-                poststd = np.nanstd(LC[eventthrust+2])
-                postmean = np.nanmedian(LC[eventthrust+2])
-                Outsidethrust = Firings[(Firings < Times[i][0]) | (Firings > Times[i][-1]+20)]
-                Outsidemean = np.nanmedian(LC[Outsidethrust[:-2]+2])
-                Outsidestd = np.nanstd(LC[Outsidethrust[:-2]+2])
-                if  postmean > Outsidemean+2*Outsidestd:
-                    temp.append(Events[i])
-                    temp2.append(Times[i])
-                    temp3.append(Masks[i])
-
-
-    events = np.array(temp)
-    eventtime = np.array(temp2)
-    eventmask = temp3#np.array(temp3)
-    return events, eventtime, eventmask, asteroid, asttime, astmask
-
-def Asteroid_identifier(Events,Times,Masks,Firings,Quality,qual,Data):
-    """
-    Identifies where there is a coincidence of events in time that could be taken as an asteroid.
-    Currently not in use.
-    """
-    asteroid = []
-    asttime = []
-    astmask = []
-    for i in range(len(Events)):
-        Range = Times[i][-1] - Times[i][0]
-        if (Range > 0) & (Range/Data.shape[0] < 0.8) & (Times[i][0] > 5): 
-            begining = Firings[(Firings >= Times[i][0]-2) & (Firings <= Times[i][0]+1)]
-            #if len(begining) == 0:
-             #   begining = Quality[(Quality == Times[i][0])] #& (Quality <= Times[i][0]+1)]
-            end = Firings[(Firings >= Times[i][-1]-1) & (Firings <= Times[i][-1]+2)]
-            #if len(end) == 0:1
-             #   end = Quality[(Quality == Times[i][-1])] #& (Quality <= Times[i][-1]+1)]
-            eventthrust = Firings[(Firings >= Times[i][0]) & (Firings <= Times[i][-1])]
-
-            if (~begining.any() & ~end.any()) & (len(eventthrust) < 3):
-                
-                if Asteroid_fitter(Masks[i],Times[i],Data):
-                    asteroid.append(Events[i])
-                    asttime.append(Times[i])
-                    astmask.append(Masks[i])
-                
-    return asteroid, asttime, astmask
 
 
 def Identify_event(Data, Position):
@@ -476,117 +371,6 @@ def Match_events(Events, Eventtime, Eventmask, Data):
     Eventmask = np.array(Eventmask)[eh].tolist()
     return Events, Eventtime, Eventmask
 
-def Remove_asteroids(Asteroid,Asttime,Astmask,Maskdata):
-    dataclean = np.copy(Maskdata)
-    for i in range(len(Asteroid)):
-        dataclean[Asttime[i][0]:Asttime[i][1],Astmask[i]==1] = np.nan
-    return dataclean
-
-def First_pass(Datacube,Qual,Quality,Thrusters,Pixelfile):
-    #calculate the reference frame
-    if len(Thrusters) > 4:
-        Framemin = Thrusters[3]+1
-    elif len(Thrusters) > 0:
-        Framemin = Thrusters[0]+1
-    else:
-        Framemin = 100 # Arbitrarily chosen, Data is probably screwed anway if there are no thruster firings.
-    # Apply object mask to data
-    Mask = ThrustObjectMask(Datacube,Thrusters)
-
-    Maskdata = Datacube*Mask
-
-    # Make a mask for the object to use as a test to eliminate very bad pointings
-    obj = np.ma.masked_invalid(Mask).mask
-    objmed = np.nanmedian(Datacube[Thrusters+1]*obj,axis=(0))
-    objstd = np.nanstd(Datacube[Thrusters+1]*obj,axis=(0))
-    Maskdata[(np.nansum(Datacube*obj,axis=(1,2)) < np.nansum(objmed-1*objstd)),:,:] = np.nan
-
-    framemask = np.zeros(Maskdata.shape)
-
-    limit = abs(np.nanmedian(Maskdata[Qual == 0], axis = (0))+3*(np.nanstd(Maskdata[Qual == 0], axis = (0))))
-    limit[limit<20] = 20
-    framemask = ((Maskdata/limit) >= 1)
-    framemask[:,np.where(Maskdata > 100000)[1],np.where(Maskdata > 100000)[2]] = 0
-
-    # Identify if there is a sequence of consecutive or near consecutive frames that meet condtition 
-
-
-    Eventmask_ref = (convolve(framemask,np.ones((1,3,3)),mode='constant', cval=0.0))*1
-    Eventmask = np.copy(Eventmask_ref)
-    Eventmask[~np.where((convolve(Eventmask_ref,np.ones((5,1,1)),mode='constant', cval=0.0) >= 3))[0]] = 0
-    Eventmask[Qual!=0,:,:] = False
-    Eventmask_ref[Qual!=0,:,:] = False
-
-    Index = np.where(np.nansum(Eventmask*1, axis = (1,2))>0)[0]
-
-    events = []
-    eventtime = []
-    while len(Index) > 1:
-
-        similar = np.where(((Eventmask[Index[0]]*Eventmask_ref[Index[0]:]) == Eventmask[Index[0]]).all(axis = (1,2)))[0]+Index[0]
-
-        if len((np.diff(similar)<5)) > 1:
-
-            if len(np.where((np.diff(similar)<5) == False)[0]) > 0:
-                simEnd = np.where((np.diff(similar)<5) == False)[0][0] 
-            else:
-                simEnd = -1
-        else:
-            simEnd = 0
-        if (simEnd > 0):
-            similar = similar[:simEnd]
-        elif (simEnd == 0):
-            similar = np.array([similar[0]])
-
-        if len(similar) > 1:
-
-            events.append(similar[0])
-            temp = [similar[0]-1,similar[-1]+1]
-            eventtime.append(temp)
-            temp = []
-        template = Eventmask[Index[0]]
-        for number in similar:
-            if (np.nansum(template*1-Eventmask[number]*1) == 0):
-                Index = np.delete(Index, np.where(Index == number)[0])
-
-    events, eventtime, eventmask = EventSplitter(events,eventtime,Eventmask,framemask)  
-
-    events = np.array(events)
-    eventmask = np.array(eventmask)
-    eventtime = np.array(eventtime)
-
-    temp = []
-    for i in range(len(events)):
-        if len(np.where(Datacube[eventtime[i][0]:eventtime[i][-1]]*eventmask[i] > 100000)[0]) == 0:
-            temp.append(i)
-    eventtime = eventtime[temp]
-    events = events[temp]
-    eventmask = eventmask[temp]
-
-    if len(eventmask) > 0:
-        middle = (convolve(eventmask,np.ones((1,3,3))) == np.nanmax(convolve(eventmask,np.ones((1,3,3))))) & (convolve(eventmask,np.ones((1,3,3)),mode='constant', cval=0.0) == np.nanmax(convolve(eventmask,np.ones((1,3,3)),mode='constant', cval=0.0)))
-        eventmask = eventmask*middle
-
-
-    # Identify asteroids
-    asteroid, asttime, astmask = Asteroid_identifier(events,eventtime,eventmask,Thrusters,Quality,Qual,Maskdata)
-    asteroid = np.array(asteroid)
-    asttime = np.array(asttime)
-    astmask = np.array(astmask)
-
-
-    asteroid, asttime, astmask = Match_asteroids(asteroid,asttime,astmask)
-
-    Cleandata = Remove_asteroids(asteroid,asttime,astmask,Maskdata)
-
-                # Save asteroids
-    ast = {}
-    ast['File'] = Pixelfile
-    ast['Asteroids'] = asteroid
-    ast['Time'] = asttime
-    ast['Mask'] = astmask
-
-    return Cleandata, ast
 
 def Get_all_resets(Data, Quality):
     allflux = np.nansum(Data,axis=0)
@@ -611,7 +395,7 @@ def Get_all_resets(Data, Quality):
     
     return realt
 
-def Regress_fit(Data):
+def Regress_fit(Data, Fit = True):
     ind = np.where(np.isfinite(Data))[0]
     x = np.arange(0,len(Data))
     x = x[ind]
@@ -631,6 +415,8 @@ def Regress_fit(Data):
         sorted_zip = sorted(zip(x,y_poly_pred), key=sort_axis)
         x, y_poly_pred = zip(*sorted_zip)
 
+        r2 = r2_score(y,y_poly_pred)
+
         mod = np.zeros_like(Data[ind])
         xx = np.zeros_like(Data[ind])
         for i in range(len(mod)):
@@ -646,7 +432,16 @@ def Regress_fit(Data):
 
     fit = np.squeeze(mod)
     
-    return fit
+    if Fit:
+        return fit
+    else:
+        return r2
+
+def Median_clip(data, sigma=3):
+    med = np.nanmedian(data)
+    std = np.nanstd(data)
+    mask = data > (med + sigma * std)
+    return mask
 
 def Correct_motion(Data, Distance, Thrust):
     data = Data.copy()
@@ -663,11 +458,12 @@ def Correct_motion(Data, Distance, Thrust):
         trend = []
         for i in range(len(Thrust)-1):
             section = data[Thrust[i]:Thrust[i+1]-1,X[j],Y[j]].copy()
-            if len(section) > 3:
+            nonan = np.where(np.isfinite(section))[0]
+            if len(nonan) > 0:
 
-                nanmask = sigma_clip(section,sigma=2,masked=True,maxiters=1).mask
+                nanmask = Median_clip(section, sigma=2)#sigma_clip(section,sigma=2,masked=True,maxiters=1).mask
                 if np.nansum(nanmask) > 3:
-                    nanmask = sigma_clip(section,sigma=3,masked=True,maxiters=1).mask
+                    nanmask = Median_clip(section, sigma=3)#sigma_clip(section,sigma=3,masked=True,maxiters=1).mask
 
                 section[nanmask] = np.nan
 
@@ -704,8 +500,7 @@ def Correct_motion(Data, Distance, Thrust):
         spline[:,X[j],Y[j]] = spl
     data = data - fitting + spline
     
-    return data #, fitting, spline
-
+    return data#, fitting, spline
 
 
 def pix2coord(x,y,mywcs):
@@ -833,14 +628,14 @@ def Database_event_check(Data, Eventtime, Eventmask, WCS):
     return Objects, Objtype
 
 
-def Database_check_mask(Datacube, Thrusters, Masks, WCS):
+def Database_check_mask(Datacube, Dist, Masks, WCS):
     """
     Checks Ned and Simbad to find the object name and type in the mask.
     This uses the mask set created by Identify_masks.
     """
     Objects = []
     Objtype = []
-    av = np.nanmedian(Datacube[Thrusters[:-1]+3],axis = 0)
+    av = np.nanmedian(Datacube[Dist <= 0.2],axis = 0)
     for I in range(len(Masks)):
 
         Mid = np.where(av*Masks[I] == np.nanmax(av*Masks[I]))
@@ -925,27 +720,6 @@ def In_which_mask(Eventmask,Objmasks,Data):
         In_mask[np.where(isin==1)[0]] = int(i)
     return In_mask
 
-def Isolation(Eventtime,Eventmask,Data,SourceType):
-    """
-    Checks to see if target pixels neighbours are 1std above their median. 
-    If neighbours are normal, then event is saved under the isolated directory.
-    """
-    Sourcetype = np.copy(SourceType)
-    for i in range(len(Eventtime)):
-        mask = np.zeros((Data.shape[1],Data.shape[2]))
-        mask[Eventmask[i][0],Eventmask[i][1]] = 1
-        surround = convolve(mask, np.ones((3,3)), mode='constant', cval=0.0)-mask
-        points= np.where(surround==1)
-        condition = []
-        for p in range(len(points[0])):
-            outside = np.nanmedian(Data[:,points[0][p],points[1][p]])+np.nanstd(Data[:,points[0][p],points[1][p]]) 
-            inside = np.nanmedian(Data[Eventtime[i,0]:Eventtime[i,1],points[0][p],points[1][p]])
-            condition.append(inside>outside)
-        condition = np.array(condition)
-        if np.nansum(condition==0):
-            Sourcetype[i] = 'Pixel'
-    return SourceType
-
 
 def Save_space(Save):
     """
@@ -994,16 +768,59 @@ def Save_environment(Eventtime,maxcolor,Source,SourceType,Save):
     return directory
 
 
+def Types_masks(Events, Eventtime,Eventmask, Objmasks, ObjName, ObjType, Data, Dist, wcs):
+    Source = []; SourceType = []; Maskobj = []
+    if len(Events) > 0:
+        Source, SourceType = Database_event_check(Data,Eventtime,Eventmask,wcs)
+
+        Mask = ObjectMask(Data,Dist)
+
+        Near = Near_which_mask(Eventmask,Objmasks,Data)
+        In = In_which_mask(Eventmask,Objmasks,Data)
+        
+        Maskobj = np.zeros((len(Events),Data.shape[1],Data.shape[2])) # for plotting masked object reference
+        if len(Objmasks) > 0:
+            if len(np.where(Objmasks[:,int(Data.shape[1]/2),int(Data.shape[2]/2)] == 1)[0]) > 0:
+                CentralMask = np.where(Objmasks[:,int(Data.shape[1]/2),int(Data.shape[2]/2)] == 1)[0]
+            elif len(np.where(Objmasks[:,int(Data.shape[1]/2),int(Data.shape[2]/2)] == 1)[0]) > 1:
+                CentralMask = np.where(Objmasks[:,int(Data.shape[1]/2),int(Data.shape[2]/2)] == 1)[0][0]
+            else:
+                CentralMask = -1
+            if CentralMask == -1:
+                Maskobj[:] = Mask
+            else:
+                Maskobj[:] = Objmasks[CentralMask]
+
+            for ind in np.where(Near != -1)[0]:
+                Source[ind] = 'Near: ' + ObjName[Near[ind]]
+                SourceType[ind] = 'Near: ' + ObjType[Near[ind]]
+                Maskobj[ind] = Objmasks[Near[ind]]
+            for ind in np.where(In != -1)[0]:
+                Source[ind] = 'In: ' + ObjName[In[ind]]
+                SourceType[ind] = 'In: ' + ObjType[In[ind]]
+                Maskobj[ind] = Objmasks[In[ind]]
+        else:
+            Maskobj[:] = Mask
+
+
+        Source, SourceType = Probable_host(Eventtime,Eventmask,Source,SourceType,Objmasks,ObjName,ObjType,Data)
+        
+    return Source, SourceType, Maskobj
+
+
 def Lightcurve(Data, Mask, Normalise = False):
     if type(Mask) == list:
         mask = np.zeros((Data.shape[1],Data.shape[2]))
         mask[Mask[0],Mask[1]] = 1
         Mask = mask*1.0
+    else:
+        Mask = Mask * 1.0
     Mask[Mask == 0.0] = np.nan
     LC = np.nansum(Data*Mask, axis = (1,2))
     for k in range(len(LC)):
         if np.isnan(Data[k]*Mask).all(): # np.isnan(np.sum(Data[k]*Mask)) & (np.nansum(Data[k]*Mask) == 0):
             LC[k] = np.nan
+    LC[LC == 0] = np.nan
     if Normalise:
         LC = LC / np.nanmedian(LC)
     return LC
@@ -1114,7 +931,9 @@ def Cutout(Data,Position):
             cutout_dims[i,1] = dim0[1]
     return cutout_dims - 0.5
 
-def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quality,Thrusters,Framemin,Datacube,Source,SourceType,ObjMask):
+def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,
+    Frames,wcs,Save,File,Quality,Thrusters,Datacube,
+    Source,SourceType,ObjMask,Short=True):
     """
     Makes the main K2:BS pipeline figure. Contains light curve with diagnostics, alongside event info.
     """
@@ -1166,7 +985,9 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         ObjLC = ObjLC/np.nanmedian(ObjLC)*np.nanmedian(LC)
 
         OrigLC = Lightcurve(Datacube, mask)
-
+        
+        tt = Time - np.floor(Time[0])
+        
         fig = plt.figure(figsize=(10,6))
         # set up subplot grid
         gridspec.GridSpec(2,3)
@@ -1176,65 +997,62 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         plt.title('Event light curve ('+str(round(Coord[0],3))+', '+str(round(Coord[1],3))+')')
         plt.xlabel('Time (+'+str(np.floor(Time[0]))+' BJD)')
         plt.ylabel('Counts')
-        if Eventtime[i][-1] < len(Time):
-            plt.axvspan(Time[Eventtime[i][0]]-np.floor(Time[0]),Time[Eventtime[i][-1]]-np.floor(Time[0]), color = 'orange',alpha=0.5, label = 'Event duration')
-        else:
-            plt.axvspan(Time[Eventtime[i][0]]-np.floor(Time[0]),Time[-1]-np.floor(Time[0]), color = 'orange',alpha=0.5, label = 'Event duration')
-        if (Eventtime[i][-1] - Eventtime[i][0]) < 48:
-            plt.axvline(Time[Quality[0]]-np.floor(Time[0]),color = 'red', linestyle='dashed',label = 'Quality', alpha = 0.5)
+        if Eventtime[i][1] > len(Time):
+            Eventtime[i][1] = len(Time) - 1
+        plt.axvspan(tt[Eventtime[i,0]],tt[Eventtime[i,1]], color = 'orange',alpha=0.5, label = 'Event duration')
+        if (Eventtime[i][1] - Eventtime[i][0]) < 48:
+            plt.axvline(tt[Quality[0]],color = 'red', linestyle='dashed',label = 'Quality', alpha = 0.5)
             for j in range(Quality.shape[0]-1):
                 j = j+1 
-                plt.axvline(Time[Quality[j]]-np.floor(Time[0]), linestyle='dashed', color = 'red', alpha = 0.5, rasterized=True)
+                plt.axvline(tt[Quality[j]], linestyle='dashed', color = 'red', alpha = 0.5, rasterized=True)
             # plot Thurster firings 
-            plt.axvline(Time[Thrusters[0]]-np.floor(Time[0]),color = 'red',label = 'Thruster', alpha = 0.5, rasterized=True)
+            plt.axvline(tt[Thrusters[0]],color = 'red',label = 'Thruster', alpha = 0.5, rasterized=True)
             for j in range(Thrusters.shape[0]-1):
                 j = j+1 
-                plt.axvline(Time[Thrusters[j]]-np.floor(Time[0]),color = 'red', alpha = 0.5, rasterized=True)
+                plt.axvline(tt[Thrusters[j]],color = 'red', alpha = 0.5, rasterized=True)
             
         
 
-        plt.plot(Time - np.floor(Time[0]), BGLC,'k.', label = 'Background LC', rasterized=True)
-        plt.plot(Time - np.floor(Time[0]), ObjLC,'kx', label = 'Scaled object LC', rasterized=True)
-        plt.plot(Time - np.floor(Time[0]), OrigLC,'m+',alpha=0.9, label = 'Original data', rasterized=True)
-        plt.plot(Time - np.floor(Time[0]), LC,'.', label = 'Event LC',alpha=0.5, rasterized=True)
+        plt.plot(tt, BGLC,'k.', alpha = 0.5, label = 'Background LC', rasterized=True)
+        plt.plot(tt, ObjLC,'kx', alpha = 0.5, label = 'Scaled object LC', rasterized=True)
+        plt.plot(tt, OrigLC,'m+', alpha = 0.5, label = 'Original data', rasterized=True)
+        plt.plot(tt, LC,'.', label = 'Event LC',alpha=0.7, rasterized=True)
+        if not Short:
+            Six_LC, ind = SixMedian(LC)
+            plt.plot(tt[ind], Six_LC,'m.', label = '6hr average',alpha=1, rasterized=True)
         
-        xmin = Time[Eventtime[i][0]]-np.floor(Time[0])-(Eventtime[i][-1]-Eventtime[i][0])/10
-        if Eventtime[i][-1] < len(Time):
-            xmax = Time[Eventtime[i][-1]]-np.floor(Time[0])+(Eventtime[i][-1]-Eventtime[i][0])/10
-        else:
-            xmax = Time[-1]-np.floor(Time[0])+(Eventtime[i][-1]-Eventtime[i][0])/10
-        if xmin < 0:
-            xmin = 0
-        if xmax > Time[-1] - np.floor(Time[0]):
-            xmax = Time[-1] - np.floor(Time[0])
+        width = Eventtime[i,1]-Eventtime[i,0]
+        
+        temp1 = Eventtime[i][0] - int(2*width)
+        if temp1 < 0:
+            temp1 = 0
+        temp2 = Eventtime[i][1] + int(2*width)
+        if temp2 > len(tt)-1:
+            temp2 = len(tt)-1
+        xmin = tt[temp1]
+        xmax = tt[temp2]
+        
         if np.isfinite(xmin) & np.isfinite(xmax):
             plt.xlim(xmin,xmax) 
-
-        lclim = LC.copy()
-
-        x = np.arange(0,len(lclim))
-        ind = np.isfinite(lclim)
-        fun = interp1d(x[ind],lclim[ind],bounds_error = False,fill_value='extrapolate')
-        nonan = fun(x)
-        width = ((Eventtime[i,1] - Eventtime[i,0]) * 2) - 1
+        else:
+            print('min',xmin)
+            print('max',xmax)
         
-        sm = savgol_filter(nonan,width,2,mode='nearest')
-        maxy = np.nanmax(sm[Eventtime[i,0]:Eventtime[i,1]])
+        if width < 50:
+            limit_lc = Savgol(LC,width,10)
+        else:
+            limit_lc = Savgol(LC,48,10)
+
+        ind1 = np.where(np.nanmin(abs(xmin - tt)) == 
+                                  abs(xmin - tt))[0][0]
+        ind2 = np.where(np.nanmin(abs(xmax - tt)) == 
+                                  abs(xmax - tt))[0][0]
         
-
-        minind_lower = np.array([Eventtime[i,0] - (5 * width), Eventtime[i,0] - width])
-        minind_lower[minind_lower < 0] = 0 
-        minind_upper = np.array([Eventtime[i,1] + (2 * width), Eventtime[i,1] + (5 * width)])
-        minind_upper[minind_upper >= len(Time)] = len(Time) -1
-
-        lower = np.nanmedian(LC[minind_lower[0]:minind_lower[1]])
-        upper = np.nanmedian(LC[minind_upper[0]:minind_upper[1]])
-        miny = np.nanmedian([lower,upper])
-        if np.isnan(miny):
-            miny = 0
-
-        ymin = miny - 0.5*np.abs(miny)
-        ymax = 1.5*maxy #+ 0.5*np.abs(maxy)
+        ymin = np.nanmin(limit_lc[ind1:ind2])                
+        ymax = np.nanmax(limit_lc[ind1:ind2])
+        
+        ymin -= 0.1*ymin
+        ymax += 0.1*ymax
 
         if np.isfinite(ymin) & np.isfinite(ymax):
             plt.ylim(ymin,ymax)
@@ -1269,101 +1087,18 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,Frames,wcs,Save,File,Quali
         ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
         ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
         
+        if Short:
+            directory = Save_environment(Eventtime[i],maxcolor,Source[i],SourceType[i],Save)
+            plt.savefig(directory+File.split('/')[-1].split('-')[0]+'_'+str(i)+'.pdf', bbox_inches = 'tight')
+        else:
+            directory = Long_save_environment(maxcolor,Source[i],SourceType[i],Save)
+            plt.savefig(directory+File.split('/')[-1].split('-')[0]+'_L'+str(i)+'.pdf', bbox_inches = 'tight')
 
-        directory = Save_environment(Eventtime[i],maxcolor,Source[i],SourceType[i],Save)
-            
-
-        plt.savefig(directory+File.split('/')[-1].split('-')[0]+'_'+str(i)+'.pdf', bbox_inches = 'tight')
-
-        
         plt.close()
         Thumbnail(LC,BGLC,Eventtime[i],Time,[xmin,xmax],[ymin,ymax],i,File,directory);
     return
 
-def create_gifv(input_glob, output_base_name, fps):
-    output_extensions = ["gif"]
-    input_filenames = glob(input_glob)
-
-    video_writers = [
-        imageio.get_writer("{}.{}".format(output_base_name, ext), mode='I', fps=fps)
-        for ext in output_extensions]
-
-    is_first = True
-    for filename in input_filenames:
-        img = imageio.imread(filename)
-
-        # ... processing to crop, rescale, etc. goes here
-
-        for writer in video_writers:
-            writer.append_data(img)
-
-
-    for writer in video_writers:
-        writer.close()
-
-
-def K2TranPixGif(Events,Eventtime,Eventmask,Data,wcs,Save,File,Source,SourceType):
-    """
-    Save the frames to be combined into a gif with ffmpeg with another set of code.
-    """
-    for i in range(len(Events)):
-        mask = np.zeros((Data.shape[1],Data.shape[2]))
-        mask[Eventmask[i][0],Eventmask[i][1]] = 1
-        position = np.where(mask)
-        Mid = ([position[0][0]],[position[1][0]])
-        maxcolor = 40
-        for j in range(len(position[0])):
-            temp = sorted(Data[Eventtime[i][0]:Eventtime[i][-1],position[0][j],position[1][j]].flatten())
-            if temp[-3] > maxcolor:
-                maxcolor = temp[-3]
-
-        xmin = Eventtime[i][0] - 2*(Eventtime[i][1]-Eventtime[i][0])
-        xmax = Eventtime[i][1] + 2*(Eventtime[i][1]-Eventtime[i][0])
-        if xmin < 0:
-            xmin = 0
-        if xmax > len(Data):
-            xmax = len(Data)-1
-        Section = Data[int(xmin):int(xmax),:,:]
-
-        FrameSave = Save + '/Figures/Frames/' + File.split('/')[-1].split('-')[0] + '/Event_' + str(int(i)) + '/'
-
-        Save_space(FrameSave)
-
-        ylims, xlims = Cutout(Data,Mid)
-
-        for j in range(Section.shape[0]):
-            filename = FrameSave + 'Frame_' + str(int(j)).zfill(4)+".png"
-            fig = plt.figure()
-            fig.set_size_inches(6,6)
-            im = plt.imshow(Section[j], origin='lower',vmin = 0, vmax = maxcolor, animated=True)
-            plt.xlim(xlims[0],xlims[1])
-            plt.ylim(ylims[0],ylims[1])
-            plt.suptitle('Source: ' + Source[i] + ' (' + SourceType[i] + ')')
-            plt.title(File.split('/')[-1].split('-')[0]+' Event # '+str(i))
-            c = plt.colorbar(fraction=0.046, pad=0.04)
-            c.set_label('Counts')
-            plt.plot(position[1],position[0],'r.',ms = 15)
-            plt.minorticks_on()
-            ax = fig.gca()
-            ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
-            ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
-
-            plt.savefig(filename)
-            plt.close();
-
-        directory = Save_environment(Eventtime[i],maxcolor,Source[i],SourceType[i],Save)
-
-        framerate = (xmax-xmin)/5
-        if framerate > 60: 
-            framerate = 60
-        #create_gifv(FrameSave + '*', directory + File.split('/')[-1].split('-')[0] + '_' + str(i),framerate)
-        ffmpegcall = 'ffmpeg -y -nostats -loglevel 0 -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4'
-        os.system(ffmpegcall);
-
-        #os.system('sleep 1')
-        #os.system('rm -r ' + FrameSave)
-
-def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save,File):
+def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save,File,Short=True):
     """
     Iteratively gmakes Zooniverse videos for events. Videos are made from frames which are saved in a corresponding Frame directory.
     """
@@ -1388,58 +1123,57 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save
                 maxcolor = temp
                 Mid = ([position[0][j]],[position[1][j]])
 
+        width = Eventtime[i,1]-Eventtime[i,0]
+        tt = Time - np.floor(Time[0])
+        
+        LC = Lightcurve(Data, mask)
+        
+        if width < 50:
+            limit_lc = Savgol(LC,width,10)
+        else:
+            limit_lc = Savgol(LC,48,10)
+        
+        if Short:
+            xmin = Eventtime[i][0] - int(2*width)
+            xmax = Eventtime[i][1] + int(2*width)
 
-        xmin = Eventtime[i][0] - 2 * (Eventtime[i][-1] - Eventtime[i][0])    
-        xmax = Eventtime[i][-1] + 2*(Eventtime[i][-1]-Eventtime[i][0])
-        
-        if xmin < 0:
+            if xmin < 0:
+                xmin = 0
+            if xmax > len(Time) - 1:
+                xmax = len(Time) - 1 
+            if ~np.isfinite(xmin):
+                xmin = 0
+            if ~np.isfinite(xmax):
+                xmax = len(Time) - 1 
+            
+            step = int((xmax - xmin)*.05) # Make a step so that only 5% of the frames are produced 
+            if step <= 0:
+                step = 1
+        else:
             xmin = 0
-        if xmax > len(Time) - 1:
-            xmax = len(Time) - 1 
-        if ~np.isfinite(xmin):
-            xmin = 0
-        if ~np.isfinite(xmax):
-            xmax = len(Time) - 1 
-        
-        step = int((xmax - xmin)*.05) # Make a step so that only 5% of the frames are produced 
-        if step <= 0:
-            step = 1
+            xmax = len(Data) -1
+            step = int((xmax - xmin)*.1)
+
         Section = np.arange(int(xmin),int(xmax),step)
+        nanframe_ind = np.where(np.nansum(Data,axis=(1,2)) == 0)[0]
+        for s in range(len(Section)):
+            while (Section[s] in nanframe_ind) & (Section[s] < len(Data)-1):
+                Section[s] += 1
 
-        FrameSave = Save + '/Figures/Frames/' + File.split('/')[-1].split('-')[0] + '/Event_' + str(int(i)) + '/'
+        if Short:
+            FrameSave = Save + '/Figures/Frames/' + File.split('/')[-1].split('-')[0] + '/Event_' + str(int(i)) + '/'
+        else:
+            FrameSave = Save + '/Figures/Frames/' + File.split('/')[-1].split('-')[0] + '/Event_L' + str(int(i)) + '/'
 
         Save_space(FrameSave)
 
         ylims, xlims = Fig_cut(Data,Mid)
 
-        LC = Lightcurve(Data, mask)
-
-        lclim = LC.copy()
-
-        x = np.arange(0,len(lclim))
-        ind = np.isfinite(lclim)
-        fun = interp1d(x[ind],lclim[ind],bounds_error = False,fill_value='extrapolate')
-        nonan = fun(x)
-        width = ((Eventtime[i,1] - Eventtime[i,0]) * 2) - 1
-        
-        sm = savgol_filter(nonan,width,2,mode='nearest')
-        maxy = np.nanmax(sm[Eventtime[i,0]:Eventtime[i,1]])
-        
-
-        minind_lower = np.array([Eventtime[i,0] - (5 * width), Eventtime[i,0] - width])
-        minind_lower[minind_lower < 0] = 0 
-        minind_upper = np.array([Eventtime[i,1] + (2 * width), Eventtime[i,1] + (5 * width)])
-        minind_upper[minind_upper >= len(Time)] = len(Time) -1
-
-        lower = np.nanmedian(LC[minind_lower[0]:minind_lower[1]])
-        upper = np.nanmedian(LC[minind_upper[0]:minind_upper[1]])
-        miny = np.nanmedian([lower,upper])
-        if np.isnan(miny):
-            miny = 0
-
-        ymin = miny - 0.5*np.abs(miny)
-        ymax = 2*maxy #+ 0.5*np.abs(maxy)
-
+        ymin = np.nanmin(limit_lc[xmin:xmax])                
+        ymax = np.nanmax(limit_lc[xmin:xmax])
+                        
+        ymin -= 0.1*ymin
+        ymax += 0.1*ymax
         # Create an ImageNormalize object using a SqrtStretch object
         norm = ImageNormalize(vmin=ymin/len(position[0]), vmax=maxcolor, stretch=SqrtStretch())
 
@@ -1452,27 +1186,16 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save
             fig = plt.figure(figsize=(width/my_dpi,height/my_dpi),dpi=my_dpi)
             plt.subplot(1, 2, 1)
             plt.title('Event light curve')
-            plt.axvspan(Time[Eventtime[i,0]]-Time[0],Time[Eventtime[i,1]]-Time[0],color='orange',alpha = 0.5)
-            plt.plot(Time - Time[0], LC,'k.')
+            plt.axvspan(tt[Eventtime[i,0]],tt[Eventtime[i,1]],color='orange',alpha = 0.5)
+            plt.plot(tt, LC,'k.')
             
             
             plt.ylim(ymin,ymax)
-                                                  
-            xmin = Time[Eventtime[i][0]]-np.floor(Time[0])-(Eventtime[i][-1]-Eventtime[i][0])/10
-            if Eventtime[i][-1] < len(Time):
-                xmax = Time[Eventtime[i][-1]]-Time[0]+(Eventtime[i][-1]-Eventtime[i][0])/10
-            else:
-                xmax = Time[-1]-Time[0]+(Eventtime[i][-1]-Eventtime[i][0])/10
-            if xmin < 0:
-                xmin = 0
-            if xmax > Time[-1] - Time[0]:
-                xmax = Time[-1] - Time[0]
-            if np.isfinite(xmin) & np.isfinite(xmax):
-                plt.xlim(xmin,xmax)
+            plt.xlim(tt[xmin],tt[xmax])
 
             plt.ylabel('Counts')
             plt.xlabel('Time (days)')
-            plt.axvline(Time[Section[j]]-Time[0],color='red',lw=2)
+            plt.axvline(tt[Section[j]],color='red',lw=2)
 
             plt.subplot(1,2,2)
             plt.title('Kepler image')
@@ -1496,16 +1219,25 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save
             plt.savefig(filename,dpi=100)
             plt.close();
 
-        directory = Save_environment(Eventtime[i],maxcolor,Source[i],SourceType[i],Save)
         framerate = (len(Section))/5
+        if Short:
+            directory = Save_environment(Eventtime[i],maxcolor,Source[i],SourceType[i],Save)
+            ffmpegcall = ('ffmpeg -y -nostats -loglevel 8 -f image2 -framerate ' + str(framerate) 
+                          + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' 
+                          + directory + 'Zoo-' + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4')
+        else:
+            directory = Long_save_environment(maxcolor,Source[i],SourceType[i],Save)
+            ffmpegcall = ('ffmpeg -y -nostats -loglevel 8 -f image2 -framerate ' + str(framerate) 
+                          + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' 
+                          + directory + 'Zoo-' + File.split('/')[-1].split('-')[0] + '_L' + str(i) + '.mp4')
 
-        ffmpegcall = 'ffmpeg -y -nostats -loglevel 8 -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + 'Zoo-' + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4'
+        
+
+        
         os.system(ffmpegcall);
 
         saves.append('./Figures' + directory.split('Figures')[-1] + 'Zoo-' + File.split('/')[-1].split('-')[0] + '_' + str(i) + '.mp4')
 
-        #os.system('sleep 1')
-        #os.system('rm -r ' + FrameSave)
 
     return saves
 
@@ -1628,118 +1360,93 @@ def SixMedian(LC):
     x = np.array(x)
     return lc6, x
 
-def Long_events(Data, Time, Mask, Dist, Save, File):
-    '''
-    Search for pixels that experience events longer than 2 days.
-    '''
-    sub = np.zeros(Data[0].shape)
-    limit = np.zeros(Data[0].shape)
-    good_frames = np.where(Dist < 0.3)[0]
 
-    dim1,dim2 = Data[0].shape
-    for i in range(dim1):
-        for j in range(dim2):
+def Savgol(Data,Width,Sigma=3):
+    lc = Data.copy()
+    lc[Median_clip(lc,Sigma)] =np.nan
+    x = np.arange(0,len(lc))
+    ind = np.isfinite(lc)
+    fun = interp1d(x[ind],lc[ind],bounds_error = False)
+    nonan = fun(x)
+    if Width/2 == int(Width/2):
+        Width += 1
+    sm = savgol_filter(nonan,Width,2,mode='nearest')
+    return sm
 
-            lc = np.copy(Data[:,i,j])#[good_frames,i,j]
-            lc[lc < 0] = 0
+def Long_smooth_limit(Data,Dist):
+    sm_dist = Savgol(Dist,5*48)
+    dist_ind = np.where(sm_dist > 0.4)[0]
 
-            condition = np.nanmedian(lc) + np.nanstd(lc)
-            diff = np.diff(Time[lc < condition])
-            ind = np.where(lc < condition)[0]
-            lc2 = np.copy(lc)
-            for k in range(len(diff)):
-                if diff[k] < 1:
-                    section = np.copy(lc[ind[k]:ind[k+1]])
-                    
-                    section[section > condition] = np.nan
-                    lc2[ind[k]:ind[k+1]] = section
-                    
+    X,Y = np.where(np.isfinite(np.nansum(Data,axis=0)))
 
-            if np.isnan(Mask[i,j]):
-                sub[i,j] = abs((np.nanmean(lc2) - np.nanmedian(lc2)))
-                
-                    
-            elif ~np.isnan(Mask[i,j]):
-                sub[i,j] = abs(1-(np.nanmean(lc2) / np.nanmedian(lc2)))
-                
-    
-    cutbkg = np.nanmedian(sub*Mask) + 3*np.nanstd(sub*Mask)
-    ob = np.ma.masked_invalid(Mask).mask
-    cutobj = np.nanmedian(sub*ob) + 3*np.nanstd(sub*ob)
-    ob = ob*1.
-    ob[ob == 0] = np.nan
+    smoothed = np.zeros_like(Data)
+    limit = np.zeros_like(Data[0]) * np.nan
+    for i in range(len(X)):
+        lc = Data[:,X[i],Y[i]].copy()
+        lc[Dist > .3] = np.nan
+        ind = np.isfinite(lc)
+        if len(lc[ind]) > 10:
+            width = 5*48 - 1
+            sm = Savgol(lc,width)
+            smoothed[:,X[i],Y[i]] = sm
 
-    limit = np.zeros((2,sub.shape[0],sub.shape[1]))
-    
-    limit[0,sub*Mask>=cutbkg] = sub[sub*Mask>=cutbkg]
-    limit[0,sub*Mask<cutbkg] = cutbkg
-    #print(limit[0])
-    limit[1,sub*ob>=cutobj] = sub[sub*ob>=cutobj]
-    limit[1,sub*ob<cutobj] = cutobj
-    #print(sub[sub*ob>=cutobj])
-    Limitsave = Save + '/Limit/' + File.split('ktwo')[-1].split('-')[0]+'_VLimit'
-    Save_space(Save + '/Limit/')
-    np.save(Limitsave,limit)
-
-    long_events_bkg = Identify_masks(sub*Mask>=cutbkg)
-    long_events_obj = Identify_masks(sub*ob>=cutobj)
-    
-    if len(long_events_bkg) > 0:
-        long_events = long_events_bkg
-        
-        for z in range(len(long_events_obj)):
-            long_events.append(long_events_obj[z])
+            pea = find_peaks(sm,distance=4*width)[0]
+            maxpeak = pea[np.where(sm[pea] == np.nanmax(sm[pea]))[0]]
+            totalmax = np.where(np.nanmax(sm) == sm)[0]
             
-    elif len(long_events_obj) > 0:
-        long_events = long_events_obj
-    else:
-        long_events = []
+            ind = np.arange(0,len(smoothed))
+            m_s = ind < int(maxpeak-2*width)
+            m_e = ind > int(maxpeak+4*width)
+            mean_start = np.nanmean(sm[m_s]) 
+            mean_end   = np.nanmean(sm[m_e]) 
 
-    long_mask = []
-    eventtime = []
-
-    for i in range(len(long_events)):
-        lc_nans = Lightcurve(Data[good_frames], long_events[i])
-        lc = lc_nans[np.isfinite(lc_nans)]
-        #lc[lc <= 0] = np.nan
-        
-        goodtime = Time[good_frames]
-        goodtime = goodtime[np.isfinite(lc_nans)]
-        
-        tarr = np.copy(lc) <= np.nanmedian(lc)
-        tarr[0] = 1
-        tarr[-1] = 1
-        
-        time_comp = goodtime[tarr]
-
-        difftime = np.diff(time_comp)
-        if (difftime >= 2).any() and (np.nanmean(lc) > 10): # condition on the number of exposures in 2 days 
-            big_diff = np.where(difftime == np.nanmax(difftime))
-            start = np.where(Time == time_comp[big_diff])[0]
-            if big_diff[0]+1 > len(time_comp):
-                end = len(Time)
+            std_start = np.nanstd(sm[m_s])
+            std_end = np.nanstd(sm[m_e])
+            if (maxpeak not in dist_ind) & (totalmax not in dist_ind):
+                if np.isfinite(mean_start) & np.isfinite(mean_end):
+                    if mean_end > (mean_start + 3*std_start):
+                        
+                        mean_outside = mean_start
+                        std_outside = std_start
+                    else:
+                        mean_outside = np.nanmean(sm[m_s+m_e])
+                        std_outside = np.nanstd(sm[m_s+m_e])
+                else:
+                    mean_outside = np.nanmean(sm[m_s+m_e])
+                    std_outside = np.nanstd(sm[m_s+m_e])
+                limit[X[i],Y[i]] = mean_outside +3*std_outside
             else:
-                end = np.where(Time == time_comp[big_diff[0]+1])[0]
-            eventtime.append([start,end])
-            long_mask.append(long_events[i])
+                limit[X[i],Y[i]] = np.nan#sm[maxpeak]
+        else:
+            smoothed[:,X[i],Y[i]] = np.nan
+    limit[limit<22] = 22
+    return smoothed, limit
 
-    return long_mask, eventtime
-
-def In_long_mask(Eventmask,Objmasks,Data):
-    '''
-    Finds which mask in the object mask an event is in. The value assigned to In_mask 
-    is the index of Objmask that corresponds to the event. If not mask is near, value is -1.
-    '''
-    In_mask = np.ones(len(Eventmask),dtype=int)*-1
-    for j in range(len(Eventmask)):
-        mask = Eventmask[j]
+def Vet_long(Events, Eventtime, Eventmask, Sig, Data):
+    good_ind = []
+    for i in range(len(Events)):
+        eh = Sig[Eventtime[i,0]:Eventtime[i,1],Eventmask[i][0],Eventmask[i][1]]
+        r2 = Regress_fit(eh, Fit = False)
         
-        for i in range(len(Objmasks)):
-            in_mask = (mask*Objmasks[i]).any()
-            
-            if in_mask:
-                In_mask[j] = int(i)
-    return In_mask
+        totalmax = np.where(np.nanmax(eh) == eh)[0]
+        lc = Data[:,Eventmask[i][0],Eventmask[i][1]].copy()
+        lc = Savgol(lc,49)
+        allmax = np.where(np.nanmax(lc) == lc)[0]
+        max_in_event = (allmax > Eventtime[i,0]) & (allmax < Eventtime[i,1])
+        if (r2 > 0.9) & (totalmax < len(eh) - 10).all() & max_in_event.all():
+            good_ind += [i]
+    good_ind = np.array(good_ind)
+    
+    if len(good_ind) > 0:
+        Events = Events[good_ind]
+        Eventtime = Eventtime[good_ind]
+        Eventmask = np.array(Eventmask)[good_ind].tolist()
+    else:
+        Events = np.array([])
+        Eventtime = np.array([])
+        Eventmask = []
+    return Events, Eventtime, Eventmask
+
 
 def Long_save_environment(maxcolor,Source,SourceType,Save):
     '''
@@ -1762,361 +1469,95 @@ def Long_save_environment(maxcolor,Source,SourceType,Save):
     Save_space(directory)
     return directory
 
-def Long_figure(Long,Eventtime,Data,WCS,Time,Save,File,Source,SourceType,ObjMask,Frames):
-    for i in range(len(Long)):
-        mask = Long[i]
-        
-        #Find Coords of transient
-        position = np.where(mask)
-        if len(position[0]) == 0:
-            print(Broken)
-        Mid = ([position[0][0]],[position[1][0]])
-        maxcolor = -1000 # Set a bad value for error identification
-        for j in range(len(position[0])):
-            nonanind = np.isfinite(Data[:,position[0][j],position[1][j]])
-            temp = sorted(Data[nonanind,position[0][j],position[1][j]].flatten())
-            temp = np.array(temp)
-            if len(temp) > 10:
-                temp  = temp[-3] # get 3rd brightest point
-            else:
-                temp  = temp[-1] # get 3rd brightest point # get 3rd brightest point
-            if temp > maxcolor:
-                maxcolor = temp
-                Mid = ([position[0][j]],[position[1][j]])
-        
-        if len(Mid[0]) == 1:
-            Coord = pix2coord(Mid[1],Mid[0],WCS)
-        elif len(Mid[0]) > 1:
-            Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
-        
-        test = np.ma.masked_invalid(Data).mask*1
-        wide = convolve(test,np.ones((1,3,3))) > 0
-        bgmask = -(wide*1.0+mask*1.0) + 1.0
-        bgmask[bgmask==0] = np.nan
-        background = Data*bgmask
-        level = np.nanmedian(background,axis=(1,2))
-        BG = Data*~Frames
-        BG[BG <= 0] = np.nan
-        BGLC = level
-        # Generate a light curve from the transient masks
-        LC = Lightcurve(Data, mask)
-        
-        Six_LC, ind = SixMedian(LC)
 
-        Obj = ObjMask[i]
-        ObjLC = Lightcurve(Data, Obj)
-        ObjLC = ObjLC/np.nanmedian(ObjLC)*np.nanmedian(LC)
-
-        OrigLC = Lightcurve(Data, mask)
-        
-        
-        # Generate a light curve from the transient masks
-        temp = sorted(LC[np.isfinite(LC)].flatten())
-        temp = np.array(temp)
-        temp = temp[-5] # get 5th brightest point
-        
-        max_frame = np.where(LC == temp)[0][0]
-        
-        mead = np.nanmedian(LC[np.isfinite(LC)])
-        mead_frame = np.where(np.nanmin(abs(LC-mead)) == abs(LC-mead))[0][0]
-        
-        fig = plt.figure(figsize=(10,6))
-        # set up subplot grid
-        gridspec.GridSpec(2,3)
-        plt.suptitle('EPIC ID: ' + File.split('ktwo')[-1].split('_')[0] + '\nSource: '+ Source[i] + ' (' + SourceType[i] + ')')
-        # large subplot
-        plt.subplot2grid((2,3), (0,0), colspan=2, rowspan=2)
-        plt.title('Event light curve ('+str(round(Coord[0],3))+', '+str(round(Coord[1],3))+')')
-        plt.xlabel('Time (+'+str(int(np.floor(Time[0])))+' BJD)')
-        plt.ylabel('Counts')
-        
-        plt.plot(Time - np.floor(Time[0]), BGLC,'k.', label = 'Background LC', rasterized=True)
-        plt.plot(Time - np.floor(Time[0]), ObjLC,'kx', label = 'Scaled object LC', rasterized=True)
-        plt.plot(Time - np.floor(Time[0]), LC,'.', label = 'Event LC',alpha=0.5, rasterized=True)
-        plt.plot(Time[ind] - np.floor(Time[0]), Six_LC,'m.', label = '6hr average',alpha=1, rasterized=True)
-        if Eventtime[i][-1] < len(Time):
-            plt.axvspan(Time[Eventtime[i][0]]-np.floor(Time[0]),Time[Eventtime[i][-1]]-np.floor(Time[0]), color = 'orange',alpha = 0.5, label = 'Event duration')
-        else:
-            plt.axvspan(Time[Eventtime[i][0]]-np.floor(Time[0]),Time[-1]-np.floor(Time[0]), color = 'orange',alpha = 0.5, label = 'Event duration')
-        
-        ymin = np.nanmin(Six_LC) - 0.1*np.nanmin(Six_LC)
-        ymax = np.nanmax(Six_LC) + 0.1*np.nanmax(Six_LC)
-        
-        plt.ylim(ymin,ymax)
-        plt.legend()#loc = 1)
-        plt.minorticks_on()
-        
-        # Set the axes limits for the imshows
-        ylims, xlims = Fig_cut(Data,Mid)
-        
-        # small subplot 1 Reference image plot
-        ax = plt.subplot2grid((2,3), (0,2))
-        plt.title('Reference')
-        plt.imshow(Data[mead_frame,:,:], origin='lower',vmin=0,vmax = maxcolor)
-        plt.xlim(xlims[0],xlims[1])
-        plt.ylim(ylims[0],ylims[1])
-        current_cmap = plt.cm.get_cmap()
-        current_cmap.set_bad(color='black')
-        plt.colorbar(fraction=0.046, pad=0.04)
-        
-        plt.plot(position[1],position[0],'r.',ms = 12, rasterized=True)
-        plt.minorticks_on()
-        ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
-        ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
-        
-        # small subplot 2 Image of event
-        ax = plt.subplot2grid((2,3), (1,2))
-        plt.title('Event')
-        plt.imshow(Data[max_frame,:,:], origin='lower',vmin=0,vmax = maxcolor)
-        plt.xlim(xlims[0],xlims[1])
-        plt.ylim(ylims[0],ylims[1])
-        current_cmap = plt.cm.get_cmap()
-        current_cmap.set_bad(color='black')
-        plt.colorbar(fraction=0.046, pad=0.04)
-        
-        plt.plot(position[1],position[0],'r.',ms = 12, rasterized=True)
-        plt.minorticks_on()
-        ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
-        ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
-
-        # Save directory
-        directory = Long_save_environment(ymax,Source[i],SourceType[i],Save)
-            
-        plt.savefig(directory + File.split('/')[-1].split('-')[0]+'_L'+str(i)+'.pdf', bbox_inches = 'tight')
-        plt.close()
-        Thumbnail(LC,BGLC,Eventtime[i],Time,[0,np.floor(Time[-1]-Time[0])],[ymin,ymax],'L'+str(i),File,directory);
-
-    return
-        
-        
-def LongK2TranPixZoo(Long,Eventtime,Source,SourceType,Data,Time,wcs,Save,File):
-    """
-    Iteratively gmakes Zooniverse videos for events. Videos are made from frames which are saved in a corresponding Frame directory.
-    """
-    saves = []
-    for i in range(len(Long)):
-        mask = Long[i]
-        position = np.where(mask)
-        Mid = ([position[0][0]],[position[1][0]])
-        maxcolor = 0 # Set a bad value for error identification
-        for j in range(len(position[0])):
-            nonanind = np.isfinite(Data[:,position[0][j],position[1][j]])
-            temp = sorted(Data[nonanind,position[0][j],position[1][j]].flatten())
-            temp = np.array(temp)
-            if len(temp) > 10:
-                temp  = temp[-3] # get 3rd brightest point
-            else:
-                temp  = temp[-1] # get 3rd brightest point # get 3rd brightest point
-            if temp > maxcolor:
-                maxcolor = temp
-                Mid = ([position[0][j]],[position[1][j]])
-        
-        xmin = 0
-        xmax = len(Data)-1
-        
-        step = int((xmax - xmin)*.005) # Make a step so that only 0.5% of the frames are produced 
-        Section = np.arange(int(xmin),int(xmax),step)
-
-        FrameSave = Save + '/Figures/Frames/' + File.split('/')[-1].split('-')[0] + '/Event_L' + str(int(i)) + '/'
-
-        Save_space(FrameSave)
-
-        ylims, xlims = Fig_cut(Data,Mid)
-
-        LC = Lightcurve(Data, mask)
-        Six_LC, ind = SixMedian(LC)
-        
-        ymin = np.nanmin(Six_LC) - 0.1*np.nanmin(Six_LC)
-        ymax = np.nanmax(Six_LC) + 0.1*np.nanmax(Six_LC)
-
-        # Create an ImageNormalize object using a SqrtStretch object
-        norm = ImageNormalize(vmin=ymin/len(position[0]), vmax=maxcolor, stretch=SqrtStretch())
-
-        
-        height = 1100/2
-        width = 2200/2
-        my_dpi = 100
-        
-        for j in range(len(Section)):
-            
-            filename = FrameSave + 'Frame_' + str(int(j)).zfill(4)+".png"
-
-            fig = plt.figure(figsize=(width/my_dpi,height/my_dpi),dpi=my_dpi)
-            plt.subplot(1, 2, 1)
-            plt.title('Event light curve')
-            plt.plot(Time - Time[0], LC,'k.')
-            
-            
-            plt.ylim(ymin,ymax)
-                                                  
-            xmin = 0
-            xmax = np.floor(Time[-1] - Time[0])
-            plt.xlim(xmin,xmax)
-
-            plt.ylabel('Counts')
-            plt.xlabel('Time (days)')
-            plt.axvline(Time[Section[j]]-Time[0],color='red',lw=2)
-            plt.axvspan(Time[Eventtime[i,0]]-Time[0],Time[Eventtime[i,1]]-Time[0],color='orange',alpha = 0.5)
-
-            plt.subplot(1,2,2)
-            plt.title('Kepler image')
-            Data[np.isnan(Data)] = 0
-            plt.imshow(Data[Section[j]],origin='lower',cmap='gray', norm=norm)
-            current_cmap = plt.cm.get_cmap()
-            current_cmap.set_bad(color='black')
-            #plt.colorbar()
-            ylims, xlims = Fig_cut(Data,Mid)
-            plt.xlim(xlims[0],xlims[1])
-            plt.ylim(ylims[0],ylims[1])
-            plt.ylabel('Row')
-            plt.xlabel('Column')
-            plt.plot(position[1],position[0],'r.',ms = 15)
-            fig.tight_layout()
-            
-            ax = fig.gca()
-            ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
-            ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
-
-            plt.savefig(filename,dpi=100)
-            plt.close();
-
-        directory = Long_save_environment(ymax,Source[i],SourceType[i],Save)
-        framerate = (len(Section))/5
-
-        ffmpegcall = 'ffmpeg -y -nostats -loglevel 8 -f image2 -framerate ' + str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' + directory + 'Zoo-' + File.split('/')[-1].split('-')[0] + '_L' + str(i) + '.mp4'
-        os.system(ffmpegcall);
-
-        saves.append('./Figures' + directory.split('Figures')[-1] + 'Zoo-' + File.split('/')[-1].split('-')[0] + '_L' + str(i) + '.mp4') 
-
-        #os.system('sleep 1')
-        #os.system('rm -r ' + FrameSave)
-
-    return saves
-
-        
-def Write_long_event(Pixelfile, Long, Eventtime, Source, Sourcetype, Long_Save, Data, Quality, WCS, hdu, Path):
-    """
-    Saves the event and field properties to a csv file.
-    """
-    feild = Pixelfile.split('-')[1].split('_')[0]
-    ID = Pixelfile.split('ktwo')[1].split('-')[0]
-    mask = []
-    for i in range(len(Long)):
-        mask.append(np.where(Long[i]))
-
-    rank_brightness = Rank_brightness(Eventtime,mask,Data,Quality)
-    rank_duration = Rank_duration(Eventtime)
-    rank_mask = Rank_mask(mask,Data)
-    rank_host = Rank_host(Sourcetype)
+def Kill_bright(Data, Limit):
+    temp = Data > 100000
+    kernal = np.ones((1,3,3))
+    conv = convolve(temp,kernal,mode='constant', cval=0.0) > 0
+    inds = np.where(np.nansum(conv,axis=0) > 0)
+    Limit[inds] = np.nan
+    return Limit
     
-    rank_total = rank_brightness + rank_duration + rank_mask + rank_host 
     
-    for i in range(len(Long)):
-        mask = Long[i]
+def Find_short_events(Data, Time, Dist, File, Save, Objmasks, ObjName, 
+                      ObjType, wcs, Orig, Quality, Thrusters, hdu):
+    
+    framemask = np.zeros_like(Data)
 
-        start = Eventtime[i][0]
-        duration = Eventtime[i][1] - Eventtime[i][0]
-        maxlc = np.nanmax(Lightcurve(Data[Eventtime[i][0]:Eventtime[i][1]], mask))
+    med = np.nanmedian(Data[Quality == 0], axis = (0))
+    med[med < 0] = 0
 
-        position = np.where(mask)
-        Mid = ([position[0][0]],[position[1][0]])
-        maxcolor = -1000 # Set a bad value for error identification
-        for j in range(len(position[0])):
-            temp = sorted(Data[:,position[0][j],position[1][j]].flatten())
-            temp = np.array(temp)
-            temp = temp[np.isfinite(temp)]
-            if len(temp) > 10:
-                temp  = temp[-3] # get 3rd brightest point
-            else:
-                temp  = temp[-1] # get 3rd brightest point
-            if temp > maxcolor:
-                maxcolor = temp
-                Mid = ([position[0][j]],[position[1][j]])
+    limit = med+3*(np.nanstd(Data[Quality == 0], axis = (0)))
+    limit[limit<22] = 22
+    limit = Kill_bright(Data, limit) 
+    
+    Limitsave = Save + '/Limit/' + File.split('ktwo')[-1].split('-')[0]+'_Limit'
+    Save_space(Save + '/Limit/')
+    np.save(Limitsave,limit)
+    
+    
+    framemask = (Data/limit)
 
-        if len(Mid[0]) == 1:
-            Coord = pix2coord(Mid[1],Mid[0],WCS)
-        elif len(Mid[0]) > 1:
-            Coord = pix2coord(Mid[1][0],Mid[0][0],WCS)
+    # Identify if there is a sequence of consecutive or near consecutive frames that meet condtition 
+    Eventmask = np.copy(framemask)
+    Eventmask[Quality!=0,:,:] = 0
 
-        size = np.nansum(Long[i])
-        Zoo_fig = Long_Save[i]
-        CVSstring = [str(feild), str(ID), 'L'+str(i), Sourcetype[i], str(start), 
-                     str(duration), str(maxlc), str(size), str(Coord[0]), str(Coord[1]), 
-                     Source[i], str(hdu[0].header['CHANNEL']), str(hdu[0].header['MODULE']), 
-                     str(hdu[0].header['OUTPUT']), str(rank_brightness[i]), str(rank_duration[i]),
-                     rank_mask[i],rank_host[i], rank_total[i], Zoo_fig]    
-        if os.path.isfile(Path + '/Events.csv'):
-            with open(Path + '/Events.csv', 'a') as csvfile:
-                spamwriter = csv.writer(csvfile, delimiter=',')
-                spamwriter.writerow(CVSstring)
-        else:
-            with open(Path + '/Events.csv', 'w') as csvfile:
-                spamwriter = csv.writer(csvfile, delimiter=',')
-                spamwriter.writerow(['Field', 'EPIC', '#Event number', '!Host type', '#Start', 
-                                     'Duration', 'Counts', '#Size','#RA','#DEC',
-                                     '#Host', '#Channel', '#Module', 
-                                     '#Output', '#Rank brightness', '#Rank duration',
-                                     '#Rank mask', '#Rank host','#Rank total', '#Zoofig'])
-                spamwriter.writerow(CVSstring)
-    return
+    events, eventtime, eventmask = Event_ID(Eventmask, 1, 5)
+    events, eventtime, eventmask = Match_events(events,eventtime,eventmask,Data)
+    events, eventtime, eventmask = Vet_peaks(events, eventtime, eventmask, Data)
+    
+    Source, SourceType, Maskobj = Types_masks(events, eventtime, eventmask, Objmasks, 
+                                              ObjName, ObjType, Data, Dist, wcs)
+    
+    quality = np.where(Quality != 0)[0]
+    if len(events) > 0:
+        K2TranPixFig(events.copy(),eventtime.copy(),eventmask.copy(),Data.copy(),Time.copy(),
+                    (Eventmask.copy() >= 0),wcs,Save,File,quality,Thrusters,(Orig),
+                    Source,SourceType,Maskobj)
+        #K2TranPixGif(events,eventtime,eventmask,Data,mywcs,Save,pixelfile,Source,SourceType)
+        Zoo_saves = K2TranPixZoo(events.copy(),eventtime.copy(),eventmask.copy(),Source.copy(),
+                                SourceType.copy(),Data.copy(),Time,wcs,Save,File)
 
-def Find_Long_Events(Data,Time,Eventmask,Objmasks,Mask,Thrusters,Dist,Quality,WCS,HDU,File,Save):
-    '''
-    Wrapper function for the long events finding routine.
-    '''
-    long_mask, long_time = Long_events(Data,Time, Mask,Dist,Save,File)
-    long_time = np.array(long_time)
-    if len(long_time.shape) == 3:
-        long_time = long_time[:,:,0]
-    Long_Source, Long_Type = Database_check_mask(Data,Thrusters,long_mask,WCS)
+        Write_event(File,eventtime.copy(),eventmask.copy(),Source,SourceType,Zoo_saves,
+                    Data.copy(),Quality,wcs,hdu,Save)
+    
+    return print(File, '# of short events: ', len(events))
 
-    if len(long_mask) > 0:
-        ObjName, ObjType = Database_check_mask(Data,Thrusters,Objmasks,WCS)
-        In = In_long_mask(long_mask,Objmasks,Data)
-        Long_Maskobj = np.zeros((len(long_mask),Data.shape[1],Data.shape[2])) # for plotting masked object reference
-        Maskobj = np.zeros((len(long_mask),Data.shape[1],Data.shape[2])) # for plotting masked object reference
 
-        if len(np.where(Objmasks[:,int(Data.shape[1]/2),int(Data.shape[2]/2)] == 1)[0]) > 0:
-            CentralMask = np.where(Objmasks[:,int(Data.shape[1]/2),int(Data.shape[2]/2)] == 1)[0]
-        elif len(np.where(Objmasks[:,int(Data.shape[1]/2),int(Data.shape[2]/2)] == 1)[0]) > 1:
-            CentralMask = np.where(Objmasks[:,int(Data.shape[1]/2),int(Data.shape[2]/2)] == 1)[0][0]
-        else:
-            CentralMask = -1
-        if CentralMask == -1:
-            Maskobj[:] = Mask
-        else:
-            Maskobj[:] = Objmasks[CentralMask]
-
-        for ind in np.where(In != -1)[0]:
-            Long_Source[ind] = 'In: ' + ObjName[In[ind]]
-            Long_Type[ind] = 'In: ' + ObjType[In[ind]]
-            Long_Maskobj[ind] = Objmasks[In[ind]]
-        # Remove all stars!   
-        good_ind = np.ones(len(long_time))
-        for i in range(len(long_time)):
-            if 'Star' in Long_Source[i]:
-                good_ind[i] = 0
+def Find_long_events(Data, Time, Dist, File, Save, Objmasks, ObjName, 
+                ObjType, wcs, Orig, Quality, Thrusters, hdu):
+    smoothed, limit = Long_smooth_limit(Data.copy(),Dist.copy())
+    limit = Kill_bright(Data, limit) 
+    Limitsave = Save + '/Limit/' + File.split('ktwo')[-1].split('-')[0]+'_VLimit'
+    Save_space(Save + '/Limit/')
+    np.save(Limitsave,limit)
+    
+    framemask = (smoothed/limit)
+    events = []
+    eventtime = []
+    eventmask = []
+    events, eventtime, eventmask = Event_ID(framemask, 1, 10*48,Smoothing=False)
+    events, eventtime, eventmask = Vet_long(events, eventtime, eventmask, framemask, Data)
+    events, eventtime, eventmask = Match_events(events,eventtime,eventmask,Data.copy())
+    
+    print(len(events))
+    Source, SourceType, Maskobj = Types_masks(events, eventtime, eventmask, Objmasks, 
+                                              ObjName, ObjType, Data, Dist, wcs)
+    
+    quality = np.where(Quality != 0)[0]
+    if len(events) > 0:
+        K2TranPixFig(events.copy(),eventtime.copy(),eventmask.copy(),Data,Time,
+                    (framemask.copy() >= 0),wcs,Save,File,quality,Thrusters,Orig,
+                    Source,SourceType,Maskobj, Short=False)
         
-        good_ind = good_ind > 0
+        Zoo_saves = K2TranPixZoo(events.copy(),eventtime.copy(),eventmask.copy(),Source.copy(),
+                                    SourceType.copy(),Data.copy(),Time,wcs,Save,File,Short=False)
+        
+        Write_event(File,eventtime.copy(),eventmask.copy(),Source,
+                    SourceType,Zoo_saves,Data.copy(),Quality,wcs,hdu,Save)
+    
+    return print(File, '# of long events: ', len(events))
 
-        long_time = long_time[good_ind]
-
-        mask_ind = np.where(~good_ind)[0]
-        for i in range(len(mask_ind)):
-            rev = len(mask_ind) -1 - i
-            del long_mask[rev]
-            del Long_Source[rev]
-            del Long_Type[rev]
-
-        if len(long_mask) != len(long_time):
-            print('long event masks, ', len(long_mask))
-            print('long events, ', len(long_time))
-            raise ValueError('Arrays are different lengths, check whats happening in {}'.format(pixelfile))
-
-        Long_figure(long_mask, long_time, Data, WCS, Time, Save, File, Long_Source, Long_Type, Long_Maskobj, Eventmask)
-        long_saves = LongK2TranPixZoo(long_mask, long_time, Long_Source, Long_Type, Data, Time, WCS, Save, File)
-        Write_long_event(File, long_mask, long_time, Long_Source, Long_Type,long_saves, Data, Quality, WCS, HDU, Save)
-    return
 
 def Rank_brightness(Eventtime,Eventmask,Data,Quality):
     Rank = np.zeros(len(Eventtime))
@@ -2179,7 +1620,7 @@ def Rank_host(Type):
                 Rank[i] = int(rank_system[j,1])
     return Rank
 
-def Vet_peaks(Events, Eventtime, Eventmask, Data):
+def Vet_peaks(Events, Eventtime, Eventmask, Data, Smoothdata = True):
     good_ind = []
     lcs = []
     peaks = []
@@ -2195,8 +1636,10 @@ def Vet_peaks(Events, Eventtime, Eventmask, Data):
         width = ((Eventtime[e,1] - Eventtime[e,0]) * 3) 
         if (width/2) == int(width/2):
             width -= 1
-        
-        sm = savgol_filter(nonan,width,2,mode='nearest')
+        if Smoothdata:
+            sm = savgol_filter(nonan,width,2,mode='nearest')
+        else:
+            sm = nonan
         pea = find_peaks(sm)[0]
         
         ev_ind = np.where((pea >= Eventtime[e,0]) & (pea <= Eventtime[e,1]))[0]
@@ -2236,75 +1679,6 @@ def Vet_peaks(Events, Eventtime, Eventmask, Data):
 
 
 # Testing this function 
-def Vet_long(Events, Eventtime, Eventmask, Data, Quality):
-    """
-    Vet for events like KSN2015K that are too long to be detected through the other method. 
-    Conditions on the light curve median and standard deviation in and out of the selected area.
-    This method proved successful in recovering KSN2015K to m = 21.5 (max counts = 40).
-
-    Inputs:
-    -------
-    Events      - 1D array
-    Eventtime   - 2D array
-    Eventmask   - list of 2D arrays
-    Data        - 3D array
-    Quality     - 1D array 
-
-    Outputs:
-    --------
-    events      - 1D array
-    eventtime   - 2D array
-    eventmask   - list of 2D arrays
-
-    Event property arays that are returned are down sampled to remove false detections.
-    """
-    good_ind = []
-
-    for i in range(len(Events)):
-        start = Eventtime[i,0] - (48)
-        if start < 0:
-            start = 0
-        end = Eventtime[i,1] + (48*5)
-        if end >= len(Data):
-            end = len(Data) -1 
-        
-        lc = Data[:,Eventmask[i][0],Eventmask[i][1]].copy()
-        lc = convolution.convolve(lc, convolution.Box1DKernel(11))
-        lc[Quality!=0] = np.nan
-
-
-        inside = np.nanmedian(lc[Eventtime[i,0]:Eventtime[i,1]])
-        inside_std = np.nanstd(lc[Eventtime[i,0]:Eventtime[i,1]])
-        #inside = np.nanmedian(lc[start:end])
-        #inside_std = np.nanstd(lc[start:end])
-        
-        removed = lc.copy()
-        removed[start:end] = np.nan
-        outside = np.nanmedian(removed)
-        if outside == 0:
-            outside = np.nan
-        outside_std = np.nanstd(removed)
-        
-        if ((inside - outside) > 3*outside_std) & (inside_std > 3*outside_std) & (outside_std > 0):
-            good_ind += [i]
-            plt.figure()
-            plt.plot(lc)
-            plt.axvspan(start,end,alpha = 0.4)
-    good_ind = np.array(good_ind)
-
-    if len(good_ind) > 0:
-        events = Events[good_ind]
-        eventtime = Eventtime[good_ind]
-        eventmask = []
-        for ind in good_ind:
-            eventmask += [Eventmask[ind]]
-    else:
-        events = np.array([])
-        eventtime = np.array([])
-        eventmask = []
-    
-    return events, eventtime, eventmask
-
 
 
 
@@ -2331,9 +1705,9 @@ def K2TranPix(pixelfile,save):
 
         time = dat["TIME"] + 2454833.0
         Qual = hdu[1].data.field('QUALITY')
-        thrusters = Get_all_resets(datacube, Qual)
-
         quality = np.where(Qual != 0)[0]
+
+        thrusters = Get_all_resets(datacube, Qual)
         
         xdrif = dat['pos_corr1']
         ydrif = dat['pos_corr2']
@@ -2342,93 +1716,14 @@ def K2TranPix(pixelfile,save):
         if len(distdrif) != len(datacube):
             err_string = 'Distance arr is too short for {file}: len = {leng}'.format(file = pixelfile, leng = len(distdrif))
             raise ValueError(err_string) 
-            
-        goodthrust = thrusters[np.where(distdrif[thrusters]<0.2)]
-        #calculate the reference frame
-        if len(goodthrust) > 4:
-            Framemin = goodthrust[3]+1
-        elif len(goodthrust) > 0:
-            Framemin = goodthrust[0]+1
-        else:
-            Framemin = 100 # Arbitrarily chosen, Data is probably screwed anway if there are no thruster firings.
-        # Apply object mask to data
-        Mask = ThrustObjectMask(datacube,goodthrust)
-        #datacube[:48 * 2,:,:] = np.nan
-        #Maskdata, ast = First_pass(np.copy(datacube),Qual,quality,thrusters,pixelfile)
+        
+        
         Maskdata = Correct_motion(datacube, distdrif, thrusters)
-        #Maskdata = Clip_cube(Maskdata)
-        #Maskdata[Motion_flag] = np.nan
-        # Make a mask for the object to use as a test to eliminate very bad pointings
-        obj = np.ma.masked_invalid(Mask).mask
-        objmed = np.nanmedian(datacube[thrusters[:-1]+4]*obj,axis=(0))
-        objstd = np.nanstd(datacube[thrusters[:-1]+4]*obj,axis=(0))
-
-        framemask = np.zeros_like(Maskdata)
-
-        med = np.nanmedian(Maskdata[Qual == 0], axis = (0))
-        med[med < 0] = 0
-
-        limit = med+3*(np.nanstd(Maskdata[Qual == 0], axis = (0)))
-        limit[limit<22] = 22
-        framemask = (Maskdata/limit)
-        framemask[:,np.where(Maskdata > 100000)[1],np.where(Maskdata > 100000)[2]] = 0
-
-        # Identify if there is a sequence of consecutive or near consecutive frames that meet condtition 
-        Eventmask = np.copy(framemask)
-        #Eventmask[~np.where((convolve(framemask,np.ones((5,1,1)), mode='constant', cval=0.0) >= 4))[0]] = 0
-        Eventmask[Qual!=0,:,:] = 0
-        #Eventmask[Motion_flag > 0] = 0
-        #print('did')
-
-
-        events, eventtime, eventmask = Event_ID(Eventmask, 1, 3)
-        
-        
-        
-        #events, eventtime, eventmask = Vet_brightness(np.copy(events),np.copy(eventtime),eventmask,np.copy(Maskdata),Qual,pixelfile)
-        events, eventtime, eventmask = Match_events(events,eventtime,eventmask,Maskdata)
-        events, eventtime, eventmask = Vet_peaks(events, eventtime, eventmask, Maskdata)
-        # Make sure the detected events are actually significant, not just a product of smoothing.
-        
-        print(pixelfile, '# of events: ', len(events))
-        if False:
-            events2, eventtime2, eventmask2 = Event_ID(Maskdata/limit,0.3,4*48)
-            #events2, eventtime2, eventmask2 = Vet_long(events2, eventtime2, eventmask2, Maskdata, Qual)
-            events2, eventtime2, eventmask2 = Match_events(events2,eventtime2,eventmask2,Maskdata)
-            events2, eventtime2, eventmask2 = Vet_peaks(events, eventtime, eventmask, Maskdata)
-
-            if len(events) > 0:
-                for i in range(len(events2)):
-                    events = np.append(events, events2[i])
-                    eventtime = np.append(eventtime, [eventtime2[i]],axis=0)
-                    eventmask += [eventmask2[i]]
-            else:
-                events = events2
-                eventtime = eventtime2
-                eventmask = eventmask2
-            print(pixelfile, '# of events: ', len(events))
-
-        temp = []
-        for i in range(len(events)):
-            if len(np.where(datacube[eventtime[i][0]:eventtime[i][-1],eventmask[i][0],eventmask[i][1]] > 100000)[0]) == 0:
-                temp.append(i)
-        eventtime = eventtime[temp]
-        events = events[temp]
-        temp2=[]
-        for i in temp:
-            temp2.append(eventmask[i])
-        eventmask = temp2
         
         # Save asteroids
         #astsave = Save + '/Asteroid/' + pixelfile.split('ktwo')[-1].split('-')[0]+'_Asteroid'
         #Save_space(Save + '/Asteroid/')
         #np.savez(astsave,ast)
-        # Save baseline frame
-        
-        Limitsave = Save + '/Limit/' + pixelfile.split('ktwo')[-1].split('-')[0]+'_Limit'
-        Save_space(Save + '/Limit/')
-        np.savez(Limitsave,limit)
-        
         
         # Create an array that saves the total area of mask and time. 
         # 1st col pixelfile, 2nd duration, 3rd col area, 4th col number of events, 5th 0 if in galaxy, 1 if outside
@@ -2466,47 +1761,19 @@ def K2TranPix(pixelfile,save):
 
 
         # Find all spatially seperate objects in the event mask.
-        #Objmasks = Identify_masks(obj)
-        #Objmasks = np.array(Objmasks)
+        Mask = ObjectMask(Maskdata,distdrif)
+        obj = np.ma.masked_invalid(Mask).mask
         Objmasks = Watershed_object_sep(obj)
-
         if len(Objmasks.shape) < 3:
             Objmasks = np.zeros((1,datacube.shape[1],datacube.shape[2]))
-        ObjName, ObjType = Database_check_mask(datacube,thrusters,Objmasks,mywcs)
+        ObjName, ObjType = Database_check_mask(datacube,distdrif,Objmasks,mywcs)
         
-        
-        if len(events) > 0:
-            Source, SourceType = Database_event_check(Maskdata,eventtime,eventmask,mywcs)
-            
-            Near = Near_which_mask(eventmask,Objmasks,datacube)
-            In = In_which_mask(eventmask,Objmasks,datacube)
-            Maskobj = np.zeros((len(events),Maskdata.shape[1],Maskdata.shape[2])) # for plotting masked object reference
-            if len(Objmasks) > 0:
-                if len(np.where(Objmasks[:,int(Maskdata.shape[1]/2),int(Maskdata.shape[2]/2)] == 1)[0]) > 0:
-                    CentralMask = np.where(Objmasks[:,int(Maskdata.shape[1]/2),int(Maskdata.shape[2]/2)] == 1)[0]
-                elif len(np.where(Objmasks[:,int(Maskdata.shape[1]/2),int(Maskdata.shape[2]/2)] == 1)[0]) > 1:
-                    CentralMask = np.where(Objmasks[:,int(Maskdata.shape[1]/2),int(Maskdata.shape[2]/2)] == 1)[0][0]
-                else:
-                    CentralMask = -1
-                if CentralMask == -1:
-                    Maskobj[:] = Mask
-                else:
-                    Maskobj[:] = Objmasks[CentralMask]
+        Find_short_events(Maskdata, time, distdrif, pixelfile, Save, Objmasks, ObjName, 
+                         ObjType, mywcs, datacube, Qual, thrusters, hdu)        
 
-                for ind in np.where(Near != -1)[0]:
-                    Source[ind] = 'Near: ' + ObjName[Near[ind]]
-                    SourceType[ind] = 'Near: ' + ObjType[Near[ind]]
-                    Maskobj[ind] = Objmasks[Near[ind]]
-                for ind in np.where(In != -1)[0]:
-                    Source[ind] = 'In: ' + ObjName[In[ind]]
-                    SourceType[ind] = 'In: ' + ObjType[In[ind]]
-                    Maskobj[ind] = Objmasks[In[ind]]
-            else:
-                Maskobj[:] = Mask
+        Find_long_events(Maskdata, time, distdrif, pixelfile, Save, Objmasks, ObjName, 
+                         ObjType, mywcs, datacube, Qual, thrusters, hdu)
 
-
-            Source, SourceType = Probable_host(eventtime,eventmask,Source,SourceType,Objmasks,ObjName,ObjType,Maskdata)
-            SourceType = Isolation(eventtime,eventmask,Maskdata,SourceType)
             # Remove all the stars! 
             #good_ind = np.ones(len(events))
             #for i in range(len(events)):
@@ -2529,17 +1796,7 @@ def K2TranPix(pixelfile,save):
             #    print('events, ', len(events))
             #    raise ValueError('Arrays are different lengths, check whats happening in {}'.format(pixelfile))
             
-            # Print figures
-            K2TranPixFig(events.copy(),eventtime.copy(),eventmask.copy(),Maskdata.copy(),time.copy(),
-                        (Eventmask.copy() >= 0),mywcs,Save,pixelfile,quality,thrusters,Framemin,(datacube),
-                        Source,SourceType,Maskobj)
-            #K2TranPixGif(events,eventtime,eventmask,Maskdata,mywcs,Save,pixelfile,Source,SourceType)
-            Zoo_saves = K2TranPixZoo(events.copy(),eventtime.copy(),eventmask.copy(),Source.copy(),
-                                    SourceType.copy(),Maskdata.copy(),time,mywcs,Save,pixelfile)
-            
-            Write_event(pixelfile,eventtime.copy(),eventmask.copy(),Source,SourceType,Zoo_saves,Maskdata.copy(),Qual,mywcs,hdu,Save)
-
-        #Find_Long_Events(Maskdata,time,(Eventmask >= 0),Objmasks,Mask,thrusters,np.copy(distdrif),Qual,mywcs,hdu,pixelfile,Save)
+        # Print figures
     else:
         print('Small ', pixelfile)
 
