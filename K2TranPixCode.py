@@ -1037,6 +1037,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,
         else:
             print('min',xmin)
             print('max',xmax)
+            print('why limits broken in ',File)
         
         if width < 50:
             limit_lc = Savgol(LC,width,10)
