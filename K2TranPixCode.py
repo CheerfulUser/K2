@@ -1433,7 +1433,7 @@ def Vet_long(Events, Eventtime, Eventmask, Sig, Data):
         lc = Savgol(lc,49)
         allmax = np.where(np.nanmax(lc) == lc)[0]
         max_in_event = (allmax > Eventtime[i,0]) & (allmax < Eventtime[i,1])
-        if (r2 > 0.9) & (totalmax < len(eh) - 10).all() & max_in_event.all():
+        if (r2 > 0.95) & (totalmax < len(eh) - 10).all() & max_in_event.all():
             good_ind += [i]
     good_ind = np.array(good_ind)
     
@@ -1528,6 +1528,7 @@ def Find_long_events(Data, Time, Dist, File, Save, Objmasks, ObjName,
                 ObjType, wcs, Orig, Quality, Thrusters, hdu):
     smoothed, limit = Long_smooth_limit(Data.copy(),Dist.copy())
     limit = Kill_bright(Data, limit) 
+
     Limitsave = Save + '/Limit/' + File.split('ktwo')[-1].split('-')[0]+'_VLimit'
     Save_space(Save + '/Limit/')
     np.save(Limitsave,limit)
