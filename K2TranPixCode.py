@@ -1024,9 +1024,11 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,
         width = Eventtime[i,1]-Eventtime[i,0]
         
         temp1 = Eventtime[i][0] - int(2*width)
+        
         if temp1 < 0:
             temp1 = 0
         temp2 = Eventtime[i][1] + int(2*width)
+
         if temp2 > len(tt)-1:
             temp2 = len(tt)-1
         xmin = tt[temp1]
@@ -1705,15 +1707,16 @@ def K2TranPix(pixelfile,save):
     if datacube.shape[1] > 1 and datacube.shape[2] > 1:
         datacube = Clip_cube(datacube)
 
-        time = dat["TIME"] + 2454833.0
-        Qual = hdu[1].data.field('QUALITY')
-        quality = np.where(Qual != 0)[0]
-
-        thrusters = Get_all_resets(datacube, Qual)
+        time = time[nonanind]
+        datacube = datacube[nonanind,:,:]
+        Qual = Qual[nonanind]
         
+        thrusters = Get_all_resets(datacube, Qual)
+            
         xdrif = dat['pos_corr1']
-        ydrif = dat['pos_corr2']
+        ydrif = dat['pos_corr2']    
         distdrif = np.sqrt(xdrif**2 + ydrif**2)
+        distdrif = distdrif[nonanind]
 
         if len(distdrif) != len(datacube):
             err_string = 'Distance arr is too short for {file}: len = {leng}'.format(file = pixelfile, leng = len(distdrif))
