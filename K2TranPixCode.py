@@ -1707,6 +1707,7 @@ def K2TranPix(pixelfile,save):
     if datacube.shape[1] > 1 and datacube.shape[2] > 1:
         datacube = Clip_cube(datacube)
         time = dat["TIME"] + 2454833.0
+        nonanind = np.where(np.isfinite(time))[0]
         time = time[nonanind]
         datacube = datacube[nonanind,:,:]
         Qual = Qual[nonanind]
