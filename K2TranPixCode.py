@@ -1759,7 +1759,7 @@ def K2TranPix(pixelfile,save):
         Fieldprop = {}
         Fieldprop['File'] = pixelfile
         Fieldprop['Thruster'] = thrusters
-        Fieldprop['Quality'] = quality
+        Fieldprop['Quality'] = Qual
         Fieldprop['Duration'] = len(time)
         Fieldprop['Gal_lat'] = Get_gal_lat(mywcs,datacube)
         
