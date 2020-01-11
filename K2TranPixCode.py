@@ -1708,6 +1708,8 @@ def K2TranPix(pixelfile,save):
         datacube = Clip_cube(datacube)
         time = dat["TIME"] + 2454833.0
         nonanind = np.where(np.isfinite(time))[0]
+        Qual = hdu[1].data.field('QUALITY')
+        
         time = time[nonanind]
         datacube = datacube[nonanind,:,:]
         Qual = Qual[nonanind]
