@@ -387,11 +387,15 @@ def Get_all_resets(Data, Quality):
 
     realt = np.where((Quality==1048576) | (Quality==524288) | 
                      (Quality==1081376) | (Quality==1056768))[0]
+    o = realt.copy()
+    print('quality thrusters: ',len(realt))
+    print('wavelet thrusters: ',len(peaks))
     for p in peaks:
         if ~np.isclose(p, realt, atol=3).any():
             realt = np.append(realt, p)
 
     realt = np.sort(realt)
+    print('diff: ',len(realt)-len(o))
     
     return realt
 
@@ -1027,7 +1031,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,
         
         if temp1 < 0:
             temp1 = 0
-        temp2 = Eventtime[i][1] + int(2*width)
+        temp2 = Eventtime[i][1] + int(4*width)
 
         if temp2 > len(tt)-1:
             temp2 = len(tt)-1
@@ -1059,8 +1063,9 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,
 
         if np.isfinite(ymin) & np.isfinite(ymax):
             plt.ylim(ymin,ymax)
-        plt.legend(loc = 1)
+        plt.legend()#loc = 1)
         plt.minorticks_on()
+        plt.tick_params(axis='both',which='both',direction='in')
         ylims, xlims = Fig_cut(Datacube,Mid)
 
         # small subplot 1 Reference image plot
@@ -1076,6 +1081,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,
         plt.minorticks_on()
         ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
         ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
+        plt.tick_params(axis='both',which='both',direction='in')
         # small subplot 2 Image of event
         ax = plt.subplot2grid((2,3), (1,2))
         plt.title('Event')
@@ -1089,6 +1095,7 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,
         plt.minorticks_on()
         ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
         ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
+        plt.tick_params(axis='both',which='both',direction='in')
         
         if Short:
             directory = Save_environment(Eventtime[i],maxcolor,Source[i],SourceType[i],Save)
@@ -1199,6 +1206,7 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save
             plt.ylabel('Counts')
             plt.xlabel('Time (days)')
             plt.axvline(tt[Section[j]],color='red',lw=2)
+            plt.tick_params(axis='both',which='both',direction='in')
 
             plt.subplot(1,2,2)
             plt.title('Kepler image')
@@ -1218,6 +1226,7 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save
             ax = fig.gca()
             ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
             ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
+            plt.tick_params(axis='both',which='both',direction='in')
 
             plt.savefig(filename,dpi=100)
             plt.close();
@@ -1422,7 +1431,7 @@ def Long_smooth_limit(Data,Dist):
                 limit[X[i],Y[i]] = np.nan#sm[maxpeak]
         else:
             smoothed[:,X[i],Y[i]] = np.nan
-    limit[limit<22] = 22
+    #limit[limit<22] = 22
     return smoothed, limit
 
 def Vet_long(Events, Eventtime, Eventmask, Sig, Data):
@@ -1491,7 +1500,7 @@ def Find_short_events(Data, Time, Dist, File, Save, Objmasks, ObjName,
     med[med < 0] = 0
 
     limit = med+3*(np.nanstd(Data[Quality == 0], axis = (0)))
-    limit[limit<22] = 22
+    #limit[limit<22] = 22
     limit = Kill_bright(Data, limit) 
     
     Limitsave = Save + '/Limit/' + File.split('ktwo')[-1].split('-')[0]+'_Limit'
@@ -1779,8 +1788,8 @@ def K2TranPix(pixelfile,save):
         Find_short_events(Maskdata, time, distdrif, pixelfile, Save, Objmasks, ObjName, 
                          ObjType, mywcs, datacube, Qual, thrusters, hdu)        
 
-        Find_long_events(Maskdata, time, distdrif, pixelfile, Save, Objmasks, ObjName, 
-                         ObjType, mywcs, datacube, Qual, thrusters, hdu)
+        #Find_long_events(Maskdata, time, distdrif, pixelfile, Save, Objmasks, ObjName, 
+        #                 ObjType, mywcs, datacube, Qual, thrusters, hdu)
 
             # Remove all the stars! 
             #good_ind = np.ones(len(events))
