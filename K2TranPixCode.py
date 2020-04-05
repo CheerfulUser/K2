@@ -1723,7 +1723,7 @@ def K2TranPix(pixelfile,save):
         datacube = datacube[nonanind,:,:]
         Qual = Qual[nonanind]
         
-        thrusters = Get_all_resets(datacube, Qual)
+        thrusters = np.where((Qual & 1048576) > 0)[0]#Get_all_resets(datacube, Qual)
             
         xdrif = dat['pos_corr1']
         ydrif = dat['pos_corr2']    
