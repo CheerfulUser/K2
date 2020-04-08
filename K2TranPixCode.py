@@ -496,12 +496,15 @@ def Correct_motion(Data, Distance, Thrust):
         trend = np.array(trend)
         trend = trend[trend[:,0].argsort()]
         #return trend
-        spl = PchipInterpolator(trend[:,0], trend[:,1],extrapolate=False)
-        #spl = interp1d(trend[:,0], trend[:,1], kind = 'linear',bounds_error=False)
-        x = np.arange(data.shape[0])
-        spl = spl(x)
+        if len(trend) > 2:
+	        spl = PchipInterpolator(trend[:,0], trend[:,1],extrapolate=False)
+	        #spl = interp1d(trend[:,0], trend[:,1], kind = 'linear',bounds_error=False)
+	        x = np.arange(data.shape[0])
+	        spl = spl(x)
         
-        spline[:,X[j],Y[j]] = spl
+        	spline[:,X[j],Y[j]] = spl
+    	else:
+    		spline[:,X[j],Y[j]] = np.nan
     data = data - fitting + spline
     
     return data#, fitting, spline
@@ -596,7 +599,7 @@ def Database_event_check(Data, Eventtime, Eventmask, WCS):
         objtype = 'Unknown'
         try:
             result_table = Ned.query_region(
-                c, radius=4*u.arcsec, equinox='J2000')
+                c, radius=4*u.arcsec, equinox='J2000',cache=False)
             Ob = np.asarray(result_table['Object Name'])[0].decode("utf-8")
             objtype = result_table['Type'][0].decode("utf-8")
 
@@ -606,7 +609,7 @@ def Database_event_check(Data, Eventtime, Eventmask, WCS):
                 objtype = objtype.replace('!', 'Gal')  # Galactic sources
             if objtype == 'G':
                 try:
-                    result_table = Simbad.query_region(c, radius=4*u.arcsec)
+                    result_table = Simbad.query_region(c, radius=4*u.arcsec,cache=False)
                     if len(result_table.colnames) > 0:
                         objtype = objtype + 'Simbad'
                 except (AttributeError, ExpatError, TableParseError, ValueError, 
@@ -654,7 +657,7 @@ def Database_check_mask(Datacube, Dist, Masks, WCS):
         objtype = 'Unknown'
         try:
             result_table = Ned.query_region(
-                c, radius=6*u.arcsec, equinox='J2000')
+                c, radius=6*u.arcsec, equinox='J2000',cache=False)
             Ob = np.asarray(result_table['Object Name'])[0].decode("utf-8")
             objtype = result_table['Type'][0].decode("utf-8")
 
@@ -664,7 +667,7 @@ def Database_check_mask(Datacube, Dist, Masks, WCS):
                 objtype = objtype.replace('!', 'Gal')  # Galactic sources
             if objtype == 'G':
                 try:
-                    result_table = Simbad.query_region(c, radius=6*u.arcsec)
+                    result_table = Simbad.query_region(c, radius=6*u.arcsec,cache=False)
                     if len(result_table.colnames) > 0:
                         objtype = objtype + 'Simbad'
                 except (AttributeError, ExpatError, TableParseError, ValueError, 
