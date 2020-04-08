@@ -497,14 +497,15 @@ def Correct_motion(Data, Distance, Thrust):
         trend = trend[trend[:,0].argsort()]
         #return trend
         if len(trend) > 2:
-	        spl = PchipInterpolator(trend[:,0], trend[:,1],extrapolate=False)
-	        #spl = interp1d(trend[:,0], trend[:,1], kind = 'linear',bounds_error=False)
-	        x = np.arange(data.shape[0])
-	        spl = spl(x)
-        
-        	spline[:,X[j],Y[j]] = spl
-    	else:
-    		spline[:,X[j],Y[j]] = np.nan
+			spl = PchipInterpolator(trend[:,0], trend[:,1],extrapolate=False)
+			#spl = interp1d(trend[:,0], trend[:,1], kind = 'linear',bounds_error=False)
+			x = np.arange(data.shape[0])
+			spl = spl(x)
+
+			spline[:,X[j],Y[j]] = spl
+		else:
+			spline[:,X[j],Y[j]] = np.nan
+
     data = data - fitting + spline
     
     return data#, fitting, spline
