@@ -600,7 +600,7 @@ def Database_event_check(Data, Eventtime, Eventmask, WCS):
 		objtype = 'Unknown'
 		try:
 			result_table = Ned.query_region(
-				c, radius=4*u.arcsec, equinox='J2000',cache=False)
+				c, radius=4*u.arcsec, equinox='J2000')
 			Ob = np.asarray(result_table['Object Name'])[0].decode("utf-8")
 			objtype = result_table['Type'][0].decode("utf-8")
 
@@ -610,7 +610,7 @@ def Database_event_check(Data, Eventtime, Eventmask, WCS):
 				objtype = objtype.replace('!', 'Gal')  # Galactic sources
 			if objtype == 'G':
 				try:
-					result_table = Simbad.query_region(c, radius=4*u.arcsec,cache=False)
+					result_table = Simbad.query_region(c, radius=4*u.arcsec)
 					if len(result_table.colnames) > 0:
 						objtype = objtype + 'Simbad'
 				except (AttributeError, ExpatError, TableParseError, ValueError, 
@@ -658,7 +658,7 @@ def Database_check_mask(Datacube, Dist, Masks, WCS):
 		objtype = 'Unknown'
 		try:
 			result_table = Ned.query_region(
-				c, radius=6*u.arcsec, equinox='J2000',cache=False)
+				c, radius=6*u.arcsec, equinox='J2000')
 			Ob = np.asarray(result_table['Object Name'])[0].decode("utf-8")
 			objtype = result_table['Type'][0].decode("utf-8")
 
@@ -668,7 +668,7 @@ def Database_check_mask(Datacube, Dist, Masks, WCS):
 				objtype = objtype.replace('!', 'Gal')  # Galactic sources
 			if objtype == 'G':
 				try:
-					result_table = Simbad.query_region(c, radius=6*u.arcsec,cache=False)
+					result_table = Simbad.query_region(c, radius=6*u.arcsec)
 					if len(result_table.colnames) > 0:
 						objtype = objtype + 'Simbad'
 				except (AttributeError, ExpatError, TableParseError, ValueError, 
