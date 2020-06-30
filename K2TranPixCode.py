@@ -965,8 +965,10 @@ def K2TranPixFig(Events,Eventtime,Eventmask,Data,Time,
 			temp = np.array(temp)
 			if len(temp) > 10:
 				temp  = temp[-3] # get 3rd brightest point
+			#elif len(temp) > 0:
+			#	temp  = temp[-1] # get 3rd brightest point
 			else:
-				temp  = temp[-1] # get 3rd brightest point
+				temp = 0
 			if temp > maxcolor:
 				maxcolor = temp
 				Mid = ([position[0][j]],[position[1][j]])
@@ -1131,7 +1133,7 @@ def K2TranPixZoo(Events,Eventtime,Eventmask,Source,SourceType,Data,Time,wcs,Save
 			if len(temp) > 10:
 				temp  = temp[-3] # get 3rd brightest point
 			else:
-				temp  = temp[-1] # get 3rd brightest point
+				temp  = 0#temp[-1] # get 3rd brightest point
 
 			if temp > maxcolor:
 				maxcolor = temp
