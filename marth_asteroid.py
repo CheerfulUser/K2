@@ -32,7 +32,6 @@ def Initial(x,y,t,flux):
 
 	maxdif1 = []
 	corrarr = []
-
 	for i in range(x-1,x+1):
 		for j in range(y-1,y+1):
 			normflux = flux[t-30:t+30,i,j]/np.median(flux[t-30:t+30,i,j])
@@ -557,7 +556,7 @@ def Track_Asteroid(x,y,t,flux,time,xdrift,ydrift,WCS,save,name):
 	ast1 = asteroid(pos1, pos2, time, flux)
 	ast2 = Single_pixel(ast1, flux)
 	Ast_Fl, masks = Flux_Asteroid(pos1, pos2, ast2, flux)
-	
+	print('past initial')
 	if len(masks>0):
 		Ast_ImFl = Flux_ImSub_Asteroid(ast1, flux, masks,dist_matrix)
 	
@@ -575,6 +574,7 @@ def Track_Asteroid(x,y,t,flux,time,xdrift,ydrift,WCS,save,name):
 	#obj = _query_solar_system_objects(r,d,t,radius=10/60**2)
 	
 	if len(masks>0):
+		print('saving')
 		Fldf = create_dataframe(Ast_Fl, Ast_ImFl, Ast_Im, masks,time,WCS)
 		Fldf.to_csv(save+name)
 		Asteroid_move(flux, Ast_Fl, Ast_ImFl, Ast_Im, name, 'ast_videos')
