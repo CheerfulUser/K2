@@ -53,6 +53,8 @@ import time as t
 
 from marth_asteroid import *
 
+
+import traceback
 import warnings
 #warnings.filterwarnings("ignore",category = RuntimeWarning)
 #warnings.filterwarnings("ignore",category = UserWarning)
@@ -1511,9 +1513,6 @@ def Find_short_events(Data, Time, Dist, File, Save, Objmasks, ObjName,
 	#limit[limit<22] = 22
 	limit = Kill_bright(Data, limit) 
 	
-	Limitsave = Save + '/Limit/' + File.split('ktwo')[-1].split('-')[0]+'_Limit'
-	Save_space(Save + '/Limit/')
-	np.save(Limitsave,limit)
 	
 	
 	framemask = (Data/limit)
@@ -1536,8 +1535,7 @@ def Find_short_events(Data, Time, Dist, File, Save, Objmasks, ObjName,
 				name = File.split('ktwo')[-1].split('-')[0]+ '_' + str(i)
 				Track_Asteroid(x,y,t,Data,Time,xdrift,ydrift,wcs,Save,name)
 		except:
-			e = sys.exc_info()[0]
-			print(e)
+			traceback.print_exc()
 			
 	
 	return print(File, '# of short events: ', len(events))
