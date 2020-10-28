@@ -1773,7 +1773,7 @@ def K2TranPix(pixelfile,save):
 		ind = ~((Qual & 175)> 0) 
 		Maskdata = Maskdata[ind]
 		time = time[ind]
-		distdrif  distdrif[ind]
+		distdrif = distdrif[ind]
 		datacube=datacube[ind]
 		Qual = Qual[ind]
 		xdrif = xdrif[ind]
