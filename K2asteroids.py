@@ -44,7 +44,7 @@ from sklearn.metrics import r2_score
 from requests.exceptions import ConnectionError
 from requests.exceptions import ReadTimeout
 from requests.exceptions import ChunkedEncodingError
-
+import sys
 import csv
 
 from glob import glob
@@ -1536,7 +1536,9 @@ def Find_short_events(Data, Time, Dist, File, Save, Objmasks, ObjName,
 				name = File.split('ktwo')[-1].split('-')[0]+ '_' + str(i)
 				Track_Asteroid(x,y,t,Data,Time,xdrift,ydrift,wcs,Save,name)
 		except:
-			pass
+			e = sys.exc_info()[0]
+			print(e)
+			
 	
 	return print(File, '# of short events: ', len(events))
 
