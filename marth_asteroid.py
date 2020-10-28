@@ -21,7 +21,10 @@ def Initial(x,y,t,flux):
 	'''
 	Given an initial position and time, returns the pixel at that time which is most likely to be the centre of the asteroid by correlating the derivatives of the neighbouring pixels and selecting the pixel with the largest spike	
 	'''
-	pixcurve = flux[t-30:t+30,x,y]
+	print('x',x)
+	print('y',y)
+	print('t',t)
+	pixcurve = flux[int(t-30):int(t+30),int(x),int(y)]
 	pixcurve = pixcurve/np.nanmedian(pixcurve)
 	pcdiff = np.diff(pixcurve)
 	control = signal.correlate(pcdiff,pcdiff)	
