@@ -549,7 +549,7 @@ def Asteroid_move(Data, Ast_Fl, Ast_ImFl, Ast_Im, ID, Save):
 #Given an input position, time and flux, returns arrays of asteroid position/time and their light curves using 3 methods
 
 def Track_Asteroid(x,y,t,flux,time,xdrift,ydrift,WCS,save,name):
-	
+	print('name',name)
 	pos1, pos2, time = Initial(x,y,t,flux)
 	Xdiff = xdrift
 	Ydiff = ydrift 
