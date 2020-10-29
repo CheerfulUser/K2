@@ -1767,7 +1767,7 @@ def K2TranPix(pixelfile,save):
 		mywcs = WCS(mywcs)
 
 		#ind = ~((Qual & 175)> 0) 
-		npnan = ~(np.sum(np.isnan(datacube.flux),axis=(1,2)) > .5*(datacube.shape[1]*datacube.shape[2]))
+		npnan = ~(np.sum(np.isnan(datacube),axis=(1,2)) > .5*(datacube.shape[1]*datacube.shape[2]))
 		Maskdata = Maskdata[np.nan]
 		time = time[np.nan]
 		distdrif = distdrif[np.nan]
