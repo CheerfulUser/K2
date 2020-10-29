@@ -559,7 +559,7 @@ def Track_Asteroid(x,y,t,flux,time,xdrift,ydrift,WCS,save,name):
 	Ast_Fl, masks = Flux_Asteroid(pos1, pos2, ast2, flux)
 	print('past initial')
 	if len(masks>0):
-		Ast_ImFl = Flux_ImSub_Asteroid(ast1, flux, masks,dist_matrix)
+		Ast_ImFl = Flux_ImSub_Asteroid(ast1, flux, time, masks,dist_matrix)
 	
 	Ast_Im, Lc_Im = Sub_Asteroid(np.min(np.unique(ast1[:,0])),np.max(np.unique(ast1[:,0])),flux,dist_matrix)
 	
