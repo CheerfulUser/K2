@@ -48,6 +48,7 @@ def Initial(x,y,t,flux):
 
 	pos1 = int(corrarr[ind1,0])
 	pos2 = int(corrarr[ind1,1])
+	print('flux',type(flux))
 	t1 = np.argmax(flux[int(t-3):int(t+4),pos1,pos2]) + t - 3
 
 	return pos1, pos2, t1
@@ -57,9 +58,9 @@ def asteroid(pos1, pos2, time, flux):
 	'''
 	Given a position and time where the asteroid occurs, finds other points which get bright when the asteroid passes through
 	'''
-	astarray = [(time, pos1, pos2)]
+	astarray = [(int(time), int(pos1), int(pos2))]
 	
-	pixcurve = flux[time-30:time+30,pos1,pos2]
+	pixcurve = flux[int(time-30):int(time+30),pos1,pos2]
 	pixcurve = pixcurve/np.nanmedian(pixcurve)
 	pcdiff = np.diff(pixcurve)
 	control = signal.correlate(pcdiff,pcdiff)	
@@ -67,7 +68,7 @@ def asteroid(pos1, pos2, time, flux):
 	
 	for i in range(flux.shape[1]):
 		for j in range(flux.shape[2]):
-			normflux = flux[time-30:time+30,i,j]/np.median(flux[time-30:time+30,i,j])
+			normflux = flux[int(time-30):int(time+30),i,j]/np.median(flux[int(time-30):int(time+30),i,j])
 			corr = signal.correlate(pcdiff,np.diff(normflux))
 			cormax = np.where(corr == np.max(corr))
 			tshift = centre[0] - cormax[0]
