@@ -1770,14 +1770,15 @@ def K2TranPix(pixelfile,save):
 			mywcs[newkey] = hdu[1].header[oldkey] 
 		mywcs = WCS(mywcs)
 
-		ind = ~((Qual & 175)> 0) 
-		Maskdata = Maskdata[ind]
-		time = time[ind]
-		distdrif = distdrif[ind]
-		datacube=datacube[ind]
-		Qual = Qual[ind]
-		xdrif = xdrif[ind]
-		ydrif = ydrif[ind]
+		#ind = ~((Qual & 175)> 0) 
+		npnan = ~(np.sum(np.isnan(datacube.flux),axis=(1,2)) > .5*(datacube.shape[1]*datacube.shape[2]))
+		Maskdata = Maskdata[np.nan]
+		time = time[np.nan]
+		distdrif = distdrif[np.nan]
+		datacube=datacube[np.nan]
+		Qual = Qual[np.nan]
+		xdrif = xdrif[np.nan]
+		ydrif = ydrif[np.nan]
 
 		# Find all spatially seperate objects in the event mask.
 		Mask = ObjectMask(Maskdata,distdrif)
