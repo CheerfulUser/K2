@@ -1526,17 +1526,13 @@ def Find_short_events(Data, Time, Dist, File, Save, Objmasks, ObjName,
 	events, eventtime, eventmask = Vet_peaks(events, eventtime, eventmask, Data)
 	
 	for i in range(len(events)):
-		try:
-			mask = np.zeros((Data.shape[1],Data.shape[2]))
-			mask[eventmask[i][0],eventmask[i][1]] = 1
-			section = Data[eventtime[i][0]:eventtime[i][-1]] * mask
-			t,x,y = np.where(np.nanmax(section) == section)
-			if (t > 30) & (t < len(Data)-31):
-				name = File.split('ktwo')[-1].split('-')[0]+ '_' + str(i)
-				Track_Asteroid(x,y,t,Data,Time,xdrift,ydrift,wcs,Save,name)
-		except:
-			
-			traceback.print_exc()
+		mask = np.zeros((Data.shape[1],Data.shape[2]))
+		mask[eventmask[i][0],eventmask[i][1]] = 1
+		section = Data[eventtime[i][0]:eventtime[i][-1]] * mask
+		t,x,y = np.where(np.nanmax(section) == section)
+		if (t > 30) & (t < len(Data)-31):
+			name = File.split('ktwo')[-1].split('-')[0]+ '_' + str(i)
+			Track_Asteroid(x,y,t,Data,Time,xdrift,ydrift,wcs,Save,name)
 			
 	
 	return print(File, '# of short events: ', len(events))
