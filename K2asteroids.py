@@ -1532,7 +1532,9 @@ def Find_short_events(Data, Time, Dist, File, Save, Objmasks, ObjName,
 		t,x,y = np.where(np.nanmax(section) == section)
 		if (t > 30) & (t < len(Data)-31):
 			name = File.split('ktwo')[-1].split('-')[0]+ '_' + str(i)
-			Track_Asteroid(x,y,t,Orig,Time,xdrift,ydrift,wcs,Save,name)
+			try:
+				Track_Asteroid(x,y,t,Orig,Time,xdrift,ydrift,wcs,Save,name)
+			except
 			
 	
 	return print(File, '# of short events: ', len(events))

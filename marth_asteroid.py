@@ -48,7 +48,7 @@ def Initial(x,y,t,flux):
 
 	pos1 = int(corrarr[ind1,0])
 	pos2 = int(corrarr[ind1,1])
-	print('flux',type(flux))
+	
 	t1 = np.argmax(flux[int(t-3):int(t+4),pos1,pos2]) + t - 3
 
 	return pos1, pos2, t1
@@ -102,12 +102,12 @@ def Single_pixel(ast1,flux):
 
 	for i in np.unique(ast1[:,0]): #finding the different time indices
 		ind = np.where(ast1[:,0] == i) #creating an array of all points with this time index
-		start = i-3
-		end= i+3
+		start = int(i-3)
+		end= int(i+3)
 		maxdif = []
 		for j in range(len(ind[0])): #running through the elements of ind
 			#find the maximum derivative of the light curve in each of these pixels near the time
-			maxdif += [np.max(np.diff(flux[start:end, ast1[ind][j][1], ast1[ind][j][2]]))]
+			maxdif += [np.max(np.diff(flux[start:end, int(ast1[ind][j][1]), int(ast1[ind][j][2])]))]
 			#finding the pixel for which this is greatest
 		pix = np.argmax(maxdif)
 		#appending this pixel to the list
@@ -149,13 +149,14 @@ def Flux_Asteroid(pos1, pos2, ast2, flux):
 	'''
 	Uses the watershed mask to select points from the asteroid array which fall within a reasonable path
 	'''
+	ast2 = ast2.astype(int)
 	asteroid_mask = np.zeros_like(flux[0])
-	asteroid_mask[ast2[:,1],ast2[:,2]] = 1
+	asteroid_mask[(ast2[:,1]),ast2[:,2]] = 1
 
 	asteroids = convolve(asteroid_mask,np.ones((3,3)),mode='constant', cval=0.0)
-
+	
 	masks = Watershed_object_sep(asteroids)
-
+	
 	ind = np.where(masks[:,pos1,pos2] == 1)[0]
 
 	ast_mask2 = np.zeros_like(flux)
@@ -219,8 +220,8 @@ def Flux_ImSub_Asteroid(ast1, flux, time, masks,dist_matrix):
 	ast4 = [] #creating empty list
 	Im2 = []
 
-	mintime = np.min(np.unique(ast1[:,0]))
-	maxtime = np.max(np.unique(ast1[:,0]))
+	mintime = int(np.min(np.unique(ast1[:,0])))
+	maxtime = int(np.max(np.unique(ast1[:,0])))
 
 	for i in range(mintime, maxtime+1): #finding the different time indices
 	
@@ -247,7 +248,8 @@ def Sub_Asteroid(mintime, maxtime, time, flux,dist_matrix):
 	Astarray = []
 	sig = []
 	ts = []
-	
+	mintime = int(mintime)
+	maxtime = int(maxtime)
 	for i in range(mintime, maxtime+1):
 		Im, Std = Heuristic_scene_model(flux,time,i,dist_matrix)
 		Significance = (flux[i]-Im)/Std
@@ -389,7 +391,7 @@ def Significance(t, flux, time,xdrif,ydrif):
 	return Sig_Array, Im_Array, T
 
 
-def create_dataframe(Ast_Fl, Ast_ImFl, Ast_Im, masks,time,WCS): 
+def create_dataframe(Ast_Fl, Ast_ImFl, Ast_Im, masks,time,flux,WCS): 
 	
 	flt = []
 	flr = []
@@ -502,6 +504,7 @@ def Asteroid_move(Data, Ast_Fl, Ast_ImFl, Ast_Im, ID, Save):
 	
 
 	FrameSave = Save + '/' + ID + '/'
+	
 	Save_space(FrameSave)
 	Section = Data[Masktime3[0]:Masktime3[-1],:,:]
 	for i in range(len(Section)):
@@ -512,15 +515,15 @@ def Asteroid_move(Data, Ast_Fl, Ast_ImFl, Ast_Im, ID, Save):
 		plt.subplot(1, 2, 1)
 		plt.title('Asteroid light curves')
 		
-		lc1, astlc1 = LC(Ast_Fl, flux)
+		lc1, astlc1 = LC(Ast_Fl, Data)
 		plt.plot((Masktime1[:-1]-Masktime1[0])/2,lc1[:-1],'r-',lw=2, label = 'Flux (correlation method)')
 		plt.plot((Masktime1[:-1]-Masktime1[0])/2,lc1[:-1],'x')
 		
-		lc2, astlc2 = LC(Ast_ImFl, flux)
+		lc2, astlc2 = LC(Ast_ImFl, Data)
 		plt.plot((Masktime2[:-1]-Masktime2[0])/2,lc2[:-1],'g-',lw=2, label = 'Flux (correlation/subtraction)')
 		plt.plot((Masktime2[:-1]-Masktime2[0])/2,lc2[:-1],'x')
 		
-		lc3, astlc3 = LC(Ast_Im, flux)
+		lc3, astlc3 = LC(Ast_Im, Data)
 		plt.plot((Masktime3[:-1]-Masktime3[0])/2,lc3[:-1],'b-',lw=2, label = 'Flux (subtraction method)')
 		plt.plot((Masktime3[:-1]-Masktime3[0])/2,lc3[:-1],'x')
 		
@@ -544,40 +547,42 @@ def Asteroid_move(Data, Ast_Fl, Ast_ImFl, Ast_Im, ID, Save):
 	ffmpegcall = ('ffmpeg -y -nostats -loglevel 8 -f image2 -framerate ' + 
 				str(framerate) + ' -i ' + FrameSave + 'Frame_%04d.png -vcodec libx264 -pix_fmt yuv420p ' 
 				+ directory + 'Ast-' + ID + '.mp4')
+	
 	os.system(ffmpegcall);
 
 #Given an input position, time and flux, returns arrays of asteroid position/time and their light curves using 3 methods
 
 def Track_Asteroid(x,y,t,flux,time,xdrift,ydrift,WCS,save,name):
 	print('name',name)
-	pos1, pos2, time = Initial(x,y,t,flux)
+	pos1, pos2, t = Initial(x,y,t,flux)
 	Xdiff = xdrift
 	Ydiff = ydrift 
 	dist_matrix = np.sqrt( (Xdiff - Xdiff[:, np.newaxis])**2 + (Ydiff - Ydiff[:, np.newaxis])**2 )
-	ast1 = asteroid(pos1, pos2, time, flux)
-	ast2 = Single_pixel(ast1, flux)
-	Ast_Fl, masks = Flux_Asteroid(pos1, pos2, ast2, flux)
-	print('past initial')
-	if len(masks>0):
-		Ast_ImFl = Flux_ImSub_Asteroid(ast1, flux, time, masks,dist_matrix)
-	
-	Ast_Im, Lc_Im = Sub_Asteroid(np.min(np.unique(ast1[:,0])),np.max(np.unique(ast1[:,0])),flux,dist_matrix)
-	
-	Lc_Fl = np.array((Ast_Fl[:,0],flux[Ast_Fl[:,0],Ast_Fl[:,1],Ast_Fl[:,2]]))
-	
-	if len(masks>0):
-		Lc_ImFl = np.array((Ast_ImFl[:,0],flux[Ast_ImFl[:,0],Ast_ImFl[:,1],Ast_ImFl[:,2]]))
+	ast1 = asteroid(pos1, pos2, t, flux)
+	if len(ast1)> 2:
+		ast2 = Single_pixel(ast1, flux)
+		Ast_Fl, masks = Flux_Asteroid(pos1, pos2, ast2, flux)
+		print('past initial')
+		if len(masks>0):
+			Ast_ImFl = Flux_ImSub_Asteroid(ast1, flux, time, masks,dist_matrix)
 		
-	#find asteroid position 
-	#r, d = WCS.all_pix2world(pos2,pos1,0)
-	#t = tpf.astropy_time.jd[time]
-	#plug stuff into Geert's code
-	#obj = _query_solar_system_objects(r,d,t,radius=10/60**2)
-	
-	if len(masks>0):
-		print('saving')
-		Fldf = create_dataframe(Ast_Fl, Ast_ImFl, Ast_Im, masks,time,WCS)
-		Fldf.to_csv(save+name)
-		Asteroid_move(flux, Ast_Fl, Ast_ImFl, Ast_Im, name, 'ast_videos')
-	
-	return Ast_Fl, Ast_ImFl, Ast_Im, masks
+		Ast_Im, Lc_Im = Sub_Asteroid(np.min(np.unique(ast1[:,0])),np.max(np.unique(ast1[:,0])),time,flux,dist_matrix)
+		
+		Lc_Fl = np.array((Ast_Fl[:,0],flux[Ast_Fl[:,0],Ast_Fl[:,1],Ast_Fl[:,2]]))
+		
+		if len(masks>0):
+			Lc_ImFl = np.array((Ast_ImFl[:,0],flux[Ast_ImFl[:,0],Ast_ImFl[:,1],Ast_ImFl[:,2]]))
+			
+		#find asteroid position 
+		#r, d = WCS.all_pix2world(pos2,pos1,0)
+		#t = tpf.astropy_time.jd[time]
+		#plug stuff into Geert's code
+		#obj = _query_solar_system_objects(r,d,t,radius=10/60**2)
+		
+		if len(masks>0):
+			print('saving')
+			Fldf = create_dataframe(Ast_Fl, Ast_ImFl, Ast_Im, masks,time,flux,WCS)
+			Fldf.to_csv(save+name+'.csv')
+			Asteroid_move(flux, Ast_Fl, Ast_ImFl, Ast_Im, name, save)
+		
+		return Ast_Fl, Ast_ImFl, Ast_Im, masks
