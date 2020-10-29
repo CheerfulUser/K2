@@ -1534,7 +1534,8 @@ def Find_short_events(Data, Time, Dist, File, Save, Objmasks, ObjName,
 			name = File.split('ktwo')[-1].split('-')[0]+ '_' + str(i)
 			try:
 				Track_Asteroid(x,y,t,Orig,Time,xdrift,ydrift,wcs,Save,name)
-			except
+			except:
+				pass
 			
 	
 	return print(File, '# of short events: ', len(events))
