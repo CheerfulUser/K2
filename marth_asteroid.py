@@ -32,9 +32,9 @@ def Initial(x,y,t,flux):
 
 	maxdif1 = []
 	corrarr = []
-	for i in range(x-1,x+1):
-		for j in range(y-1,y+1):
-			normflux = flux[t-30:t+30,i,j]/np.median(flux[t-30:t+30,i,j])
+	for i in range(int(x-1),int(x+1)):
+		for j in range(int(y-1),int(y+1)):
+			normflux = flux[int(t-30):int(t+30),i,j]/np.median(flux[int(t-30):int(t+30),i,j])
 			corr = signal.correlate(pcdiff,np.diff(normflux))
 			corrarr += [(i,j,np.max(corr))]
 			cormax = np.where(corr == np.max(corr))
@@ -48,7 +48,7 @@ def Initial(x,y,t,flux):
 
 	pos1 = int(corrarr[ind1,0])
 	pos2 = int(corrarr[ind1,1])
-	t1 = np.argmax(flux[t-3:t+4,pos1,pos2]) + t - 3
+	t1 = np.argmax(flux[int(t-3):int(t+4),pos1,pos2]) + t - 3
 
 	return pos1, pos2, t1
 
