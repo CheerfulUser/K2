@@ -1727,10 +1727,9 @@ def K2TranPix(pixelfile,save):
 		
 		thrusters = np.where((Qual & 1048576) > 0)[0]#Get_all_resets(datacube, Qual)
 			
-		xdrif = dat['pos_corr1']
-		ydrif = dat['pos_corr2']	
+		xdrif = dat['pos_corr1'][nonanind]
+		ydrif = dat['pos_corr2'][nonanind]
 		distdrif = np.sqrt(xdrif**2 + ydrif**2)
-		distdrif = distdrif[nonanind]
 
 		if len(distdrif) != len(datacube):
 			err_string = 'Distance arr is too short for {file}: len = {leng}'.format(file = pixelfile, leng = len(distdrif))
