@@ -80,8 +80,8 @@ def asteroid(pos1, pos2, time, flux):
 				
 				if proms[promlen-1] >=  10*proms[promlen-2]:
 
-					start = time + tshift[0] - 3
-					end = time + tshift[0] + 4
+					start = int(time + tshift[0] - 3)
+					end = int(time + tshift[0] + 4)
 										
 					ftind = np.argmax(flux[start:end,i,j]) + time + tshift - 3
 					
