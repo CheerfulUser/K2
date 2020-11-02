@@ -231,9 +231,10 @@ def Flux_ImSub_Asteroid(ast1, flux, time, masks,dist_matrix):
 		astsigs = Significance*masks
 		
 		ast = np.where(np.nanmax(astsigs) == astsigs)
-		ast4 += [(i,ast[0][0],ast[1][0])]
-		
-		Im2 += [flux[i,ast[0][0],ast[1][0]]-Im[ast[0][0],ast[1][0]]]
+		if len(ast[0]) > 0:
+			ast4 += [(i,ast[0][0],ast[1][0])]
+			
+			Im2 += [flux[i,ast[0][0],ast[1][0]]-Im[ast[0][0],ast[1][0]]]
 
 	#converting the list to an array		
 	ast4 = np.array(ast4)
@@ -254,9 +255,10 @@ def Sub_Asteroid(mintime, maxtime, time, flux,dist_matrix):
 		Im, Std = Heuristic_scene_model(flux,time,i,dist_matrix)
 		Significance = (flux[i]-Im)/Std
 		ast = np.where(np.nanmax(Significance) == Significance)
-		Astarray += [(i,ast[0][0],ast[1][0])]
-		sig += [np.nanmax(Significance)]
-		ts += [i]
+		if len(ast[0]) > 0:
+			Astarray += [(i,ast[0][0],ast[1][0])]
+			sig += [np.nanmax(Significance)]
+			ts += [i]
 		
 	ts = np.array(ts)
 	sig = np.array(sig)
@@ -516,16 +518,16 @@ def Asteroid_move(Data, Ast_Fl, Ast_ImFl, Ast_Im, ID, Save):
 		plt.title('Asteroid light curves')
 		
 		lc1, astlc1 = LC(Ast_Fl, Data)
-		plt.plot((Masktime1[:-1]-Masktime1[0])/2,lc1[:-1],'r-',lw=2, label = 'Flux (correlation method)')
-		plt.plot((Masktime1[:-1]-Masktime1[0])/2,lc1[:-1],'x')
+		plt.plot((Masktime1[:-1]-Masktime1[0])/2,lc1[:-1],'r.-',lw=2, label = 'Flux (correlation method)')
+		#plt.plot((Masktime1[:-1]-Masktime1[0])/2,lc1[:-1],'x')
 		
 		lc2, astlc2 = LC(Ast_ImFl, Data)
-		plt.plot((Masktime2[:-1]-Masktime2[0])/2,lc2[:-1],'g-',lw=2, label = 'Flux (correlation/subtraction)')
-		plt.plot((Masktime2[:-1]-Masktime2[0])/2,lc2[:-1],'x')
+		plt.plot((Masktime2[:-1]-Masktime2[0])/2,lc2[:-1],'g.-',lw=2, label = 'Flux (correlation/subtraction)')
+		#plt.plot((Masktime2[:-1]-Masktime2[0])/2,lc2[:-1],'x')
 		
 		lc3, astlc3 = LC(Ast_Im, Data)
-		plt.plot((Masktime3[:-1]-Masktime3[0])/2,lc3[:-1],'b-',lw=2, label = 'Flux (subtraction method)')
-		plt.plot((Masktime3[:-1]-Masktime3[0])/2,lc3[:-1],'x')
+		plt.plot((Masktime3[:-1]-Masktime3[0])/2,lc3[:-1],'b.-',lw=2, label = 'Flux (subtraction method)')
+		#plt.plot((Masktime3[:-1]-Masktime3[0])/2,lc3[:-1],'x')
 		
 		plt.axvline((Masktime3[i]-Masktime3[0])/2, color ='red')  
 		plt.legend()
