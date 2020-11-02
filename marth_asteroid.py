@@ -581,6 +581,7 @@ def Track_Asteroid(x,y,t,flux,time,xdrift,ydrift,WCS,save,name):
 		
 		if len(masks>0):
 			print('saving')
+			Save_space(save)
 			Fldf = create_dataframe(Ast_Fl, Ast_ImFl, Ast_Im, masks,time,flux,WCS)
 			Fldf.to_csv(save+name+'.csv')
 			Asteroid_move(flux, Ast_Fl, Ast_ImFl, Ast_Im, name, save)
