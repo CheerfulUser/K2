@@ -1533,7 +1533,7 @@ def Find_short_events(Data, Time, Dist, File, Save, Objmasks, ObjName,
 		if (t > 30) & (t < len(Data)-31):
 			name = File.split('ktwo')[-1].split('-')[0]+ '_' + str(i)
 			try:
-				Track_Asteroid(x,y,t,Orig,Time,xdrift,ydrift,wcs,Save,name)
+				Track_Asteroid(x,y,t,Orig,Time,xdrift,ydrift,wcs,Save+'/c01/ast/',name)
 			except:
 				pass 
 			#	traceback.print_exc()
