@@ -1708,88 +1708,90 @@ def K2TranPix(pixelfile,save):
 	"""
 	Save = save + pixelfile.split('-')[1].split('_')[0]
 	try:
-		hdu = fits.open(pixelfile)
-	except OSError:
-		print('OSError ',pixelfile)
-		return
+		try:
+			hdu = fits.open(pixelfile)
+		except OSError:
+			print('OSError ',pixelfile)
+			return
 
-	if len(hdu) > 1:
-		dat = hdu[1].data
-	else:
-		print('Broken file ', pixelfile)
-		return
-	datacube = fits.ImageHDU(hdu[1].data.field('FLUX')[:]).data
-	if datacube.shape[1] > 1 and datacube.shape[2] > 1:
-		datacube = Clip_cube(datacube)
-		time = dat["TIME"] + 2454833.0
-		nonanind = np.where(np.isfinite(time))[0]
-		Qual = hdu[1].data.field('QUALITY')
-		
-		time = time[nonanind]
-		datacube = datacube[nonanind,:,:]
-		Qual = Qual[nonanind]
-		
-		thrusters = np.where((Qual & 1048576) > 0)[0]#Get_all_resets(datacube, Qual)
+		if len(hdu) > 1:
+			dat = hdu[1].data
+		else:
+			print('Broken file ', pixelfile)
+			return
+		datacube = fits.ImageHDU(hdu[1].data.field('FLUX')[:]).data
+		if datacube.shape[1] > 1 and datacube.shape[2] > 1:
+			datacube = Clip_cube(datacube)
+			time = dat["TIME"] + 2454833.0
+			nonanind = np.where(np.isfinite(time))[0]
+			Qual = hdu[1].data.field('QUALITY')
 			
-		xdrif = dat['pos_corr1'][nonanind]
-		ydrif = dat['pos_corr2'][nonanind]
-		distdrif = np.sqrt(xdrif**2 + ydrif**2)
+			time = time[nonanind]
+			datacube = datacube[nonanind,:,:]
+			Qual = Qual[nonanind]
+			
+			thrusters = np.where((Qual & 1048576) > 0)[0]#Get_all_resets(datacube, Qual)
+				
+			xdrif = dat['pos_corr1'][nonanind]
+			ydrif = dat['pos_corr2'][nonanind]
+			distdrif = np.sqrt(xdrif**2 + ydrif**2)
 
-		if len(distdrif) != len(datacube):
-			err_string = 'Distance arr is too short for {file}: len = {leng}'.format(file = pixelfile, leng = len(distdrif))
-			raise ValueError(err_string) 
-		
-		
-		Maskdata = Correct_motion(datacube, distdrif, thrusters)
-		
-		# Save asteroids
-		#astsave = Save + '/Asteroid/' + pixelfile.split('ktwo')[-1].split('-')[0]+'_Asteroid'
-		#Save_space(Save + '/Asteroid/')
-		#np.savez(astsave,ast)
-		
-		# Create an array that saves the total area of mask and time. 
-		# 1st col pixelfile, 2nd duration, 3rd col area, 4th col number of events, 5th 0 if in galaxy, 1 if outside
-		# Define the coordinate system 
-		funny_keywords = {'1CTYP4': 'CTYPE1',
-						  '2CTYP4': 'CTYPE2',
-						  '1CRPX4': 'CRPIX1',
-						  '2CRPX4': 'CRPIX2',
-						  '1CRVL4': 'CRVAL1',
-						  '2CRVL4': 'CRVAL2',
-						  '1CUNI4': 'CUNIT1',
-						  '2CUNI4': 'CUNIT2',
-						  '1CDLT4': 'CDELT1',
-						  '2CDLT4': 'CDELT2',
-						  '11PC4': 'PC1_1',
-						  '12PC4': 'PC1_2',
-						  '21PC4': 'PC2_1',
-						  '22PC4': 'PC2_2'}
-		mywcs = {}
-		for oldkey, newkey in funny_keywords.items():
-			mywcs[newkey] = hdu[1].header[oldkey] 
-		mywcs = WCS(mywcs)
+			if len(distdrif) != len(datacube):
+				err_string = 'Distance arr is too short for {file}: len = {leng}'.format(file = pixelfile, leng = len(distdrif))
+				raise ValueError(err_string) 
+			
+			
+			Maskdata = Correct_motion(datacube, distdrif, thrusters)
+			
+			# Save asteroids
+			#astsave = Save + '/Asteroid/' + pixelfile.split('ktwo')[-1].split('-')[0]+'_Asteroid'
+			#Save_space(Save + '/Asteroid/')
+			#np.savez(astsave,ast)
+			
+			# Create an array that saves the total area of mask and time. 
+			# 1st col pixelfile, 2nd duration, 3rd col area, 4th col number of events, 5th 0 if in galaxy, 1 if outside
+			# Define the coordinate system 
+			funny_keywords = {'1CTYP4': 'CTYPE1',
+							  '2CTYP4': 'CTYPE2',
+							  '1CRPX4': 'CRPIX1',
+							  '2CRPX4': 'CRPIX2',
+							  '1CRVL4': 'CRVAL1',
+							  '2CRVL4': 'CRVAL2',
+							  '1CUNI4': 'CUNIT1',
+							  '2CUNI4': 'CUNIT2',
+							  '1CDLT4': 'CDELT1',
+							  '2CDLT4': 'CDELT2',
+							  '11PC4': 'PC1_1',
+							  '12PC4': 'PC1_2',
+							  '21PC4': 'PC2_1',
+							  '22PC4': 'PC2_2'}
+			mywcs = {}
+			for oldkey, newkey in funny_keywords.items():
+				mywcs[newkey] = hdu[1].header[oldkey] 
+			mywcs = WCS(mywcs)
 
-		#ind = ~((Qual & 175)> 0) 
-		notnan = ~(np.sum(np.isnan(datacube),axis=(1,2)) > .5*(datacube.shape[1]*datacube.shape[2]))
-		Maskdata = Maskdata[notnan]
-		time = time[notnan]
-		distdrif = distdrif[notnan]
-		datacube=datacube[notnan]
-		Qual = Qual[notnan]
-		xdrif = xdrif[notnan]
-		ydrif = ydrif[notnan]
+			#ind = ~((Qual & 175)> 0) 
+			notnan = ~(np.sum(np.isnan(datacube),axis=(1,2)) > .5*(datacube.shape[1]*datacube.shape[2]))
+			Maskdata = Maskdata[notnan]
+			time = time[notnan]
+			distdrif = distdrif[notnan]
+			datacube=datacube[notnan]
+			Qual = Qual[notnan]
+			xdrif = xdrif[notnan]
+			ydrif = ydrif[notnan]
 
-		# Find all spatially seperate objects in the event mask.
-		Mask = ObjectMask(Maskdata,distdrif)
-		obj = np.ma.masked_invalid(Mask).mask
-		Objmasks = Watershed_object_sep(obj)
-		if len(Objmasks.shape) < 3:
-			Objmasks = np.zeros((1,datacube.shape[1],datacube.shape[2]))
-		ObjName, ObjType = Database_check_mask(datacube,distdrif,Objmasks,mywcs)
-		
-		Find_short_events(Maskdata, time, distdrif, pixelfile, Save, Objmasks, ObjName, 
-						 ObjType, mywcs, datacube, Qual, thrusters, hdu,xdrif,ydrif)		
+			# Find all spatially seperate objects in the event mask.
+			Mask = ObjectMask(Maskdata,distdrif)
+			obj = np.ma.masked_invalid(Mask).mask
+			Objmasks = Watershed_object_sep(obj)
+			if len(Objmasks.shape) < 3:
+				Objmasks = np.zeros((1,datacube.shape[1],datacube.shape[2]))
+			ObjName, ObjType = Database_check_mask(datacube,distdrif,Objmasks,mywcs)
+			
+			Find_short_events(Maskdata, time, distdrif, pixelfile, Save, Objmasks, ObjName, 
+							 ObjType, mywcs, datacube, Qual, thrusters, hdu,xdrif,ydrif)		
 
-	else:
-		print('Small ', pixelfile)
-
+		else:
+			print('Small ', pixelfile)
+	except:
+		pass
